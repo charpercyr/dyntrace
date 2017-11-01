@@ -8,7 +8,8 @@ namespace dyntrace::process
     class ProcessError : public std::runtime_error
     {
     public:
-        ProcessError(const std::string& msg)
+
+        explicit ProcessError(const std::string& msg)
             : std::runtime_error("ProcessError: " + msg) {}
     };
 }

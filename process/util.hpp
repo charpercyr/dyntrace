@@ -2,6 +2,7 @@
 #define DYNTRACE_PROCESS_UTIL_HPP_
 
 #include <functional>
+#include <sstream>
 #include <type_traits>
 
 namespace dyntrace

@@ -1,7 +1,7 @@
 
 add_library(process STATIC
-        elf.cpp elf.hpp
         error.hpp
         flag.hpp
-        memmap.cpp memmap.hpp)
-target_link_libraries(process elf)
+        memmap.cpp memmap.hpp
+        util.hpp)
+target_link_libraries(process PUBLIC libelfin-dwarf)
