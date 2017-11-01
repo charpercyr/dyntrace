@@ -38,7 +38,11 @@ namespace dyntrace::process
     }
 
     template<typename E>
-    constexpr __ENABLE_IF_FLAG_ENUM(E, bool)
+    constexpr __ENABLE_IF_FLAG_ENUM(E, bool) flag(E e, E f) noexcept
+    {
+        using I = typename std::underlying_type<E>::type;
+        return static_cast<I>(e & f) != 0;
+    }
 
 #undef __ENABLE_IF_FLAG_ENUM
 }
