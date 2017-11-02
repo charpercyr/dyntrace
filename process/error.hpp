@@ -1,17 +1,13 @@
 #ifndef DYNTRACE_PROCESS_ERROR_HPP_
 #define DYNTRACE_PROCESS_ERROR_HPP_
 
-#include <stdexcept>
+#include <util/error.hpp>
+
+#include <unistd.h>
 
 namespace dyntrace::process
 {
-    class ProcessError : public std::runtime_error
-    {
-    public:
-
-        explicit ProcessError(const std::string& msg)
-            : std::runtime_error("ProcessError: " + msg) {}
-    };
+    DYNTRACE_CREATE_ERROR(process_error);
 }
 
 #endif

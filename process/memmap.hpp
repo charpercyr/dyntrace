@@ -1,16 +1,20 @@
 #ifndef DYNTRACE_PROCESS_MEMMAP_HPP_
 #define DYNTRACE_PROCESS_MEMMAP_HPP_
 
+#include <cstring>
 #include <functional>
 #include <istream>
-#include <string_view>
+#include <string>
 #include <map>
 
-#include "flag.hpp"
+#include "error.hpp"
+
+#include <util/flag.hpp>
+#include <util/util.hpp>
 
 namespace dyntrace::process
 {
-    enum class Perm
+    enum class perms
     {
         none = 0,
         read = 1,
@@ -18,124 +22,77 @@ namespace dyntrace::process
         exec = 4,
         shared = 8
     };
-    template<>
-    struct is_flag_enum<Perm> : std::true_type{};
 
-    struct Zone
+    struct zone
     {
         uintptr_t start;
         uintptr_t end;
-        Perm perm;
-        std::string obj;
+        perms perms;
+        std::string bin;
+
+        constexpr uintptr_t size() const noexcept
+        {
+            return end - start;
+        }
     };
 
-    class Object
+    class binary
     {
-        friend class Memmap;
-        using ZoneList = std::vector<Zone>;
+        friend class memmap;
     public:
-        using iterator = ZoneList::const_iterator;
-        using const_iterator = iterator;
-        using value_type = Zone;
-        using reference_type = Zone&;
-        using iterator_category = ZoneList::iterator::iterator_category;
+        using zone_list = std::vector<zone>;
 
-        iterator begin() const noexcept
+        const zone_list& zones() const noexcept
         {
-            return _zones.begin();
+            return _zones;
         }
 
-        iterator end() const noexcept
+        const std::string& name() const noexcept
         {
-            return _zones.end();
-        }
-
-        std::string name() const
-        {
-            return _zones.front().obj;
+            return _zones[0].bin;
         }
 
     private:
-        explicit Object(ZoneList&& zones) noexcept;
-        ZoneList  _zones;
+        explicit binary(zone_list&& zones) noexcept
+            : _zones{std::move(zones)} {}
+        zone_list _zones;
     };
 
-    class Memmap
+    class memmap
     {
-        using ObjectMap = std::map<std::string, Object>;
     public:
-        static Memmap from_stream(std::istream& in);
-        static Memmap from_path(const char* path);
-        static Memmap from_path(const std::string& path);
-        static Memmap from_pid(pid_t pid);
+        using binary_map = std::map<std::string, binary>;
 
-        using value_type = const Object;
-        using reference_type = const Object&;
-        using pointer_type = const Object*;
+        static memmap from_stream(std::istream& is) noexcept;
+        static memmap from_path(const std::string& path);
+        static memmap from_pid(pid_t pid);
 
-        class iterator
+        const binary_map& binaries() const noexcept
         {
-            friend class Memmap;
-        public:
-            using value_type = Memmap::value_type;
-            using reference_type = Memmap::reference_type;
-            using pointer_type = Memmap::pointer_type;
-            using iterator_category = Memmap::ObjectMap::iterator::iterator_category;
-
-            iterator& operator++() noexcept
-            {
-                ++_it;
-                return *this;
-            }
-
-            iterator operator++(int) noexcept
-            {
-                iterator it = iterator(_it);
-                ++_it;
-                return it;
-            }
-
-            reference_type operator*() const noexcept
-            {
-                return _it->second;
-            }
-
-            pointer_type operator->() const noexcept
-            {
-                return &_it->second;
-            }
-
-            bool operator==(const iterator& it) const noexcept
-            {
-                return _it == it._it;
-            }
-
-            bool operator!=(const iterator& it) const noexcept
-            {
-                return _it != it._it;
-            }
-
-        private:
-            iterator(ObjectMap::const_iterator it)
-                : _it{it} {}
-            ObjectMap::const_iterator _it;
-        };
-        using const_iterator = iterator;
-
-        iterator begin() const
-        {
-            return iterator(_objs.begin());
+            return _binaries;
         }
 
-        iterator end() const
+        const binary& find(const std::string& name) const
         {
-            return iterator(_objs.end());
+            for(const auto& b : _binaries)
+            {
+                if(strstr(b.first.c_str(), name.c_str()) != nullptr)
+                    return b.second;
+            }
+            throw process_error("Could not find name " + name);
         }
 
     private:
-        explicit Memmap(ObjectMap&& objs) noexcept;
-        ObjectMap _objs;
+        explicit memmap(binary_map&& binaries) noexcept
+            : _binaries{std::move(binaries)} {}
+        binary_map _binaries;
     };
+}
+
+namespace dyntrace
+{
+    template<>
+    struct is_flag_enum<process::perms> : std::true_type{};
 }
 
 #endif

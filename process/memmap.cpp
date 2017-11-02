@@ -1,74 +1,55 @@
 #include "memmap.hpp"
 
 #include <fstream>
-#include <sstream>
 
-#include "error.hpp"
 
 using namespace dyntrace::process;
 
-Memmap Memmap::from_stream(std::istream &in)
+memmap memmap::from_stream(std::istream &is) noexcept
 {
-    std::map<std::string, std::vector<Zone>> zones;
     std::string line;
-    while(std::getline(in, line))
+    std::map<std::string, std::vector<zone>> binaries;
+    while(std::getline(is, line))
     {
-        char perm[5]{};
-        char obj[1024]{};
         uintptr_t start, end;
-        sscanf(line.c_str(), "%lx-%lx %s %*s %*s %*s %s", &start, &end, perm, obj);
-        Zone z{start, end, Perm::none, obj};
-        if(perm[0] == 'r')
-            z.perm |= Perm::read;
-        if(perm[1] == 'w')
-            z.perm |= Perm::write;
-        if(perm[2] == 'x')
-            z.perm |= Perm::exec;
-        if(perm[3] == 's')
-            z.perm |= Perm::shared;
+        char name[1024]{};
+        char perms[5];
 
-        auto it = zones.find(z.obj);
-        if(it == zones.end())
-        {
-            std::string zobj = z.obj;
-            zones.insert(std::make_pair(zobj, std::vector<Zone>{std::move(z)}));
-        }
+        sscanf(line.c_str(), "%lx-%lx %s %*s %*s %*s %s\n", &start, &end, perms, name);
+
+        zone z{start, end, perms::none, name};
+        if(perms[0] == 'r')
+            z.perms |= perms::read;
+        if(perms[1] == 'w')
+            z.perms |= perms::write;
+        if(perms[2] == 'x')
+            z.perms |= perms::exec;
+        if(perms[3] == 's')
+            z.perms |= perms::shared;
+
+        if(binaries.find(z.bin) == std::end(binaries))
+            binaries[name] = std::vector<zone>{std::move(z)};
         else
-            it->second.push_back(std::move(z));
+            binaries[name].push_back(std::move(z));
     }
 
-    ObjectMap objs;
-    for(auto& [n, obj] : zones)
+    memmap::binary_map res;
+    for(auto& b : binaries)
     {
-        objs.insert(std::make_pair(n, Object(std::move(obj))));
+        res.insert(std::make_pair(b.first, binary{std::move(b.second)}));
     }
-    return Memmap(std::move(objs));
+    return memmap{std::move(res)};
 }
 
-Memmap Memmap::from_path(const char *path)
+memmap memmap::from_path(const std::string &path)
 {
     std::ifstream file(path);
     if(!file)
-    {
-        throw ProcessError("Could not open file");
-    }
+        throw process_error("Could not open file " + path);
     return from_stream(file);
 }
 
-Memmap Memmap::from_path(const std::string& path)
+memmap memmap::from_pid(pid_t pid)
 {
-    return from_path(path.c_str());
+    return from_path("/proc/" + std::to_string(pid) + "/maps");
 }
-
-Memmap Memmap::from_pid(pid_t pid)
-{
-    std::ostringstream path;
-    path << "/proc/" << pid << "/maps";
-    return from_path(path.str());
-}
-
-Memmap::Memmap(ObjectMap &&objs) noexcept
-    : _objs(std::move(objs)) {}
-
-Object::Object(ZoneList &&zones) noexcept
-    : _zones(std::move(zones)) {}
