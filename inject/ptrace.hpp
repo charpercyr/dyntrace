@@ -35,6 +35,7 @@ namespace dyntrace::inject
             try
             {
                 _regs = get_regs();
+                _siginfo = get_siginfo();
             }
             catch(...)
             {
@@ -46,6 +47,7 @@ namespace dyntrace::inject
         ~ptrace() noexcept
         {
             _arch.cleanup();
+            ::ptrace(PTRACE_SETSIGINFO, _pid, nullptr, &_siginfo);
             ::ptrace(PTRACE_SETREGS, _pid, nullptr, &_regs);
             ::ptrace(PTRACE_DETACH, _pid, nullptr, nullptr);
         }
@@ -130,6 +132,7 @@ namespace dyntrace::inject
 
         pid_t _pid;
         typename Arch::regs _regs;
+        siginfo_t _siginfo;
         Arch _arch;
     };
 
@@ -137,9 +140,9 @@ namespace dyntrace::inject
     class remote_function<Arch, R(Args...)>
     {
         template<typename Tuple, size_t...Idx>
-        void set_args(typename Arch::regs& regs, Tuple&& args, std::index_sequence<Idx...>) const
+        void set_args(typename Arch::args& a, Tuple&& args, std::index_sequence<Idx...>) const
         {
-            (_detail::arg<Arch, Idx>(regs,_detail::val_to_reg<Arch>(std::get<Idx>(args))), ...);
+            (_detail::arg<Arch, Idx>(a,_detail::val_to_reg<Arch>(std::get<Idx>(args))), ...);
         }
     public:
         remote_function(ptrace<Arch>& pt, remote_ptr<Arch> ptr) noexcept
@@ -147,9 +150,14 @@ namespace dyntrace::inject
 
         R operator()(Args...args) const
         {
-            typename Arch::regs regs{};
-            set_args(regs, std::forward_as_tuple(args...), std::index_sequence_for<Args...>{});
-            return _detail::reg_to_val<Arch, R>(_arch.remote_call(_ptr, regs));
+            typename Arch::args a{};
+            set_args(a, std::forward_as_tuple(args...), std::index_sequence_for<Args...>{});
+            return _detail::reg_to_val<Arch, R>(_arch.remote_call(_ptr, a));
+        }
+
+        remote_ptr<Arch> ptr() const noexcept
+        {
+            return _ptr;
         }
 
     private:

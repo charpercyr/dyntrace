@@ -14,24 +14,46 @@ namespace dyntrace::inject
     class remote_ptr
     {
     public:
-        explicit remote_ptr(typename Arch::regval ptr = {}) noexcept
-                : _ptr{ptr} {}
-
-        template<typename T = void>
-        T* ptr() const noexcept
-        {
-            return reinterpret_cast<T*>(_ptr);
-        }
+        remote_ptr(typename Arch::regval ptr = {}) noexcept
+            : _ptr{ptr} {}
+        template<typename T>
+        remote_ptr(T* ptr) noexcept
+            : _ptr{reinterpret_cast<typename Arch::regval>(ptr)} {}
+        remote_ptr(nullptr_t) noexcept
+            : _ptr{0} {}
 
         typename Arch::regval get() const noexcept
         {
             return _ptr;
         }
 
+        template<typename T>
+        T* ptr() const noexcept
+        {
+            return reinterpret_cast<T*>(_ptr);
+        }
+
+        remote_ptr<Arch> operator+(const remote_ptr<Arch>& p) const noexcept
+        {
+            return remote_ptr{_ptr + p._ptr};
+        }
+        remote_ptr<Arch>& operator+=(const remote_ptr<Arch>& p) noexcept
+        {
+            _ptr += p._ptr;
+            return *this;
+        }
+        remote_ptr<Arch> operator+(typename Arch::regval ptr) const noexcept
+        {
+            return operator+(remote_ptr{ptr});
+        }
+        remote_ptr<Arch>& operator+=(typename Arch::regval ptr) noexcept
+        {
+            return operator+=(remote_ptr{ptr});
+        }
+
     private:
         typename Arch::regval _ptr;
     };
-
 
     namespace _detail
     {
@@ -60,7 +82,7 @@ namespace dyntrace::inject
         }
 
         template<typename Arch, size_t N>
-        void arg(typename Arch::regs& r, typename Arch::regval val);
+        void arg(typename Arch::args& r, typename Arch::regval val);
     }
 }
 

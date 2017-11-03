@@ -17,15 +17,15 @@ memmap memmap::from_stream(std::istream &is) noexcept
 
         sscanf(line.c_str(), "%lx-%lx %s %*s %*s %*s %s\n", &start, &end, perms, name);
 
-        zone z{start, end, perms::none, name};
+        zone z{start, end, permissions::none, name};
         if(perms[0] == 'r')
-            z.perms |= perms::read;
+            z.perms |= permissions::read;
         if(perms[1] == 'w')
-            z.perms |= perms::write;
+            z.perms |= permissions::write;
         if(perms[2] == 'x')
-            z.perms |= perms::exec;
+            z.perms |= permissions::exec;
         if(perms[3] == 's')
-            z.perms |= perms::shared;
+            z.perms |= permissions::shared;
 
         if(binaries.find(z.bin) == std::end(binaries))
             binaries[name] = std::vector<zone>{std::move(z)};

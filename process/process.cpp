@@ -6,45 +6,13 @@
 
 using namespace dyntrace::process;
 
-const elf::elf& process::elf(const std::string& _name) const
-{
-    int fd{};
-    std::string name{};
-    if(_name.empty())
-    {
-        name = "/proc/self/exe";
-    }
-    else
-    {
-        name = create_memmap().find(_name).name();
-    }
-
-    {
-        auto it = _elfs.find(name);
-        if (it != std::end(_elfs))
-        {
-            return it->second;
-        }
-    }
-
-    fd = open(name.c_str(), O_RDONLY);
-    if(fd == -1)
-    {
-        throw process_error{std::string{"Could not open file"} + name};
-    }
-    // This function takes ownership of the file descriptor
-    auto lock = std::unique_lock(_mutex);
-    auto it = _elfs.insert_or_assign(std::move(name), elf::elf{elf::create_mmap_loader(fd)}).first;
-    return it->second;
-}
-
 namespace
 {
     symbol create_symbol(const binary& bin, const elf::sym& sym)
     {
         for(const auto& z : bin.zones())
         {
-            if(dyntrace::flag(z.perms, perms::exec))
+            if(dyntrace::flag(z.perms, permissions::exec))
             {
                 return symbol{sym.get_name(), sym.get_data().value + z.start, sym.get_data().size};
             }
@@ -53,17 +21,59 @@ namespace
     }
 }
 
-symbol process::get(const std::string &name, const std::string &lib) const
+const elf::elf& process::elf() const
 {
-    const elf::elf& e = elf(lib);
+    return _elf(get_executable(_pid));
+}
+
+const elf::elf& process::elf(const std::regex& name) const
+{
+    auto memmap = create_memmap();
+    return _elf(memmap.find(name).name());
+}
+
+symbol process::get(const std::string &sym) const
+{
+    auto memmap = create_memmap();
+    const auto& bin = memmap.binaries().at(get_executable(_pid));
+    return _get(sym, bin);
+}
+
+symbol process::get(const std::string &sym, const std::regex &lib) const
+{
+    auto memmap = create_memmap();
+    const auto& bin = memmap.find(lib);
+    return _get(sym, bin);
+}
+
+const elf::elf& process::_elf(const std::string &path) const
+{
+    auto it = _elfs.find(path);
+    if (it != std::end(_elfs))
+    {
+        return it->second;
+    }
+    // This function takes ownership of the file descriptor
+    int fd = open(path.c_str(), O_RDONLY);
+    if(fd == -1)
+    {
+        throw process_error{std::string{"Could not open file"} + path};
+    }
+    auto lock = std::unique_lock(_mutex);
+    it = _elfs.insert_or_assign(std::move(path), elf::elf{elf::create_mmap_loader(fd)}).first;
+    return it->second;
+}
+
+symbol process::_get(const std::string &sym, const binary &bin) const
+{
+    const auto& e = _elf(bin.name());
     auto symtab = e.get_section(".symtab").as_symtab();
     for(const auto& s : symtab)
     {
-        if(s.get_name() == name)
+        if(s.get_name() == sym)
         {
-            auto memmap = create_memmap();
-            return create_symbol(memmap.find(lib), s);
+            return create_symbol(bin, s);
         }
     }
-    throw process_error("Could not find symbol " + name + " in " + lib);
+    throw process_error("Could not find symbol " + sym);
 }

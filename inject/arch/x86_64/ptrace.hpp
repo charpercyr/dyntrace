@@ -20,8 +20,20 @@ namespace dyntrace
                 : _pt{pt} {}
             using regval = uint64_t;
             using regs = user_regs_struct;
+            struct args
+            {
+                regval _0;
+                regval _1;
+                regval _2;
+                regval _3;
+                regval _4;
+                regval _5;
+                regval _6;
+                regval _7;
+            };
+            using sys_args = args;
 
-            regval remote_call(remote_ptr<x86_64> ptr, const regs& r);
+            regval remote_call(remote_ptr<x86_64> ptr, const args& r);
 
             void prepare();
             void cleanup();

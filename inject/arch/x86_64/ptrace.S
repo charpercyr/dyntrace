@@ -1,10 +1,14 @@
 
+//////////////////////////////////////////////////////
 .section .text
+//////////////////////////////////////////////////////
 
 .global do_remote_call
 .type do_remote_call, @function
 do_remote_call:
-    call *%rax
+    pushq %r11
+    pushq %r10
+    callq *%rax
     int $3
 do_remote_call_end:
 .size do_remote_call, do_remote_call_end - do_remote_call

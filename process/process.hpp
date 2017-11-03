@@ -32,9 +32,11 @@ namespace dyntrace::process
             return memmap::from_pid(_pid);
         }
 
-        const elf::elf& elf(const std::string& name = "") const;
+        const elf::elf& elf() const;
+        const elf::elf& elf(const std::regex& name) const;
 
-        symbol get(const std::string& name, const std::string& lib = "") const;
+        symbol get(const std::string& sym) const;
+        symbol get(const std::string& sym, const std::regex& lib) const;
 
         pid_t pid() const noexcept
         {
@@ -42,6 +44,10 @@ namespace dyntrace::process
         }
 
     private:
+
+        const elf::elf& _elf(const std::string& path) const;
+        symbol _get(const std::string& sym, const binary& bin) const;
+
         pid_t _pid;
         // We cache loaded elf (they should not change)
         mutable std::mutex _mutex;

@@ -1,11 +1,11 @@
 
-#include <thread>
+#include <pthread.h>
+#include <stdio.h>
 
 #include <unistd.h>
 
-using namespace std;
 
-void func()
+void* func(void*)
 {
     for(;;)
     {
@@ -16,6 +16,7 @@ void func()
 
 void __attribute__((constructor)) init()
 {
-    thread th(func);
-    th.detach();
+    pthread_t th;
+    pthread_create(&th, nullptr, func, nullptr);
+    pthread_detach(th);
 }

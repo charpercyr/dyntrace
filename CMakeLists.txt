@@ -9,6 +9,7 @@ execute_process(COMMAND uname -m OUTPUT_VARIABLE arch OUTPUT_STRIP_TRAILING_WHIT
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(dyntrace)
+add_subdirectory(examples)
 add_subdirectory(fasttp)
 add_subdirectory(process)
 add_subdirectory(inject)

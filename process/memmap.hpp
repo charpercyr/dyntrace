@@ -4,6 +4,7 @@
 #include <cstring>
 #include <functional>
 #include <istream>
+#include <regex>
 #include <string>
 #include <map>
 
@@ -14,7 +15,7 @@
 
 namespace dyntrace::process
 {
-    enum class perms
+    enum class permissions
     {
         none = 0,
         read = 1,
@@ -27,7 +28,7 @@ namespace dyntrace::process
     {
         uintptr_t start;
         uintptr_t end;
-        perms perms;
+        permissions perms;
         std::string bin;
 
         constexpr uintptr_t size() const noexcept
@@ -72,14 +73,14 @@ namespace dyntrace::process
             return _binaries;
         }
 
-        const binary& find(const std::string& name) const
+        const binary& find(const std::regex& name) const
         {
             for(const auto& b : _binaries)
             {
-                if(strstr(b.first.c_str(), name.c_str()) != nullptr)
+                if(std::regex_match(b.first, name))
                     return b.second;
             }
-            throw process_error("Could not find name " + name);
+            throw process_error("Could not find name");
         }
 
     private:
@@ -92,7 +93,7 @@ namespace dyntrace::process
 namespace dyntrace
 {
     template<>
-    struct is_flag_enum<process::perms> : std::true_type{};
+    struct is_flag_enum<process::permissions> : std::true_type{};
 }
 
 #endif

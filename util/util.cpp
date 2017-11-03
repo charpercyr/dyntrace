@@ -52,5 +52,5 @@ pid_t dyntrace::find_process(const std::string &name)
             }
         }
     }
-    throw dyntrace_error("Could not find process");
+    throw dyntrace_error("Could not find process " + name);
 }
