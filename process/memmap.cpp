@@ -27,10 +27,7 @@ memmap memmap::from_stream(std::istream &is) noexcept
         if(perms[3] == 's')
             z.perms |= permissions::shared;
 
-        if(binaries.find(z.bin) == std::end(binaries))
-            binaries[name] = std::vector<zone>{std::move(z)};
-        else
-            binaries[name].push_back(std::move(z));
+        binaries[name].push_back(std::move(z));
     }
 
     memmap::binary_map res;

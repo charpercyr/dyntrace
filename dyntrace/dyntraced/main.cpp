@@ -22,8 +22,6 @@ void usage(char* argv0, int code)
 
 struct call_dlopen_args
 {
-    void* (*malloc)(size_t);
-    void (*free)(void*);
     void*(*func)(const char*, int);
     char* name;
     int mode;
@@ -32,8 +30,6 @@ struct call_dlopen_args
 extern "C" void* call_dlopen(call_dlopen_args* args)
 {
     args->func(args->name, args->mode);
-    args->free(args->name);
-    args->free(args);
     return NULL;
 }
 
@@ -63,6 +59,7 @@ void run(pid_t pid, const char* lib)
     using remote_mmap = inject::remote_function<Arch, remote_ptr(remote_ptr, size_t, int, int, int, off_t)>;
     using remote_munmap = inject::remote_function<Arch, int(remote_ptr, size_t)>;
     using remote_clone = inject::remote_function<Arch, int(remote_ptr, remote_ptr, int, remote_ptr, remote_ptr, remote_ptr, remote_ptr)>;
+    using remote_waitid = inject::remote_function<Arch, pid_t(int, int, remote_ptr, int)>;
 
     process::process proc(pid);
     std::regex libc{".*libc.*"};
@@ -72,6 +69,7 @@ void run(pid_t pid, const char* lib)
     auto mmap_addr = proc.get("mmap", libc);
     auto munmap_addr = proc.get("munmap", libc);
     auto clone_addr = proc.get("clone", libc);
+    auto waitid_addr = proc.get("waitid", libc);
 
     ptrace pt(pid);
     remote_malloc r_malloc{pt, malloc_addr.value};
@@ -80,6 +78,7 @@ void run(pid_t pid, const char* lib)
     remote_mmap r_mmap{pt, mmap_addr.value};
     remote_munmap r_munmap{pt, munmap_addr.value};
     remote_clone r_clone{pt, clone_addr.value};
+    remote_waitid r_waitid{pt, waitid_addr.value};
 
     auto call_dlopen_addr = r_mmap(nullptr, call_dlopen_size(),
                                    PROT_EXEC | PROT_READ | PROT_WRITE,
@@ -94,8 +93,6 @@ void run(pid_t pid, const char* lib)
     pt.write(lib, r_lib, lib_size);
 
     call_dlopen_args args = {
-        r_malloc.ptr().template ptr<void*(size_t)>(),
-        r_free.ptr().template ptr<void(void*)>(),
         r_dlopen.ptr().template ptr<void*(const char*, int)>(),
         r_lib.template ptr<char>(),
         RTLD_LAZY
@@ -103,9 +100,14 @@ void run(pid_t pid, const char* lib)
     auto r_args = r_malloc(sizeof(call_dlopen_args));
     pt.write(&args, r_args, sizeof(call_dlopen_args));
 
-    r_clone(call_dlopen_addr, call_dlopen_stack + PAGE_SIZE,
-            CLONE_SIGHAND | CLONE_FS | CLONE_VM | CLONE_FILES | CLONE_THREAD,
+    pid_t r_pid = r_clone(call_dlopen_addr, call_dlopen_stack + PAGE_SIZE,
+            CLONE_SIGHAND | CLONE_FS | CLONE_VM | CLONE_FILES | CLONE_VFORK,
             r_args, nullptr, nullptr, nullptr);
+
+    r_munmap(call_dlopen_addr, call_dlopen_size());
+    r_munmap(call_dlopen_stack, PAGE_SIZE);
+    r_free(r_lib);
+    r_free(r_args);
 }
 
 int main(int argc, char** argv)
