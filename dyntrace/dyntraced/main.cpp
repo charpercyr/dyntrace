@@ -4,10 +4,9 @@
 #include <dlfcn.h>
 #include <sys/mman.h>
 
-#include <process/process.hpp>
-#include <inject/ptrace.hpp>
+#include <inject/auto_ptr.hpp>
 
-#include <unistd.h>
+#include <process/process.hpp>
 
 using namespace std;
 using namespace dyntrace;
@@ -59,7 +58,6 @@ void run(pid_t pid, const char* lib)
     using remote_mmap = inject::remote_function<Arch, remote_ptr(remote_ptr, size_t, int, int, int, off_t)>;
     using remote_munmap = inject::remote_function<Arch, int(remote_ptr, size_t)>;
     using remote_clone = inject::remote_function<Arch, int(remote_ptr, remote_ptr, int, remote_ptr, remote_ptr, remote_ptr, remote_ptr)>;
-    using remote_waitid = inject::remote_function<Arch, pid_t(int, int, remote_ptr, int)>;
 
     process::process proc(pid);
     std::regex libc{".*libc.*"};
@@ -78,18 +76,21 @@ void run(pid_t pid, const char* lib)
     remote_mmap r_mmap{pt, mmap_addr.value};
     remote_munmap r_munmap{pt, munmap_addr.value};
     remote_clone r_clone{pt, clone_addr.value};
-    remote_waitid r_waitid{pt, waitid_addr.value};
 
-    auto call_dlopen_addr = r_mmap(nullptr, call_dlopen_size(),
-                                   PROT_EXEC | PROT_READ | PROT_WRITE,
-                                   MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    auto call_dlopen_addr = inject::mmap_ptr<Arch>(
+        r_mmap, r_munmap,
+        nullptr, call_dlopen_size(),
+        PROT_EXEC | PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     pt.write(reinterpret_cast<void*>(call_dlopen), call_dlopen_addr, call_dlopen_size());
-    auto call_dlopen_stack = r_mmap(nullptr, PAGE_SIZE,
-                                    PROT_READ | PROT_WRITE,
-                                    MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    auto call_dlopen_stack = inject::mmap_ptr<Arch>(
+        r_mmap, r_munmap,
+        nullptr, PAGE_SIZE,
+        PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
 
     size_t lib_size = strlen(lib) + 1;
-    auto r_lib = r_malloc(lib_size);
+    auto r_lib = inject::malloc_ptr<Arch>(r_malloc, r_free, lib_size);
     pt.write(lib, r_lib, lib_size);
 
     call_dlopen_args args = {
@@ -97,17 +98,12 @@ void run(pid_t pid, const char* lib)
         r_lib.template ptr<char>(),
         RTLD_LAZY
     };
-    auto r_args = r_malloc(sizeof(call_dlopen_args));
+    auto r_args = inject::malloc_ptr<Arch>(r_malloc, r_free, sizeof(call_dlopen_args));
     pt.write(&args, r_args, sizeof(call_dlopen_args));
 
-    pid_t r_pid = r_clone(call_dlopen_addr, call_dlopen_stack + PAGE_SIZE,
-            CLONE_SIGHAND | CLONE_FS | CLONE_VM | CLONE_FILES | CLONE_VFORK,
-            r_args, nullptr, nullptr, nullptr);
-
-    r_munmap(call_dlopen_addr, call_dlopen_size());
-    r_munmap(call_dlopen_stack, PAGE_SIZE);
-    r_free(r_lib);
-    r_free(r_args);
+    pid_t r_pid = r_clone(call_dlopen_addr, call_dlopen_stack.get() + PAGE_SIZE,
+        CLONE_SIGHAND | CLONE_FS | CLONE_VM | CLONE_FILES | CLONE_VFORK,
+        r_args, nullptr, nullptr, nullptr);
 }
 
 int main(int argc, char** argv)

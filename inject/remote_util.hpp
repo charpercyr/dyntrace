@@ -42,14 +42,6 @@ namespace dyntrace::inject
             _ptr += p._ptr;
             return *this;
         }
-        remote_ptr<Arch> operator+(typename Arch::regval ptr) const noexcept
-        {
-            return operator+(remote_ptr{ptr});
-        }
-        remote_ptr<Arch>& operator+=(typename Arch::regval ptr) noexcept
-        {
-            return operator+=(remote_ptr{ptr});
-        }
 
     private:
         typename Arch::regval _ptr;

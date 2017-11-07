@@ -2,4 +2,4 @@
 add_library(util STATIC
         error.hpp
         flag.hpp
-        util.cpp util.hpp)
+        auto_ptr.cpp util.hpp)
