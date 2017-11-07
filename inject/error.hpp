@@ -1,6 +1,8 @@
 #ifndef DYNTRACE_INJECT_ERROR_HPP_
 #define DYNTRACE_INJECT_ERROR_HPP_
 
+#include <cstring>
+
 #include <util/error.hpp>
 
 namespace dyntrace::inject

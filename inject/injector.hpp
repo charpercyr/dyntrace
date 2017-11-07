@@ -34,17 +34,17 @@ namespace dyntrace::inject
         extern "C" void* do_dlclose(clone_args<dlclose_args>* args);
     }
 
-    template<typename Arch>
+    template<typename Target>
     class injector
     {
-        using remote_ptr = inject::remote_ptr<Arch>;
-        using ptrace = inject::ptrace<Arch>;
-        using remote_malloc = inject::remote_function<Arch, remote_ptr(size_t)>;
-        using remote_free = inject::remote_function<Arch, void(remote_ptr)>;
-        using remote_dlopen = inject::remote_function<Arch, remote_ptr(remote_ptr, int)>;
-        using remote_mmap = inject::remote_function<Arch, remote_ptr(remote_ptr, size_t, int, int, int, off_t)>;
-        using remote_munmap = inject::remote_function<Arch, int(remote_ptr, size_t)>;
-        using remote_clone = inject::remote_function<Arch, int(remote_ptr, remote_ptr, int, remote_ptr, remote_ptr, remote_ptr, remote_ptr)>;
+        using remote_ptr = inject::remote_ptr<Target>;
+        using ptrace = inject::ptrace<Target>;
+        using remote_malloc = inject::remote_function<Target, remote_ptr(size_t)>;
+        using remote_free = inject::remote_function<Target, void(remote_ptr)>;
+        using remote_dlopen = inject::remote_function<Target, remote_ptr(remote_ptr, int)>;
+        using remote_mmap = inject::remote_function<Target, remote_ptr(remote_ptr, size_t, int, int, int, off_t)>;
+        using remote_munmap = inject::remote_function<Target, int(remote_ptr, size_t)>;
+        using remote_clone = inject::remote_function<Target, int(remote_ptr, remote_ptr, int, remote_ptr, remote_ptr, remote_ptr, remote_ptr)>;
 
         using libs_list = std::list<remote_ptr>;
         using libs_list_iterator = typename libs_list::iterator;
@@ -106,7 +106,7 @@ namespace dyntrace::inject
             remote_munmap r_munmap{pt, munmap_addr.value};
             remote_clone r_clone{pt, clone_addr.value};
 
-            auto call_dlopen_size = _proc.get("do_dlopen")
+            auto call_dlopen_size = _proc.get("do_dlopen");
         }
 
         void remove(handle& h)

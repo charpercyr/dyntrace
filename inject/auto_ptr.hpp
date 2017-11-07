@@ -4,18 +4,18 @@
 #include <cstddef>
 
 #include "remote_util.hpp"
-#include "ptrace.hpp"
+#include "remote.hpp"
 
 #include <functional>
 #include <memory>
 
 namespace dyntrace::inject
 {
-    template<typename Arch>
+    template<typename Target>
     class remote_auto_ptr
     {
     public:
-        remote_auto_ptr(remote_ptr<Arch> ptr, std::function<void(remote_ptr<Arch>)> del)
+        remote_auto_ptr(remote_ptr<Target> ptr, std::function<void(remote_ptr<Target>)> del)
             : _ptr{ptr}, _del{del} {}
         ~remote_auto_ptr()
         {
@@ -28,19 +28,19 @@ namespace dyntrace::inject
             return _ptr.template ptr<T>();
         }
 
-        operator remote_ptr<Arch>() const noexcept
+        operator remote_ptr<Target>() const noexcept
         {
             return _ptr;
         }
 
-        remote_ptr<Arch> get() const noexcept
+        remote_ptr<Target> get() const noexcept
         {
             return _ptr;
         }
 
     private:
-        remote_ptr<Arch> _ptr;
-        std::function<void(remote_ptr<Arch>)> _del;
+        remote_ptr<Target> _ptr;
+        std::function<void(remote_ptr<Target>)> _del;
     };
 
     template<typename Arch>

@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <wait.h>
 
-#include "arch/ptrace.hpp"
+#include "inject/arch/target.hpp"
 #include "error.hpp"
 #include "remote_util.hpp"
 #include "util/util.hpp"
@@ -15,17 +15,14 @@
 namespace dyntrace::inject
 {
 
-    template<typename Arch, typename FuncType>
-    class remote_function;
-
-    template<typename Arch>
+    template<typename Target>
     class ptrace
     {
         template<typename, typename>
         friend class remote_function;
     public:
         explicit ptrace(pid_t pid)
-            : _pid{pid}, _arch{*this}
+            : _pid{pid}
         {
             if(::ptrace(PTRACE_ATTACH, _pid, nullptr, nullptr) != 0)
             {
@@ -42,19 +39,17 @@ namespace dyntrace::inject
                 ::ptrace(PTRACE_DETACH, _pid, nullptr, nullptr);
                 throw;
             }
-            _arch.prepare();
         }
         ~ptrace() noexcept
         {
-            _arch.cleanup();
             ::ptrace(PTRACE_SETSIGINFO, _pid, nullptr, &_siginfo);
             ::ptrace(PTRACE_SETREGS, _pid, nullptr, &_regs);
             ::ptrace(PTRACE_DETACH, _pid, nullptr, nullptr);
         }
 
-        typename Arch::regs get_regs() const
+        typename Target::regs get_regs() const
         {
-            typename Arch::regs regs;
+            typename Target::regs regs;
             if(::ptrace(PTRACE_GETREGS, _pid, nullptr, &regs) != 0)
             {
                 error("Could not get regs");
@@ -62,7 +57,7 @@ namespace dyntrace::inject
             return regs;
         }
 
-        void set_regs(const typename Arch::regs& regs)
+        void set_regs(const typename Target::regs& regs)
         {
             if(::ptrace(PTRACE_SETREGS, _pid, nullptr, &regs) != 0)
             {
@@ -80,7 +75,7 @@ namespace dyntrace::inject
             return info;
         }
 
-        void read(remote_ptr<Arch> from, void* to, size_t size) const
+        void read(remote_ptr<Target> from, void* to, size_t size) const
         {
             std::vector<long> data(ceil_div(size, sizeof(long)));
             for(size_t i = 0; i < std::size(data); ++i)
@@ -96,7 +91,7 @@ namespace dyntrace::inject
             memcpy(to, data.data(), size);
         }
 
-        void write(const void* from, remote_ptr<Arch> to, size_t size)
+        void write(const void* from, remote_ptr<Target> to, size_t size)
         {
             std::vector<long> data(ceil_div(size, sizeof(long)), 0);
             memcpy(data.data(), from, size);
@@ -131,38 +126,8 @@ namespace dyntrace::inject
         }
 
         pid_t _pid;
-        typename Arch::regs _regs;
+        typename Target::regs _regs;
         siginfo_t _siginfo;
-        Arch _arch;
-    };
-
-    template<typename Arch, typename R, typename...Args>
-    class remote_function<Arch, R(Args...)>
-    {
-        template<typename Tuple, size_t...Idx>
-        void set_args(typename Arch::args& a, Tuple&& args, std::index_sequence<Idx...>) const
-        {
-            (_detail::arg<Arch, Idx>(a,_detail::val_to_reg<Arch>(std::get<Idx>(args))), ...);
-        }
-    public:
-        remote_function(ptrace<Arch>& pt, remote_ptr<Arch> ptr) noexcept
-                : _arch{pt._arch}, _ptr{ptr} {}
-
-        R operator()(Args...args) const
-        {
-            typename Arch::args a{};
-            set_args(a, std::forward_as_tuple(args...), std::index_sequence_for<Args...>{});
-            return _detail::reg_to_val<Arch, R>(_arch.remote_call(_ptr, a));
-        }
-
-        remote_ptr<Arch> ptr() const noexcept
-        {
-            return _ptr;
-        }
-
-    private:
-        Arch& _arch;
-        remote_ptr<Arch> _ptr;
     };
 
 }
