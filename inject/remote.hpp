@@ -1,6 +1,7 @@
 #ifndef DYNTRACE_INJECT_REMOTE_HPP_
 #define DYNTRACE_INJECT_REMOTE_HPP_
 
+#include "auto_ptr.hpp"
 #include "error.hpp"
 #include "remote_util.hpp"
 #include "ptrace.hpp"
@@ -79,6 +80,27 @@ namespace dyntrace::inject
             _pt.write(_old_func.data(), _func_ptr, Target::remote_call_impl_size());
         }
 
+        remote_auto_ptr<Target> malloc(size_t size, remote_ptr<Target> _malloc, remote_ptr<Target> _free)
+        {
+            auto r_malloc = function<remote_ptr<Target>(size_t)>(_malloc);
+            auto r_free = function<void(remote_ptr<Target>)>(_free);
+            return remote_auto_ptr<Target>{r_malloc(size), [r_free](remote_ptr<Target> ptr)
+            {
+                r_free(ptr);
+            }};
+        }
+
+        remote_auto_ptr<Target> mmap(remote_ptr<Target> addr, size_t size, int prot, int flags, int fd, off_t offset,
+                                     remote_ptr<Target> _mmap, remote_ptr<Target> _munmap)
+        {
+            auto r_mmap = function<remote_ptr<Target>(remote_ptr<Target>, size_t, int, int, int, off_t)>(_mmap);
+            auto r_munmap = function<void(remote_ptr<Target>, size_t)>(_munmap);
+            return remote_auto_ptr<Target>{r_mmap(addr, size, prot, flags, fd, offset), [r_munmap, size](remote_ptr<Target> ptr)
+            {
+                r_munmap(ptr, size);
+            }};
+        }
+
         template<typename FuncType>
         remote_function<Target, FuncType> function(remote_ptr<Target> ptr) noexcept
         {
@@ -90,7 +112,7 @@ namespace dyntrace::inject
         regval call(remote_ptr<Target> ptr, const remote_args<Target> &args)
         {
             regs call_regs = _pt.get_regs();
-            Target::set_args(call_regs, args, ptr);
+            Target::set_args(call_regs, args, ptr, _func_ptr);
 
             _pt.set_regs(call_regs);
             _pt.cont();

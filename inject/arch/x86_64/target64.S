@@ -1,9 +1,17 @@
 
 //////////////////////////////////////////////////////
-//////////////////////////////////////////////////////
 .section .text
 //////////////////////////////////////////////////////
-//////////////////////////////////////////////////////
+
+.global do_remote_call_64
+.type do_remote_call_64, @function
+do_remote_call_64:
+    pushq %r11
+    pushq %r10
+    callq *%rax
+    int $3
+do_remote_call_64_end:
+.size do_remote_call_64, do_remote_call_64_end - do_remote_call_64
 
 //////////////////////////////////////////////////////
 /// void* do_dlopen_64(dlopen_args* args);
@@ -18,11 +26,12 @@
 do_dlopen_64:
     push %rbx
     mov %rdi, %rbx
-    mov 0(%rbx), %rax
-    mov 8(%rbx), %rdi
-    mov 16(%rbx), %rsi
+    movq 0(%rbx), %rax
+    movq 8(%rbx), %rdi
+    xor %rsi, %rsi
+    movl 16(%rbx), %esi
     call *%rax
-    mov %rax, 24(%rbx)
+    movq %rax, 24(%rbx)
     pop %rbx
     xor %rax, %rax
     ret
@@ -47,10 +56,13 @@ do_dlclose_64_end:
 .size do_dlclose_64, do_dlclose_64_end - do_dlclose_64
 
 //////////////////////////////////////////////////////
-//////////////////////////////////////////////////////
 .section .rodata
 //////////////////////////////////////////////////////
-//////////////////////////////////////////////////////
+
+.global do_remote_call_64_size
+.type do_remote_call_64_size, @object
+do_remote_call_64_size: .quad do_remote_call_64_end - do_remote_call_64
+.size do_remote_call_64_size, . - do_remote_call_64_size
 
 .global do_dlopen_64_size
 .type do_dlopen_64_size, @object

@@ -34,10 +34,24 @@ namespace dyntrace::inject
         {
             return remote_ptr{_ptr + p._ptr};
         }
+        remote_ptr<Target> operator+(uintptr_t p) const noexcept
+        {
+            return remote_ptr{_ptr + p};
+        }
         remote_ptr<Target>& operator+=(const remote_ptr<Target>& p) noexcept
         {
             _ptr += p._ptr;
             return *this;
+        }
+        remote_ptr<Target>& operator+=(uintptr_t p) noexcept
+        {
+            _ptr += p;
+            return *this;
+        }
+
+        operator bool() const noexcept
+        {
+            return _ptr;
         }
 
     private:
