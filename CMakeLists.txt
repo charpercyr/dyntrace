@@ -6,6 +6,8 @@ set(CMAKE_CXX_STANDARD 17)
 
 execute_process(COMMAND uname -m OUTPUT_VARIABLE arch OUTPUT_STRIP_TRAILING_WHITESPACE)
 
+include(cmake/tracer.cmake)
+
 include_directories(${CMAKE_SOURCE_DIR})
 
 add_subdirectory(dyntrace)
