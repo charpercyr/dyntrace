@@ -12,7 +12,7 @@ extern const size_t do_dlclose_64_size;
 using namespace dyntrace::inject;
 using target::x86_64;
 
-void x86_64::set_args(x86_64::regs& r, const remote_args<x86_64>& args, remote_ptr<x86_64> func, remote_ptr<x86_64> caller) noexcept
+void x86_64::set_args(ptrace<x86_64>&, x86_64::regs& r, const remote_args<x86_64>& args, remote_ptr<x86_64> func, remote_ptr<x86_64> caller) noexcept
 {
     r.rdi = args._0;
     r.rsi = args._1;

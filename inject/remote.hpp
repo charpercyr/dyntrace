@@ -2,6 +2,7 @@
 #define DYNTRACE_INJECT_REMOTE_HPP_
 
 #include "auto_ptr.hpp"
+#include "arch/target.hpp"
 #include "error.hpp"
 #include "remote_util.hpp"
 #include "ptrace.hpp"
@@ -67,7 +68,7 @@ namespace dyntrace::inject
                 if(flag(z.perms, process::permissions::exec) && z.size() >= func_size)
                 {
                     _old_func.resize(func_size);
-                    _func_ptr = remote_ptr<Target>{z.start};
+                    _func_ptr = remote_ptr<Target>(z.start),
                     _pt.read(_func_ptr, _old_func.data(), func_size);
                     _pt.write(Target::remote_call_impl_ptr(), _func_ptr, func_size);
                     return;
@@ -112,7 +113,7 @@ namespace dyntrace::inject
         regval call(remote_ptr<Target> ptr, const remote_args<Target> &args)
         {
             regs call_regs = _pt.get_regs();
-            Target::set_args(call_regs, args, ptr, _func_ptr);
+            Target::set_args(_pt, call_regs, args, ptr, _func_ptr);
 
             _pt.set_regs(call_regs);
             _pt.cont();

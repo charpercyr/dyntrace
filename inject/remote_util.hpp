@@ -11,13 +11,16 @@ namespace dyntrace::inject
     class remote_ptr
     {
     public:
+        using uint = typename Target::regval;
+
         remote_ptr(std::nullptr_t = nullptr) noexcept
                 : _ptr{0} {}
-        remote_ptr(typename Target::regval ptr) noexcept
-                : _ptr{ptr} {}
+        template<typename Int, typename = std::enable_if_t<std::is_integral_v<Int>>>
+        remote_ptr(Int ptr) noexcept
+                : _ptr{static_cast<uint>(ptr)} {}
         template<typename T>
         remote_ptr(T* ptr) noexcept
-            : _ptr{reinterpret_cast<typename Target::regval>(ptr)} {}
+            : _ptr{static_cast<uint>(reinterpret_cast<uintptr_t>(ptr))} {}
 
         typename Target::regval get() const noexcept
         {
@@ -34,18 +37,14 @@ namespace dyntrace::inject
         {
             return remote_ptr{_ptr + p._ptr};
         }
-        remote_ptr<Target> operator+(uintptr_t p) const noexcept
+        template<typename Int>
+        std::enable_if_t<std::is_integral_v<Int>, remote_ptr<Target>> operator+(Int i) const noexcept
         {
-            return remote_ptr{_ptr + p};
-        }
+            return remote_ptr{_ptr + i};
+        };
         remote_ptr<Target>& operator+=(const remote_ptr<Target>& p) noexcept
         {
             _ptr += p._ptr;
-            return *this;
-        }
-        remote_ptr<Target>& operator+=(uintptr_t p) noexcept
-        {
-            _ptr += p;
             return *this;
         }
 
@@ -55,11 +54,11 @@ namespace dyntrace::inject
         }
 
     private:
-        typename Target::regval _ptr;
+        uint _ptr;
     };
 
     template<typename Target>
-    struct remote_args
+    struct __attribute__((packed)) remote_args
     {
         using type = typename Target::regval;
         type _0;

@@ -14,8 +14,8 @@ namespace dyntrace::inject
     class remote_auto_ptr
     {
     public:
-        remote_auto_ptr(remote_ptr<Target> ptr, std::function<void(remote_ptr<Target>)> del) noexcept
-            : _ptr{ptr}, _del{del} {}
+        remote_auto_ptr(remote_ptr<Target> ptr, std::function<void(remote_ptr<Target>)> del)
+            : _ptr{ptr}, _del{std::move(del)} {}
         ~remote_auto_ptr()
         {
             if(_ptr)
@@ -24,7 +24,7 @@ namespace dyntrace::inject
             }
         }
 
-        remote_auto_ptr(const remote_auto_ptr<Target>&) noexcept = default;
+        remote_auto_ptr(const remote_auto_ptr<Target>&) = default;
         remote_auto_ptr(remote_auto_ptr<Target>&& ptr) noexcept
             : _ptr{ptr._ptr}, _del{std::move(ptr._del)}
         {
@@ -32,7 +32,7 @@ namespace dyntrace::inject
 
         }
 
-        remote_auto_ptr<Target>& operator=(const remote_auto_ptr<Target>&) noexcept = default;
+        remote_auto_ptr<Target>& operator=(const remote_auto_ptr<Target>&) = default;
         remote_auto_ptr<Target>& operator=(remote_auto_ptr<Target>&& ptr) noexcept
         {
             _ptr = ptr._ptr;

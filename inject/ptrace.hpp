@@ -7,7 +7,6 @@
 #include <signal.h>
 #include <wait.h>
 
-#include "inject/arch/target.hpp"
 #include "error.hpp"
 #include "remote_util.hpp"
 #include "util/util.hpp"
