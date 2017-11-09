@@ -1,11 +1,16 @@
 #include <stdio.h>
 #include <unistd.h>
 
+void do_loop(void)
+{
+    printf("Loop\n");
+}
+
 int main()
 {
     for(;;)
     {
-         printf("Loop\n");
+        do_loop();
          sleep(1);
     }
     return 0;

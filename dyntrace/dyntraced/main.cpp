@@ -19,13 +19,6 @@ void usage(char* argv0, int code)
     exit(code);
 }
 
-struct call_dlopen_args
-{
-    void*(*func)(const char*, int);
-    char* name;
-    int mode;
-};
-
 int main(int argc, char** argv)
 {
     if(argc != 3)
@@ -37,8 +30,7 @@ int main(int argc, char** argv)
     process::process proc{pid};
     inject::injector<inject::target::x86_64> inj{proc};
 
-    auto handle = inj.inject(realpath(argv[2]), true);
-    sleep(3);
+    inj.inject(realpath(argv[2]));
 
     return 0;
 }

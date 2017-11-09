@@ -8,6 +8,8 @@
 
 #include "../process/error.hpp"
 
+using namespace std::string_literals;
+
 namespace
 {
 
@@ -29,7 +31,13 @@ std::string dyntrace::realpath(const std::string &path)
 
 std::string dyntrace::get_executable(pid_t pid)
 {
-    return read_link("/proc/" + std::to_string(pid) + "/exe");
+    std::string path = "/proc/" + std::to_string(pid) + "/exe";
+    std::string link = read_link(path);
+    if(link.empty())
+    {
+        throw dyntrace_error("Could not find executable "s + path + " ("s + std::to_string(errno) + ", "s + strerror(errno) + ")"s);
+    }
+    return link;
 }
 
 pid_t dyntrace::find_process(const std::string &name)

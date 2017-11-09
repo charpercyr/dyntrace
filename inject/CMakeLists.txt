@@ -2,7 +2,7 @@
 include(arch/${arch}/arch_src.cmake)
 
 add_library(inject STATIC
-        auto_ptr.hpp
+        util.hpp
         arch/target.hpp
         ${${arch}_src}
         error.hpp

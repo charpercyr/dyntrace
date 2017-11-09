@@ -1,7 +1,7 @@
 #ifndef DYNTRACE_INJECT_REMOTE_HPP_
 #define DYNTRACE_INJECT_REMOTE_HPP_
 
-#include "auto_ptr.hpp"
+#include "util.hpp"
 #include "arch/target.hpp"
 #include "error.hpp"
 #include "remote_util.hpp"

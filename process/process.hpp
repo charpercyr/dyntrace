@@ -24,7 +24,7 @@ namespace dyntrace::process
     class process
     {
     public:
-        explicit process(pid_t pid)
+        explicit process(pid_t pid) noexcept
             : _pid{pid} {}
 
         memmap create_memmap() const

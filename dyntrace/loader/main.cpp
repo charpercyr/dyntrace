@@ -1,57 +1,76 @@
 
 #include <atomic>
 #include <cstdio>
-#include <memory>
-
 #include <pthread.h>
-#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/user.h>
 
-#include <time.h>
+#include <process/process.hpp>
+
+#include "asm.hpp"
+
+using namespace dyntrace::process;
 
 class loader
 {
 public:
     loader()
     {
-        pthread_create(&_th, nullptr, loader::_run, this);
+        pthread_create(&_th, nullptr, _run, reinterpret_cast<void*>(this));
     }
     ~loader()
     {
-        _running = false;
+        _done = true;
         pthread_join(_th, nullptr);
     }
+
 private:
-    static void* _run(void* _this)
+
+    static void* _run(void* self)
     {
-        reinterpret_cast<loader*>(_this)->run();
+        reinterpret_cast<loader*>(self)->run();
         return nullptr;
     }
 
     void run()
     {
-        timespec t{.tv_sec = 0, .tv_nsec = 100'000'000};
-        while(_running)
+        try
         {
-            printf("Lib\n");
-            for(int i = 0; i < 10 && _running; i++)
-                nanosleep(&t, nullptr);
+            process proc{getpid()};
+            auto sym = proc.get("do_loop").value;
+            void *code_loc = mmap(reinterpret_cast<void*>(sym), PAGE_SIZE,
+                              PROT_READ | PROT_WRITE | PROT_EXEC,
+                              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
+            auto code = dyntrace::loader::print_handler(sym, reinterpret_cast<uintptr_t>(code_loc), reinterpret_cast<uintptr_t>(handler));
+            printf("%lx %p %lu\n", sym, code_loc, code.size());
+            memcpy(code_loc, code.data(), code.size());
+        }
+        catch(const std::exception& e)
+        {
+            fprintf(stderr, "Error: %s\n", e.what());
         }
     }
 
-    std::atomic<bool> _running{true};
-    pthread_t _th{0};
+    static void handler()
+    {
+
+    }
+
+    pthread_t _th;
+    std::atomic<bool> _done{false};
 };
 
-static std::unique_ptr<loader> _loader{nullptr};
+namespace
+{
+    std::unique_ptr<loader> l;
+}
 
 void __attribute__((constructor)) init()
 {
-    printf("Insert\n");
-    _loader = std::make_unique<loader>();
+    l = std::make_unique<loader>();
 }
 
 void __attribute__((destructor)) fini()
 {
-    printf("Remove\n");
-    _loader = nullptr;
+    l = nullptr;
 }
