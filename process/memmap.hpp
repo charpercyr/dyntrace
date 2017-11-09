@@ -24,17 +24,21 @@ namespace dyntrace::process
         shared = 8
     };
 
-    struct zone
+    struct address_range
     {
         uintptr_t start;
         uintptr_t end;
-        permissions perms;
-        std::string bin;
 
         constexpr uintptr_t size() const noexcept
         {
             return end - start;
         }
+    };
+
+    struct zone : address_range
+    {
+        permissions perms;
+        std::string bin;
     };
 
     class binary
@@ -73,6 +77,8 @@ namespace dyntrace::process
             return _binaries;
         }
 
+        const binary::zone_list all_zones() const noexcept;
+
         const binary& find(const std::regex& name) const
         {
             for(const auto& b : _binaries)
@@ -82,6 +88,8 @@ namespace dyntrace::process
             }
             throw process_error("Could not find name");
         }
+
+        const std::vector<address_range> free() const noexcept;
 
     private:
         explicit memmap(binary_map&& binaries) noexcept

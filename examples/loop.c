@@ -8,10 +8,10 @@ void do_loop(void)
 
 int main()
 {
-    for(;;)
-    {
-        do_loop();
-         sleep(1);
-    }
+//    for(;;)
+//    {
+//        do_loop();
+//         sleep(1);
+//    }
     return 0;
 }

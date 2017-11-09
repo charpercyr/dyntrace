@@ -7,9 +7,25 @@
 
 #include <process/process.hpp>
 
-#include "asm.hpp"
+#include "arch/asm.hpp"
+#include "code_allocator.hpp"
 
 using namespace dyntrace::process;
+using namespace dyntrace::loader;
+
+void hexdump(void* _data, size_t size)
+{
+    auto data = reinterpret_cast<char*>(_data);
+    for(size_t i = 0; i < size;)
+    {
+        printf("%.4lx: ", i);
+        for(size_t j = 0; j < 16 && i < size; ++i, ++j)
+        {
+            printf("%x ", static_cast<uint32_t>(data[i]) & 0xff);
+        }
+        printf("\n");
+    }
+}
 
 class loader
 {
@@ -38,12 +54,7 @@ private:
         {
             process proc{getpid()};
             auto sym = proc.get("do_loop").value;
-            void *code_loc = mmap(reinterpret_cast<void*>(sym), PAGE_SIZE,
-                              PROT_READ | PROT_WRITE | PROT_EXEC,
-                              MAP_ANONYMOUS | MAP_PRIVATE, -1, 0);
-            auto code = dyntrace::loader::print_handler(sym, reinterpret_cast<uintptr_t>(code_loc), reinterpret_cast<uintptr_t>(handler));
-            printf("%lx %p %lu\n", sym, code_loc, code.size());
-            memcpy(code_loc, code.data(), code.size());
+            printf("%lu %lu\n", code_allocator<target::x86_64>::alignment, target::x86_64::code_size);
         }
         catch(const std::exception& e)
         {
