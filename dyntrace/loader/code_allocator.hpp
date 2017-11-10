@@ -11,13 +11,13 @@
 namespace dyntrace::loader
 {
 
-    template<typename Target>
+    template<size_t object_size>
     class code_allocator
     {
         class page
         {
         public:
-            static constexpr uintptr_t alignment = dyntrace::next_pow2(Target::code_size);
+            static constexpr uintptr_t alignment = dyntrace::next_pow2(object_size);
             static constexpr uintptr_t size = PAGE_SIZE;
             static constexpr uintptr_t slots = size / alignment;
 
@@ -67,14 +67,10 @@ namespace dyntrace::loader
         static constexpr uintptr_t alignment = page::alignment;
 
         explicit code_allocator(const process::process& proc)
-            : _proc{proc}
+            : _proc{proc} {}
+
+        void* alloc(size_t max_dist)
         {
-
-        }
-
-        void* alloc(uintptr_t from, uintptr_t handler)
-        {
-
         }
 
         void free(void* ptr)
@@ -83,6 +79,12 @@ namespace dyntrace::loader
         }
 
     private:
+
+        page new_page()
+        {
+
+        }
+
         const process::process& _proc;
         std::unordered_map<uintptr_t, page> _partial_pages;
         std::unordered_map<uintptr_t, page> _full_pages;
