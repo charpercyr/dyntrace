@@ -54,7 +54,7 @@ private:
         {
             process proc{getpid()};
             auto sym = proc.get("do_loop").value;
-            printf("%lu %lu\n", code_allocator<target::x86_64>::alignment, target::x86_64::code_size);
+            printf("%lu %lu\n", code_allocator<target::x86_64::code_size>::alignment, target::x86_64::code_size);
         }
         catch(const std::exception& e)
         {
