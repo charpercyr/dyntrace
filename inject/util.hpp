@@ -1,5 +1,5 @@
-#ifndef DYNTRACE_INJECT_AUTO_PTR_HPP_
-#define DYNTRACE_INJECT_AUTO_PTR_HPP_
+#ifndef DYNTRACE_INJECT_UTIL_HPP_
+#define DYNTRACE_INJECT_UTIL_HPP_
 
 #include <cstddef>
 

@@ -10,8 +10,7 @@
 #include "arch/asm.hpp"
 #include "code_allocator.hpp"
 
-using namespace dyntrace::process;
-using namespace dyntrace::loader;
+using namespace dyntrace;
 
 void hexdump(void* _data, size_t size)
 {
@@ -27,14 +26,14 @@ void hexdump(void* _data, size_t size)
     }
 }
 
-class loader
+class loader_main
 {
 public:
-    loader()
+    loader_main()
     {
         pthread_create(&_th, nullptr, _run, reinterpret_cast<void*>(this));
     }
-    ~loader()
+    ~loader_main()
     {
         _done = true;
         pthread_join(_th, nullptr);
@@ -44,7 +43,7 @@ private:
 
     static void* _run(void* self)
     {
-        reinterpret_cast<loader*>(self)->run();
+        reinterpret_cast<loader_main*>(self)->run();
         return nullptr;
     }
 
@@ -52,9 +51,12 @@ private:
     {
         try
         {
-            process proc{getpid()};
+            process::process proc{getpid()};
             auto sym = proc.get("do_loop").value;
-            printf("%lu %lu\n", code_allocator<target::x86_64::code_size>::alignment, target::x86_64::code_size);
+            auto alloc = loader::code_allocator<loader::target::x86_64::code_size>{proc};
+            auto ptr = alloc.alloc(make_range<uintptr_t>(sym, 2_G - 5));
+            printf("%p\n", ptr);
+            alloc.free(ptr);
         }
         catch(const std::exception& e)
         {
@@ -73,12 +75,12 @@ private:
 
 namespace
 {
-    std::unique_ptr<loader> l;
+    std::unique_ptr<loader_main> l;
 }
 
 void __attribute__((constructor)) init()
 {
-    l = std::make_unique<loader>();
+    l = std::make_unique<loader_main>();
 }
 
 void __attribute__((destructor)) fini()

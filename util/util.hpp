@@ -2,6 +2,7 @@
 #define DYNTRACE_UTIL_UTIL_HPP_
 
 #include <functional>
+#include <limits>
 #include <string>
 
 namespace dyntrace
@@ -59,9 +60,46 @@ namespace dyntrace
         std::function<void(T t)> _cleanup;
     };
 
+    template<typename UInt>
+    struct range
+    {
+        static_assert(std::is_unsigned_v<UInt>, "Type must be unsigned");
+
+        UInt start{0};
+        UInt end{std::numeric_limits<UInt>::max()};
+
+        constexpr bool is_inside(UInt v) const noexcept
+        {
+            return v >= start && v < end;
+        }
+
+        constexpr UInt size() const noexcept
+        {
+            return end - start;
+        }
+    };
+    template<typename Int>
+    constexpr auto make_range(std::make_unsigned_t<Int> center, std::make_unsigned_t<Int> size) noexcept
+    {
+        return range<std::make_unsigned_t<Int>>{center < (size >> 1) ? 0llu : center - (size >> 1), center + (size >> 1)};
+    }
+
     std::string realpath(const std::string& path);
     std::string get_executable(pid_t pid);
     pid_t find_process(const std::string& name);
+
+    constexpr unsigned long long int operator""_K(unsigned long long int i) noexcept
+    {
+        return i << 10;
+    }
+    constexpr unsigned long long int operator""_M(unsigned long long int i) noexcept
+    {
+        return i << 20;
+    }
+    constexpr unsigned long long int operator""_G(unsigned long long int i) noexcept
+    {
+        return i << 30;
+    }
 }
 
 #endif

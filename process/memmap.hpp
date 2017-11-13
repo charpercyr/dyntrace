@@ -24,16 +24,7 @@ namespace dyntrace::process
         shared = 8
     };
 
-    struct address_range
-    {
-        uintptr_t start;
-        uintptr_t end;
-
-        constexpr uintptr_t size() const noexcept
-        {
-            return end - start;
-        }
-    };
+    using address_range = range<uintptr_t>;
 
     struct zone : address_range
     {
