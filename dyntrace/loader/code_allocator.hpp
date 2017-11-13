@@ -87,7 +87,7 @@ namespace dyntrace::loader
         explicit code_allocator(const process::process& proc)
             : _proc{proc} {}
 
-        void* alloc(range<uintptr_t> loc)
+        void* alloc(address_range loc)
         {
             for(auto& [i, p] : _partial_pages)
             {
@@ -136,6 +136,15 @@ namespace dyntrace::loader
             throw std::bad_alloc{};
         }
 
+        auto alloc_unique(address_range loc)
+        {
+            auto deleter = [this](void* ptr)
+            {
+                free(ptr);
+            };
+            return std::unique_ptr<void, decltype(deleter)>{alloc(loc), deleter};
+        }
+
     private:
 
         void check_for_full(uintptr_t i, page &p)
@@ -147,7 +156,7 @@ namespace dyntrace::loader
             }
         }
 
-        page new_page(range<uintptr_t> loc)
+        page new_page(address_range loc)
         {
             auto free_map = _proc.create_memmap().free();
             for(const auto& z : free_map)
@@ -161,6 +170,7 @@ namespace dyntrace::loader
                     return page{do_mmap(z.end - page::size)};
                 }
             }
+            throw std::bad_alloc{};
         }
 
         uintptr_t do_mmap(uintptr_t loc)
@@ -168,9 +178,12 @@ namespace dyntrace::loader
             auto ptr = mmap(
                     reinterpret_cast<void*>(loc), page::size,
                     PROT_READ | PROT_WRITE | PROT_EXEC,
-                    MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, 0, -1);
+                    MAP_ANONYMOUS | MAP_FIXED | MAP_PRIVATE, -1, 0);
             if(ptr == MAP_FAILED)
+            {
+                fprintf(stderr, "%s (%d)\n", strerror(errno), errno);
                 throw std::bad_alloc{};
+            }
             return reinterpret_cast<uintptr_t>(ptr);
         }
 

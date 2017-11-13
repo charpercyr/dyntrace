@@ -78,11 +78,14 @@ namespace dyntrace
             return end - start;
         }
     };
+    using address_range = range<uintptr_t>;
+
     template<typename Int>
     constexpr auto make_range(std::make_unsigned_t<Int> center, std::make_unsigned_t<Int> size) noexcept
     {
         return range<std::make_unsigned_t<Int>>{center < (size >> 1) ? 0llu : center - (size >> 1), center + (size >> 1)};
     }
+    constexpr auto make_address_range = make_range<uintptr_t>;
 
     std::string realpath(const std::string& path);
     std::string get_executable(pid_t pid);

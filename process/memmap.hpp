@@ -24,8 +24,6 @@ namespace dyntrace::process
         shared = 8
     };
 
-    using address_range = range<uintptr_t>;
-
     struct zone : address_range
     {
         permissions perms;

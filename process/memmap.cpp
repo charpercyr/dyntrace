@@ -3,7 +3,7 @@
 #include <fstream>
 #include <set>
 
-
+using dyntrace::address_range;
 using namespace dyntrace::process;
 
 memmap memmap::from_stream(std::istream &is) noexcept

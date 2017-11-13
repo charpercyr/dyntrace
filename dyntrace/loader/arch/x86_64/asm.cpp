@@ -11,7 +11,8 @@ namespace
 {
     int32_t calc_jmp(uintptr_t from, uintptr_t to)
     {
-        intptr_t diff = static_cast<intptr_t>(to) - static_cast<intptr_t>(from) + 5;
+        from += 5;
+        intptr_t diff = static_cast<intptr_t>(to) - static_cast<intptr_t>(from);
         if(diff > std::numeric_limits<int32_t>::max() || diff < std::numeric_limits<int32_t>::min())
         {
             using dyntrace::loader::loader_error;
@@ -22,13 +23,42 @@ namespace
     }
 }
 
-void x86_64::write_code(uintptr_t from, uintptr_t to, uintptr_t handler) const noexcept
+void x86_64::asm_printer::save_state()
 {
-    auto pto = reinterpret_cast<uint8_t*>(to);
+    static constexpr size_t code_size = sizeof(code::save_state);
+    memcpy(_to, code::save_state, code_size);
+    _to += code_size;
+}
 
-    memcpy(pto, code::data, code::code_size);
-    memcpy(pto + code::from_idx, &from, sizeof(from));
-    memcpy(pto + code::handler_idx, &handler, sizeof(handler));
-    auto jmp = calc_jmp(from, to + code::jmp_idx + 4);
-    memcpy(pto + code::jmp_idx, &handler, sizeof(jmp));
+void x86_64::asm_printer::restore_state()
+{
+    static constexpr size_t code_size = sizeof(code::restore_state);
+    memcpy(_to, code::restore_state, code_size);
+    _to += code_size;
+}
+
+void x86_64::asm_printer::call_handler(uintptr_t handler)
+{
+    static constexpr size_t code_size = sizeof(code::call_handler);
+    memcpy(_to, code::call_handler, code_size);
+    memcpy(_to + code::from_idx, &_from, 8);
+    memcpy(_to + code::handle_idx, &handler, 8);
+    _to += code_size;
+
+}
+
+void x86_64::asm_printer::jmp_back(uintptr_t off)
+{
+    static constexpr size_t code_size = sizeof(code::jmp_back);
+    memcpy(_to, code::jmp_back, code_size);
+    auto diff = calc_jmp(reinterpret_cast<uintptr_t>(_to), _from + off);
+    memcpy(_to + code::to_idx, &diff, 4);
+    _to += code_size;
+}
+
+
+void x86_64::asm_printer::write(void *code, size_t code_size)
+{
+    memcpy(_to, code, code_size);
+    _to += code_size;
 }
