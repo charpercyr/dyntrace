@@ -1,2 +1,2 @@
 
-dyntrace_add_tracer(print print.c)
+dyntrace_add_tracer(print print.cpp)

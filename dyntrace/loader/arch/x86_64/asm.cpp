@@ -23,21 +23,21 @@ namespace
     }
 }
 
-void x86_64::asm_printer::save_state()
+void asm_printer::save_state()
 {
     static constexpr size_t code_size = sizeof(code::save_state);
     memcpy(_to, code::save_state, code_size);
     _to += code_size;
 }
 
-void x86_64::asm_printer::restore_state()
+void asm_printer::restore_state()
 {
     static constexpr size_t code_size = sizeof(code::restore_state);
     memcpy(_to, code::restore_state, code_size);
     _to += code_size;
 }
 
-void x86_64::asm_printer::call_handler(uintptr_t handler)
+void asm_printer::call_handler(uintptr_t handler)
 {
     static constexpr size_t code_size = sizeof(code::call_handler);
     memcpy(_to, code::call_handler, code_size);
@@ -47,7 +47,7 @@ void x86_64::asm_printer::call_handler(uintptr_t handler)
 
 }
 
-void x86_64::asm_printer::jmp_back(uintptr_t off)
+void asm_printer::jmp_back(uintptr_t off)
 {
     static constexpr size_t code_size = sizeof(code::jmp_back);
     memcpy(_to, code::jmp_back, code_size);
@@ -57,7 +57,7 @@ void x86_64::asm_printer::jmp_back(uintptr_t off)
 }
 
 
-void x86_64::asm_printer::write(void *code, size_t code_size)
+void asm_printer::write(void *code, size_t code_size)
 {
     memcpy(_to, code, code_size);
     _to += code_size;

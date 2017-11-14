@@ -12,4 +12,4 @@ add_library(loader SHARED
         error.hpp
         main.cpp)
 target_include_directories(loader PRIVATE ${CAPSTONE_INCLUDE_DIRS})
-target_link_libraries(loader pthread process ${CAPSTONE_LIBRARIES})
+target_link_libraries(loader dl pthread process tracer ${CAPSTONE_LIBRARIES})

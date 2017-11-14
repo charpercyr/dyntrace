@@ -6,6 +6,7 @@
 #include <sys/user.h>
 
 #include <process/process.hpp>
+#include <tracer.hpp>
 
 #include <capstone.h>
 
@@ -75,7 +76,7 @@ private:
     {
         try
         {
-            using target = loader::target::x86_64;
+            namespace target = loader::target;
             using code_allocator = loader::code_allocator<target::code_size>;
 
             process::process proc{getpid()};
@@ -104,13 +105,14 @@ private:
         }
     }
 
-    static void handler(void* from, loader::target::x86_64::regs* regs)
+    static void handler(void* from, const dyntrace::tracer::regs& regs)
     {
+        using namespace dyntrace::tracer;
         static size_t n{0};
         ++n;
         if(n == 0x100000)
         {
-            printf("Hello from %p, a0->%ld a1->%ld\n", from, regs->arg<0>(), regs->arg<1>());
+            printf("Hello from %p, a0->%ld a1->%ld\n", from, arg<0>(regs), arg<1>(regs));
             n = 0;
         }
     }

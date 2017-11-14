@@ -7,6 +7,7 @@
 namespace dyntrace::loader::target::code
 {
     constexpr uint8_t save_state[] = {
+        0x54,               // push %rsp
         0x41, 0x57,         // push %r15
         0x41, 0x56,         // push %r14
         0x41, 0x55,         // push %r13
@@ -22,12 +23,10 @@ namespace dyntrace::loader::target::code
         0x53,               // push %rbx
         0x50,               // push %rax
         0x55,               // push %rbp
-        0x54,               // push %rsp
         0x9c,               // pushf
     };
     constexpr uint8_t restore_state[] = {
         0x9d,               // popf
-        0x5c,               // pop %rsp
         0x5d,               // pop %rbp
         0x58,               // pop %rax
         0x5b,               // pop %rbx
@@ -43,6 +42,7 @@ namespace dyntrace::loader::target::code
         0x41, 0x5d,         // pop %r13
         0x41, 0x5e,         // pop %r14
         0x41, 0x5f,         // pop %r15
+        0x5c,               // pop %rsp
     };
 
     constexpr uint8_t call_handler[] = {
