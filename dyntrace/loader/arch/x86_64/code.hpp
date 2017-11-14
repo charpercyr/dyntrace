@@ -23,8 +23,10 @@ namespace dyntrace::loader::target::code
         0x50,               // push %rax
         0x55,               // push %rbp
         0x54,               // push %rsp
+        0x9c,               // pushf
     };
     constexpr uint8_t restore_state[] = {
+        0x9d,               // popf
         0x5c,               // pop %rsp
         0x5d,               // pop %rbp
         0x58,               // pop %rax

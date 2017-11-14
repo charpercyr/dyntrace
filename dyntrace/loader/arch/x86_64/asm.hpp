@@ -4,6 +4,7 @@
 #include "code.hpp"
 
 #include <limits>
+#include <type_traits>
 
 namespace dyntrace::loader::target
 {
@@ -69,6 +70,13 @@ namespace dyntrace::loader::target
             {
                 return r9;
             }
+            template<size_t N>
+            std::enable_if_t<(N > 5), uintptr_t> arg(arg_idx<N>) const noexcept
+            {
+                auto st = reinterpret_cast<uintptr_t*>(stack());
+                return *(st + (N - 5) + 2);
+            };
+
         public:
             uintptr_t rsp;
             uintptr_t rbp;
@@ -86,6 +94,7 @@ namespace dyntrace::loader::target
             uintptr_t r13;
             uintptr_t r14;
             uintptr_t r15;
+            uintptr_t rflags;
 
             template<size_t N>
             uintptr_t arg() const noexcept
@@ -101,6 +110,12 @@ namespace dyntrace::loader::target
             uintptr_t stack() const noexcept
             {
                 return rsp;
+            }
+
+            uintptr_t return_address() const noexcept
+            {
+                auto st = reinterpret_cast<uintptr_t*>(stack());
+                return *(st + 1);
             }
         };
     };
