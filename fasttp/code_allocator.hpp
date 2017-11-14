@@ -9,13 +9,14 @@
 
 namespace dyntrace::fasttp
 {
-    template<size_t levels = 6>
+    template<size_t levels = 7>
     class code_allocator
     {
         class page
         {
         public:
             static constexpr size_t size = PAGE_SIZE;
+            static constexpr size_t log2_size = PAGE_SHIFT;
             static constexpr size_t block = size >> levels;
             explicit page(void* base)
                 : _base{reinterpret_cast<uintptr_t>(base)}
@@ -54,7 +55,7 @@ namespace dyntrace::fasttp
                 return free() == size;
             }
 
-            void* malloc(size_t size)
+            void* malloc(size_t s)
             {
                 return nullptr;
             }
@@ -65,8 +66,14 @@ namespace dyntrace::fasttp
             }
 
         private:
-            static constexpr size_t level(size_t idx)
+            static constexpr size_t idx_level(size_t idx) noexcept
             {
+                return log2(idx);
+            }
+
+            static constexpr size_t size_level(size_t size) noexcept
+            {
+                return log2_size - log2(next_pow2(size));
             }
 
             std::bitset<(1 << levels)> _tree{};
