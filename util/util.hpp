@@ -110,6 +110,12 @@ namespace dyntrace
             return v >= start && v < end;
         }
 
+        template<typename UInt2>
+        constexpr bool is_inside(const range<UInt2>& r) const noexcept
+        {
+            return r.start >= start && r.end <= end;
+        }
+
         constexpr UInt size() const noexcept
         {
             return end - start;
