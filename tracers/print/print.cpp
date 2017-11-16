@@ -1,9 +1,15 @@
 
-#include <stdio.h>
+#include <cstdio>
 #include <tracer.hpp>
 
-extern "C" void on_handle(void* caller, const dyntrace::tracer::regs& r)
+extern "C" void on_enter(void* caller, const dyntrace::tracer::regs& r) noexcept
 {
     using namespace dyntrace::tracer;
-    printf("Hit %p: a1=%ld, a2=%ld\n", caller, arg<0>(r), arg<1>(r));
+    printf("Hit %p: a1=%ld\n", caller, arg<0>(r));
+}
+
+extern "C" void on_exit(void* caller, const dyntrace::tracer::regs& r) noexcept
+{
+    using namespace dyntrace::tracer;
+    printf("Hit %p: a1=%ld\n", caller, arg<0>(r));
 }

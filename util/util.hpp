@@ -146,6 +146,17 @@ namespace dyntrace
     {
         return i << 30;
     }
+
+    void hexdump(void* addr, size_t size) noexcept;
+
+    inline uintptr_t from_ptr(void* ptr) noexcept
+    {
+        return reinterpret_cast<uintptr_t>(ptr);
+    }
+    inline void* to_ptr(uintptr_t ptr) noexcept
+    {
+        return reinterpret_cast<void*>(ptr);
+    }
 }
 
 #endif

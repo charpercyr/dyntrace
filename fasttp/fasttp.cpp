@@ -3,6 +3,8 @@
 #include "arch/asm.hpp"
 
 #include <cstdint>
+#include <sys/mman.h>
+#include <sys/user.h>
 
 using namespace dyntrace::fasttp;
 
@@ -61,6 +63,7 @@ namespace
     size_t bytes_to_copy(void* _code) noexcept
     {
         auto handle = create_csh();
+        cs_option(handle, CS_OPT_DETAIL, CS_OPT_ON);
 
         auto code = reinterpret_cast<const uint8_t*>(_code);
         size_t size = 15;
@@ -68,7 +71,7 @@ namespace
         size_t res = 0;
 
         auto insn = cs_malloc(handle);
-        while(cs_disasm_iter(handle, &code, &size, &addr, insn) && res < 15)
+        while(cs_disasm_iter(handle, &code, &size, &addr, insn) && res < branch_size)
         {
             res += insn->size;
             size = 15;
@@ -91,7 +94,11 @@ void tracepoint::do_insert(handler &&h)
     memcpy(e.old_code.data(), _at, e.old_code.size());
 
     e.handler_code = print_handler(*_alloc, at, at + e.old_code.size(), reinterpret_cast<void*>(handle_tracepoint), e.old_code);
+
+    uintptr_t page = from_ptr(at) & PAGE_MASK;
+    mprotect(to_ptr(page), PAGE_SIZE, PROT_EXEC | PROT_READ | PROT_WRITE);
     print_branch(at, e.handler_code.get());
+    mprotect(to_ptr(page), PAGE_SIZE, PROT_EXEC | PROT_READ);
 
     registry::add(std::move(e));
 }
@@ -99,7 +106,10 @@ void tracepoint::do_insert(handler &&h)
 void tracepoint::do_remove()
 {
     auto e = registry::get(_at);
+    uintptr_t page = from_ptr(_at) & PAGE_MASK;
+    mprotect(to_ptr(page), PAGE_SIZE, PROT_EXEC | PROT_READ | PROT_WRITE);
     safe_store(_at, *reinterpret_cast<uintptr_t*>(e->old_code.data()));
+    mprotect(to_ptr(page), PAGE_SIZE, PROT_EXEC | PROT_READ);
     registry::remove(e->at);
 }
 

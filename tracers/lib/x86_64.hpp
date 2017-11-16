@@ -2,6 +2,7 @@
 #define DYNTRACE_TRACERS_LIB_X86_64_HPP_
 
 #include <cstdint>
+#include <cstddef>
 #include <type_traits>
 
 namespace dyntrace::tracer
@@ -61,7 +62,7 @@ namespace dyntrace::tracer
         std::enable_if_t<(N > 5), uint> arg(arg_idx<N>) const noexcept
         {
             auto st = reinterpret_cast<uint*>(stack());
-            return *(st + (N - 5) + 2);
+            return *(st + (N - 5) + 1);
         };
 
     public:
@@ -80,7 +81,7 @@ namespace dyntrace::tracer
         uint return_address() const noexcept
         {
             auto st = reinterpret_cast<uint*>(stack());
-            return *(st + 1);
+            return *(st);
         }
 
         uint stack() const noexcept

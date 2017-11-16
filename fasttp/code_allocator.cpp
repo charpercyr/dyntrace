@@ -34,13 +34,23 @@ void* code_allocator::alloc(const address_range& range, size_t size)
     auto fz = _proc->create_memmap().free();
     for(auto& z : fz)
     {
-        if(z.is_inside(range.start) || z.is_inside(range))
+        void* ptr = nullptr;
+        if(range.is_inside(z.start))
         {
-            return do_alloc(reinterpret_cast<void*>(range.start));
+            ptr = do_alloc(reinterpret_cast<void*>(z.start));
         }
-        else if(z.is_inside(range.end - PAGE_SIZE))
+        else if(range.is_inside(z.end - PAGE_SIZE))
         {
-            return do_alloc(reinterpret_cast<void*>(range.end - PAGE_SIZE));
+            ptr = do_alloc(reinterpret_cast<void*>(z.end - PAGE_SIZE));
+        }
+        else if(z.is_inside(range))
+        {
+            ptr = do_alloc(reinterpret_cast<void*>(range.start & PAGE_MASK + PAGE_SIZE));
+        }
+        if(ptr)
+        {
+            _mem.insert(ptr);
+            return ptr;
         }
     }
     throw std::bad_alloc{};

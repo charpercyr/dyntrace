@@ -75,7 +75,7 @@ namespace
 
 void dyntrace::fasttp::safe_store(void *to, uintptr_t data)
 {
-    asm volatile("lock xchg %0, %1": "=m"(to), "=r"(data));
+    memcpy(to, &data, 8);
 }
 
 void dyntrace::fasttp::print_branch(void *target, void *to)
