@@ -13,26 +13,37 @@ namespace dyntrace::fasttp
     class code_allocator
     {
     public:
-        explicit code_allocator(const process::process& proc) noexcept
+
+        code_allocator(const code_allocator&) = delete;
+        code_allocator& operator=(const code_allocator&) = delete;
+
+        explicit code_allocator(const std::shared_ptr<const process::process>& proc) noexcept
             : _proc{proc} {}
         ~code_allocator() noexcept;
 
         void* alloc(const address_range& range, size_t size);
         void free(void* ptr);
 
-        auto make_unique(const address_range& range, size_t size)
+        struct deleter
         {
-            auto deleter = [this](void* ptr)
+            code_allocator* _alloc;
+
+            void operator()(void* ptr)
             {
-                this->free(ptr);
-            };
-            return std::unique_ptr<void, decltype(deleter)>(alloc(range, size), deleter);
+                _alloc->free(ptr);
+            }
+        };
+        using unique_ptr = std::unique_ptr<void, deleter>;
+
+        unique_ptr make_unique(const address_range& range, size_t size)
+        {
+            return unique_ptr{alloc(range, size), deleter{this}};
         }
 
         size_t size() const noexcept;
 
     private:
-        const process::process& _proc;
+        std::shared_ptr<const process::process> _proc;
         std::unordered_set<void*> _mem;
     };
 }

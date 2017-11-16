@@ -13,19 +13,36 @@ namespace dyntrace::fasttp
 
     using handler = std::function<void(void*, const tracer::regs&)>;
 
+    class context;
+
     class tracepoint
     {
+        friend class context;
     public:
 
-        tracepoint(void* at, handler&& h, code_allocator& alloc, bool auto_remove)
-                : _at{at}, _alloc{alloc}, _auto_remove{auto_remove}
+        tracepoint(const tracepoint&) = delete;
+        tracepoint& operator=(const tracepoint&) = delete;
+        tracepoint(tracepoint&& tp) noexcept
+            : _at{tp._at}, _alloc{tp._alloc}, _auto_remove{tp._auto_remove}
         {
-            do_insert(std::move(h));
+            tp._at = nullptr;
+            tp._auto_remove = false;
         }
         ~tracepoint() noexcept
         {
             if(_auto_remove && _at)
                 do_remove();
+        }
+
+        tracepoint& operator=(tracepoint&& tp)
+        {
+            remove();
+            _at = tp._at;
+            _alloc = tp._alloc;
+            _auto_remove = tp._auto_remove;
+            tp._at = nullptr;
+            tp._auto_remove = false;
+            return *this;
         }
 
         bool auto_remove() const noexcept
@@ -46,28 +63,34 @@ namespace dyntrace::fasttp
         }
 
     private:
+        tracepoint(void* at, handler&& h, code_allocator* alloc, bool auto_remove)
+                : _at{at}, _alloc{alloc}, _auto_remove{auto_remove}
+        {
+            do_insert(std::move(h));
+        }
 
         void do_insert(handler&& h);
         void do_remove();
 
         void* _at;
-        code_allocator& _alloc;
+        code_allocator* _alloc;
         bool _auto_remove;
     };
 
     class context
     {
     public:
-        explicit context(const process::process& proc)
+        explicit context(const std::shared_ptr<const process::process>& proc)
             : _proc{proc}, _alloc{proc} {}
 
         tracepoint create(void* at, handler&& h, bool auto_remove = true);
         tracepoint create(const std::string& at, handler&& h, bool auto_remove = true);
+        tracepoint create(const std::string& at, const std::regex& lib, handler&& h, bool auto_remove = true);
 
         void remove(tracepoint& tp);
 
     private:
-        const process::process& _proc;
+        std::shared_ptr<const process::process> _proc;
         code_allocator _alloc;
     };
 }

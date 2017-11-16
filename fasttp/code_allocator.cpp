@@ -31,7 +31,7 @@ void* code_allocator::alloc(const address_range& range, size_t size)
 {
     if(size > PAGE_SIZE)
         throw std::bad_alloc{};
-    auto fz = _proc.create_memmap().free();
+    auto fz = _proc->create_memmap().free();
     for(auto& z : fz)
     {
         if(z.is_inside(range.start) || z.is_inside(range))
