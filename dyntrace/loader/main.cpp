@@ -38,7 +38,7 @@ private:
             {
                 printf("Insert\n");
                 auto tp = context.create("do_loop", fasttp::handler{handler});
-                sleep(10);
+                sleep(3);
                 printf("Remove\n");
             }
         }
@@ -51,24 +51,24 @@ private:
     static void handler(void* from, const dyntrace::tracer::regs& regs)
     {
         using dyntrace::tracer::arg;
-        printf("Handler for %p %d\n", from, arg<0, int>(regs));
+        printf("Handler for %p %s\n", from, arg<0, const char*>(regs));
     }
 
-    pthread_t _th;
+    pthread_t _th{0};
     std::atomic<bool> _done{false};
 };
 
 namespace
 {
-    std::unique_ptr<loader_main> l;
+    loader_main* loader;
 }
 
 void __attribute__((constructor)) init()
 {
-    l = std::make_unique<loader_main>();
+    loader = new loader_main;
 }
 
 void __attribute__((destructor)) fini()
 {
-    l = nullptr;
+    delete loader;
 }

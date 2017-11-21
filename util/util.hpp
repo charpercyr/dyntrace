@@ -3,6 +3,7 @@
 
 #include <functional>
 #include <limits>
+#include <mutex>
 #include <string>
 
 namespace dyntrace
