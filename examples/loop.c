@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include <signal.h>
 #include <unistd.h>
 
 void do_loop(const char* str)

@@ -32,6 +32,11 @@ const elf::elf& process::elf(const std::regex& name) const
     return _elf(memmap.find(name).name());
 }
 
+dwarf::dwarf process::dwarf() const
+{
+    return dwarf::dwarf{dwarf::elf::create_loader(elf())};
+}
+
 symbol process::get(const std::string &sym) const
 {
     auto memmap = create_memmap();
@@ -44,6 +49,18 @@ symbol process::get(const std::string &sym, const std::regex &lib) const
     auto memmap = create_memmap();
     const auto& bin = memmap.find(lib);
     return _get(sym, bin);
+}
+
+uintptr_t process::base() const
+{
+    auto memmap = create_memmap();
+    const auto& bin = memmap.binaries().at(get_executable(_pid));
+    for(const auto& z: bin.zones())
+    {
+        if (flag(z.perms, permissions::exec))
+            return z.start;
+    }
+    throw process_error("Could not find process executable base");
 }
 
 const elf::elf& process::_elf(const std::string &path) const

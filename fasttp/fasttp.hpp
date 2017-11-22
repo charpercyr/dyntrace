@@ -7,6 +7,7 @@
 #include <tracer.hpp>
 
 #include "code_allocator.hpp"
+#include "location.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -80,17 +81,15 @@ namespace dyntrace::fasttp
     class context
     {
     public:
-        explicit context(const std::shared_ptr<const process::process>& proc)
-            : _proc{proc}, _alloc{proc} {}
+        explicit context(const std::shared_ptr<const process::process>& proc);
 
-        tracepoint create(void* at, handler&& h, bool auto_remove = true);
-        tracepoint create(const std::string& at, handler&& h, bool auto_remove = true);
-        tracepoint create(const std::string& at, const std::regex& lib, handler&& h, bool auto_remove = true);
+        tracepoint create(const location& loc, handler&& h, bool auto_remove = true);
 
         void remove(tracepoint& tp);
 
     private:
         std::shared_ptr<const process::process> _proc;
+        std::vector<dyntrace::address_range> _basic_blocks;
         code_allocator _alloc;
     };
 }

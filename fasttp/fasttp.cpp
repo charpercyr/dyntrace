@@ -1,5 +1,7 @@
 #include "fasttp.hpp"
 
+#include "error.hpp"
+
 #include "arch/asm.hpp"
 #include <util/locked.hpp>
 
@@ -134,21 +136,44 @@ void tracepoint::do_remove()
     reg.remove(e->at);
 }
 
-tracepoint context::create(void *at, handler &&h, bool auto_remove)
+context::context(const std::shared_ptr<const process::process> &proc)
+    : _proc{proc}, _alloc{proc}
 {
+    // Parse dwarf and get basic blocks
+    auto sym_base = _proc->base();
+    auto dw = _proc->dwarf();
+    for(const auto& cu : dw.compilation_units())
+    {
+        for(const auto& sp: cu.root())
+        {
+            if(sp.tag == dwarf::DW_TAG::subprogram)
+            {
+                for(const auto& bb : sp)
+                {
+                    if(static_cast<int>(bb.tag) == 0x1001 && bb.has(dwarf::DW_AT::low_pc) && bb.has(dwarf::DW_AT::high_pc))
+                    {
+                        uintptr_t start = bb[dwarf::DW_AT::low_pc].as_address() + sym_base;
+                        uintptr_t end = start + bb[dwarf::DW_AT::high_pc].as_uconstant();
+                        _basic_blocks.push_back(address_range{start, end});
+                    }
+                }
+            }
+        }
+    }
+}
+
+tracepoint context::create(const location& loc, handler &&h, bool auto_remove)
+{
+    void* at = loc.resolve(*_proc);
+    for(const auto& bb : _basic_blocks)
+    {
+        auto uat = reinterpret_cast<uintptr_t>(at);
+        if(bb.crosses(address_range{uat, uat + branch_size}))
+        {
+            throw fasttp_error("Cannot place tracepoint at 0x" + to_hex_string(uat) + ", crosses basic block 0x" + to_hex_string(bb.start) + "-0x" + to_hex_string(bb.end));
+        }
+    }
     return tracepoint{at, std::move(h), &_alloc, auto_remove};
-}
-
-tracepoint context::create(const std::string &at, handler &&h, bool auto_remove)
-{
-    auto sym = _proc->get(at).value;
-    return create(reinterpret_cast<void *>(sym), std::move(h), auto_remove);
-}
-
-tracepoint context::create(const std::string &at, const std::regex &lib, handler &&h, bool auto_remove)
-{
-    auto sym = _proc->get(at, lib).value;
-    return create(reinterpret_cast<void *>(sym), std::move(h), auto_remove);
 }
 
 void context::remove(tracepoint &tp)

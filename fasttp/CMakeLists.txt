@@ -5,6 +5,7 @@ add_library(fasttp SHARED
     ${${arch}_src}
     code_allocator.cpp code_allocator.hpp
     error.hpp
-    fasttp.cpp fasttp.hpp)
+    fasttp.cpp fasttp.hpp
+    location.cpp location.hpp)
 target_include_directories(fasttp PRIVATE ${CAPSTONE_INCLUDE_DIRS})
 target_link_libraries(fasttp process tracer ${CAPSTONE_LIBRARIES})

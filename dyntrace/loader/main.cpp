@@ -37,7 +37,7 @@ private:
             fasttp::context context{proc};
             {
                 printf("Insert\n");
-                auto tp = context.create("do_loop", fasttp::handler{handler});
+                auto tp = context.create(fasttp::symbol_location{"do_loop"}, fasttp::handler{handler});
                 sleep(3);
                 printf("Remove\n");
             }
@@ -51,7 +51,7 @@ private:
     static void handler(void* from, const dyntrace::tracer::regs& regs)
     {
         using dyntrace::tracer::arg;
-        printf("Handler for %p %s\n", from, arg<0, const char*>(regs));
+        printf("Handler for %p %s\n", from, arg<0, char*>(regs));
     }
 
     pthread_t _th{0};

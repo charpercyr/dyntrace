@@ -117,6 +117,12 @@ namespace dyntrace
             return r.start >= start && r.end <= end;
         }
 
+        template<typename UInt2>
+        constexpr bool crosses(const range<UInt2>& r) const noexcept
+        {
+            return (r.start < start && r.end > start) || (r.start < end && r.end > end);
+        }
+
         constexpr UInt size() const noexcept
         {
             return end - start;

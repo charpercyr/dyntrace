@@ -1,6 +1,7 @@
 #ifndef DYNTRACE_PROCESS_PROCESS_HPP_
 #define DYNTRACE_PROCESS_PROCESS_HPP_
 
+#include <dwarf++.hh>
 #include <elf++.hh>
 
 #include <map>
@@ -34,9 +35,13 @@ namespace dyntrace::process
 
         const elf::elf& elf() const;
         const elf::elf& elf(const std::regex& name) const;
+        dwarf::dwarf dwarf() const;
+
 
         symbol get(const std::string& sym) const;
         symbol get(const std::string& sym, const std::regex& lib) const;
+
+        uintptr_t base() const;
 
         pid_t pid() const noexcept
         {
