@@ -2,6 +2,7 @@
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
 #include <functional>
+#include <utility>
 
 #include <process/process.hpp>
 #include <tracer.hpp>
@@ -23,6 +24,7 @@ namespace dyntrace::fasttp
 
         tracepoint(const tracepoint&) = delete;
         tracepoint& operator=(const tracepoint&) = delete;
+
         tracepoint(tracepoint&& tp) noexcept
             : _at{tp._at}, _alloc{tp._alloc}, _auto_remove{tp._auto_remove}
         {
@@ -35,14 +37,11 @@ namespace dyntrace::fasttp
                 do_remove();
         }
 
-        tracepoint& operator=(tracepoint&& tp)
+        tracepoint& operator=(tracepoint&& tp) noexcept
         {
-            remove();
-            _at = tp._at;
-            _alloc = tp._alloc;
-            _auto_remove = tp._auto_remove;
-            tp._at = nullptr;
-            tp._auto_remove = false;
+            std::swap(_at, tp._at);
+            std::swap(_alloc, tp._alloc);
+            std::swap(_auto_remove, tp._auto_remove);
             return *this;
         }
 

@@ -3,6 +3,8 @@
 #include <fasttp/error.hpp>
 #include <util/util.hpp>
 
+#include <stdatomic.h>
+
 using namespace dyntrace::fasttp;
 
 namespace
@@ -75,7 +77,7 @@ namespace
 
 void dyntrace::fasttp::safe_store(void *to, uintptr_t data)
 {
-    memcpy(to, &data, 8);
+    asm("lock xchg (%0), %1" :: "r"(to), "r"(data));
 }
 
 void dyntrace::fasttp::print_branch(void *target, void *to)

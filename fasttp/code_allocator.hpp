@@ -17,8 +17,8 @@ namespace dyntrace::fasttp
         code_allocator(const code_allocator&) = delete;
         code_allocator& operator=(const code_allocator&) = delete;
 
-        explicit code_allocator(const std::shared_ptr<const process::process>& proc) noexcept
-            : _proc{proc} {}
+        explicit code_allocator(std::shared_ptr<const process::process> proc) noexcept
+            : _proc{std::move(proc)} {}
         ~code_allocator() noexcept;
 
         void* alloc(const address_range& range, size_t size);
