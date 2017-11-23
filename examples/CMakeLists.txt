@@ -26,4 +26,4 @@ macro(add_traceable_executable name)
     )
 endmacro()
 
-add_traceable_executable(loop loop.c)
+add_traceable_executable(loop loop.c loop.S)

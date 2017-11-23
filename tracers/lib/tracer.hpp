@@ -25,23 +25,23 @@ namespace dyntrace::tracer
     }
 
     template<size_t N, typename T = regs::uint>
-    T arg(const regs& r) noexcept
+    inline T arg(const regs& r) noexcept
     {
         return _detail::cast<T>(r.arg<N>());
     }
 
     template<typename T = regs::uint>
-    T ret(const regs& r) noexcept
+    inline T ret(const regs& r) noexcept
     {
         return _detail::cast<T>(r.ret());
     }
 
-    regs::uint* return_address(const regs& r) noexcept
+    inline regs::uint* return_address(const regs& r) noexcept
     {
         return reinterpret_cast<regs::uint*>(r.return_address());
     }
 
-    regs::uint* stack(const regs& r) noexcept
+    inline regs::uint* stack(const regs& r) noexcept
     {
         return reinterpret_cast<regs::uint*>(r.stack());
     }

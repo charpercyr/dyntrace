@@ -1,144 +1,131 @@
-#include "asm.hpp"
-
-#include <fasttp/error.hpp>
-#include <util/util.hpp>
-
-#include <stdatomic.h>
-
-using namespace dyntrace::fasttp;
+#include "tracepoint.hpp"
 
 namespace
 {
-    uintptr_t cast(void* ptr) noexcept
+    constexpr uint8_t handler_code[] = {
+    /// Save urgent registers (rsp, rbp, rflags)
+        /* 00: push %rsp                        */ 0x54,
+        /* 01: push %rbp                        */ 0x55,
+        /* 02: pushf                            */ 0x9c,
+    /// Increment refcount
+        /* 03: movabs &refcount, %rbp           */ 0x48, 0xbd, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,
+        /* 0d: lock incq (%rbp)                 */ 0xf0, 0x48, 0xff, 0x45, 0x00,
+    /// Save other registers
+        /* 12: push %r15                        */ 0x41, 0x57,
+        /* 14: push %r14                        */ 0x41, 0x56,
+        /* 16: push %r13                        */ 0x41, 0x55,
+        /* 18: push %r12                        */ 0x41, 0x54,
+        /* 1a: push %r11                        */ 0x41, 0x53,
+        /* 1c: push %r10                        */ 0x41, 0x52,
+        /* 1e: push %rbx                        */ 0x53,
+        /* 1f: push %r9                         */ 0x41, 0x51,
+        /* 21: push %r8                         */ 0x41, 0x50,
+        /* 23: push %rcx                        */ 0x51,
+        /* 24: push %rdx                        */ 0x52,
+        /* 25: push %rsi                        */ 0x56,
+        /* 26: push %rdi                        */ 0x57,
+        /* 27: push %rax                        */ 0x50,
+    /// call handler(arch_tracepoint*, regs*)
+        /* 28: movabs &tracepoint, %rdi         */ 0x48, 0xbf, 0xef, 0xbe, 0xad, 0xde, 0xef, 0xbe, 0xad, 0xde,
+        /* 32: mov %rsp, %rsi                   */ 0x48, 0x89, 0xe6,
+        /* 35: movabs &handler, %rax            */ 0x48, 0xb8, 0xbe, 0xba, 0xad, 0xde, 0xbe, 0xba, 0xad, 0xde,
+        /* 3f: callq *%rax                      */ 0xff, 0xd0,
+    /// Restore other registers
+        /* 41: pop %rax                         */ 0x58,
+        /* 42: pop %rdi                         */ 0x5f,
+        /* 43: pop %rsi                         */ 0x5e,
+        /* 44: pop %rdx                         */ 0x5a,
+        /* 45: pop %rcx                         */ 0x59,
+        /* 46: pop %r8                          */ 0x41, 0x58,
+        /* 48: pop %r9                          */ 0x41, 0x59,
+        /* 4a: pop %rbx                         */ 0x5b,
+        /* 4b: pop %r10                         */ 0x41, 0x5a,
+        /* 4d: pop %r11                         */ 0x41, 0x5b,
+        /* 4f: pop %r12                         */ 0x41, 0x5c,
+        /* 51: pop %r13                         */ 0x41, 0x5d,
+        /* 53: pop %r14                         */ 0x41, 0x5e,
+        /* 55: pop %r15                         */ 0x41, 0x5f,
+    /// Decrement refcount
+        /* 57: movabs &refcount, %rbp           */ 0x48, 0xbd, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,
+        /* 61: lock decq (%rbp)                 */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
+    /// Restore urgent registers (rsp, rbp, rflags)
+        /* 66: popf                             */ 0x9d,
+        /* 67: pop %rbp                         */ 0x5d,
+        /* 68: pop %rsp                         */ 0x5c
+    };
+    constexpr size_t refcount_addr_1 = 0x05;
+    constexpr size_t refcount_addr_2 = 0x59;
+    constexpr size_t tp_addr = 0x2a;
+    constexpr size_t handler_addr = 0x37;
+
+    void safe_write8(void* where, uint64_t val) noexcept
     {
-        return reinterpret_cast<uintptr_t>(ptr);
+        asm volatile("lock xchg (%0), %1"::"r"(where),"r"(val) : "memory");
     }
 
-    constexpr uint8_t call_handler[] = {
-            // === Save state ===
-            0x54,               // push %rsp
-            0x41, 0x57,         // push %r15
-            0x41, 0x56,         // push %r14
-            0x41, 0x55,         // push %r13
-            0x41, 0x54,         // push %r12
-            0x41, 0x53,         // push %r11
-            0x41, 0x52,         // push %r10
-            0x41, 0x51,         // push %r9
-            0x41, 0x50,         // push %r8
-            0x56,               // push %rsi
-            0x57,               // push %rdi
-            0x52,               // push %rdx
-            0x51,               // push %rcx
-            0x53,               // push %rbx
-            0x50,               // push %rax
-            0x55,               // push %rbp
-            0x9c,               // pushf
-            // === Call handler ===
-            // movabs $0xcafebabedeadbeef, %rdi
-            0x48, 0xbf, 0xef, 0xbe, 0xad, 0xde, 0xbe, 0xba, 0xfe, 0xca,
-            // movabs $0xcafebabedeadbeef, %rax
-            0x48, 0xb8, 0xef, 0xbe, 0xad, 0xde, 0xbe, 0xba, 0xfe, 0xca,
-            0x48, 0x89, 0xe6,   // mov %rsi, %rsi
-            0xff, 0xd0,         // call *%rax
-            // === Restore state ===
-            0x9d,               // popf
-            0x5d,               // pop %rbp
-            0x58,               // pop %rax
-            0x5b,               // pop %rbx
-            0x59,               // pop %rcx
-            0x5a,               // pop %rdx
-            0x5f,               // pop %rdi
-            0x5e,               // pop %rsi
-            0x41, 0x58,         // pop %r8
-            0x41, 0x59,         // pop %r9
-            0x41, 0x5a,         // pop %r10
-            0x41, 0x5b,         // pop %r11
-            0x41, 0x5c,         // pop %r12
-            0x41, 0x5d,         // pop %r13
-            0x41, 0x5e,         // pop %r14
-            0x41, 0x5f,         // pop %r15
-            0x5c,               // pop %rsp
-    };
-    constexpr size_t from_idx = 27;
-    constexpr size_t handle_idx = 37;
-
-    int32_t calc_jmp(uintptr_t from, uintptr_t to)
+    void set_refcount(uint8_t* code, uintptr_t refcount) noexcept
     {
-        from += branch_size;
-        intptr_t diff = static_cast<intptr_t>(to) - static_cast<intptr_t>(from);
-        if(diff > std::numeric_limits<int32_t>::max() || diff < std::numeric_limits<int32_t>::min())
-        {
-            using dyntrace::to_hex_string;
-            throw fasttp_error("Cannot jmp from 0x" + to_hex_string(from - branch_size) + " to 0x" + to_hex_string(to));
-        }
+        safe_write8(code + refcount_addr_1, refcount);
+        safe_write8(code + refcount_addr_2, refcount);
+    }
+
+    void set_tracepoint(uint8_t* code, uintptr_t tp) noexcept
+    {
+        safe_write8(code + tp_addr, tp);
+    }
+
+    void set_handler(uint8_t* code, uintptr_t handler) noexcept
+    {
+        safe_write8(code + handler_addr, handler);
+    }
+
+    std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to) noexcept
+    {
+        from += 5;
+        auto diff = static_cast<int64_t>(to) - static_cast<int64_t>(from);
+        if(diff < std::numeric_limits<int32_t>::min() || diff > std::numeric_limits<int32_t>::max())
+            return std::nullopt;
         return static_cast<int32_t>(diff);
     }
 
-    void safe_store(void *to, uintptr_t data)
+    bool set_jmp(uint8_t* where, uintptr_t to)
     {
-        asm("lock xchg (%0), %1" :: "r"(to), "r"(data));
+        auto odiff = calc_jmp(reinterpret_cast<uintptr_t>(where), to);
+        if(!odiff)
+            return false;
+        auto diff = odiff.value();
+        uint8_t bytes[8];
+        memcpy(bytes, where, 8);
+        bytes[0] = 0xe9;
+        memcpy(bytes + 1, &diff, 4);
+        safe_write8(where, *reinterpret_cast<uint64_t*>(bytes));
+        return true;
     }
 }
 
-void dyntrace::fasttp::print_code(void *to, const void *from, size_t size, bool need_atomic)
+namespace dyntrace::fasttp
 {
-    auto uto = reinterpret_cast<uintptr_t*>(to);
-    auto ufrom = reinterpret_cast<const uintptr_t*>(from);
-    size_t leftover = size % 8;
-    size_t count = size / 8;
-
-    if(count && need_atomic)
+    void arch_tracepoint::do_insert(const process::process &proc)
     {
-        throw fasttp_error("Cannot atomically write " + std::to_string(size) + " bytes");
+        
     }
 
-    for(size_t i = 0; i < count; ++i)
+    void arch_tracepoint::do_remove()
     {
-        safe_store(uto + i, ufrom[i]);
+
     }
 
-    if(leftover)
+    void arch_tracepoint::handle(const tracer::regs &r)
     {
-        uintptr_t data = uto[count];
-        memcpy(&data, ufrom + count, leftover);
-        safe_store(uto + count, data);
+        try
+        {
+            _handler(_location, r);
+        }
+        catch (const std::exception& e)
+        {
+        }
+        catch(...)
+        {
+        }
     }
-
-}
-
-void dyntrace::fasttp::print_branch(void *target, void *to, bool)
-{
-    static constexpr uint8_t jmp = 0xe9;
-
-    uint8_t data[8];
-    memcpy(data, target, 8);
-    data[0] = jmp;
-    auto diff = calc_jmp(cast(target), cast(to));
-    memcpy(data + 1, &diff, 4);
-
-    safe_store(target, *reinterpret_cast<uintptr_t*>(data));
-}
-
-code_allocator::unique_ptr dyntrace::fasttp::print_handler(code_allocator &alloc, void* func, void* ret, void* handler, const std::vector<uint8_t>& out_of_line)
-{
-    auto res = alloc.make_unique(
-            make_address_range(cast(func), std::numeric_limits<int32_t>::max() - branch_size),
-            sizeof(call_handler) + out_of_line.size() + branch_size
-    );
-    auto data = reinterpret_cast<uint8_t*>(res.get());
-
-    memcpy(data, call_handler, sizeof(call_handler));
-    memcpy(data + from_idx, &func, 8);
-    memcpy(data + handle_idx, &handler, 8);
-    memcpy(data + sizeof(call_handler), out_of_line.data(), out_of_line.size());
-    print_branch(data + sizeof(call_handler) + out_of_line.size(), ret);
-
-    return std::move(res);
-}
-
-csh dyntrace::fasttp::create_csh()
-{
-    csh handle;
-    cs_open(CS_ARCH_X86, CS_MODE_64, &handle);
-    return handle;
 }

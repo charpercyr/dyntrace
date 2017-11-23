@@ -2,18 +2,18 @@
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
 #include <functional>
+#include <optional>
 #include <utility>
 
 #include <process/process.hpp>
 #include <tracer.hpp>
 
-#include "code_allocator.hpp"
+#include "arch/tracepoint.hpp"
 #include "location.hpp"
+#include "util/locked.hpp"
 
 namespace dyntrace::fasttp
 {
-
-    using handler = std::function<void(void*, const tracer::regs&)>;
 
     class context;
 
@@ -21,75 +21,60 @@ namespace dyntrace::fasttp
     {
         friend class context;
     public:
-
         tracepoint(const tracepoint&) = delete;
         tracepoint& operator=(const tracepoint&) = delete;
 
+        tracepoint(arch_tracepoint* impl, context* ctx, bool auto_remove)
+            : _impl{impl}, _ctx{ctx}, _auto_remove{auto_remove} {}
+        ~tracepoint();
         tracepoint(tracepoint&& tp) noexcept
-            : _at{tp._at}, _alloc{tp._alloc}, _auto_remove{tp._auto_remove}
+            : _impl(tp._impl), _ctx{tp._ctx}, _auto_remove{tp._auto_remove}
         {
-            tp._at = nullptr;
-            tp._auto_remove = false;
-        }
-        ~tracepoint() noexcept
-        {
-            if(_auto_remove && _at)
-                do_remove();
+            tp._impl = nullptr;
         }
 
         tracepoint& operator=(tracepoint&& tp) noexcept
         {
-            std::swap(_at, tp._at);
-            std::swap(_alloc, tp._alloc);
+            std::swap(_impl, tp._impl);
+            std::swap(_ctx, tp._ctx);
             std::swap(_auto_remove, tp._auto_remove);
             return *this;
         }
+
+        void remove();
 
         bool auto_remove() const noexcept
         {
             return _auto_remove;
         }
 
-        void auto_remove(bool ar) noexcept
+        void auto_remove(bool auto_remove) noexcept
         {
-            _auto_remove = ar;
-        }
-
-        void remove()
-        {
-            _auto_remove = false;
-            if(_at)
-                do_remove();
+            _auto_remove = auto_remove;
         }
 
     private:
-        tracepoint(void* at, handler&& h, code_allocator* alloc, bool auto_remove)
-                : _at{at}, _alloc{alloc}, _auto_remove{auto_remove}
-        {
-            do_insert(std::move(h));
-        }
-
-        void do_insert(handler&& h);
-        void do_remove();
-
-        void* _at;
-        code_allocator* _alloc;
+        arch_tracepoint* _impl;
+        context* _ctx;
         bool _auto_remove;
     };
 
     class context
     {
+        friend class tracepoint;
     public:
-        explicit context(const std::shared_ptr<const process::process>& proc);
+        explicit context(std::shared_ptr<const process::process> proc)
+            : _proc{std::move(proc)} {}
+        ~context();
 
-        tracepoint create(const location& loc, handler&& h, bool auto_remove = true);
-
-        void remove(tracepoint& tp);
+        tracepoint create(const location& loc, handler&& handler, bool auto_remove = false);
 
     private:
+
+        void remove(void* ptr);
+
         std::shared_ptr<const process::process> _proc;
-        std::vector<dyntrace::address_range> _basic_blocks;
-        code_allocator _alloc;
+        dyntrace::locked<std::map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
     };
 }
 

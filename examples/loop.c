@@ -1,19 +1,16 @@
+#include <stdint.h>
 #include <stdio.h>
-
-#include <signal.h>
 #include <unistd.h>
 
-void do_loop(const char* str)
-{
-    printf("Loop %s\n", str);
-}
+void do_inc(long long*);
 
 int main()
 {
-    int a = 0;
+    long long a = 0;
     for(;;)
     {
-        do_loop("Hello");
+        do_inc(&a);
+        printf("%lld\n", a);
         sleep(1);
     }
     return 0;

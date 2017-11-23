@@ -12,22 +12,22 @@ namespace dyntrace::tracer
     public:
         using uint = uintptr_t;
 
-        uint rflags;
-        uint rbp;
         uint rax;
-        uint rbx;
-        uint rcx;
-        uint rdx;
         uint rdi;
         uint rsi;
+        uint rdx;
+        uint rcx;
         uint r8;
         uint r9;
+        uint rbx;
         uint r10;
         uint r11;
         uint r12;
         uint r13;
         uint r14;
         uint r15;
+        uint rflags;
+        uint rbp;
         uint rsp;
 
     private:

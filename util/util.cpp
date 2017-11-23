@@ -43,7 +43,7 @@ std::string dyntrace::get_executable(pid_t pid)
 pid_t dyntrace::find_process(const std::string &name)
 {
     static const std::regex is_a_number{"^[0-9]*$"};
-    auto root = resource<DIR*>{opendir("/proc"), [](auto d)
+    auto root = raii<DIR*>{opendir("/proc"), [](auto d)
     {
         closedir(d);
     }};

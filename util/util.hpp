@@ -3,7 +3,6 @@
 
 #include <functional>
 #include <limits>
-#include <mutex>
 #include <string>
 
 namespace dyntrace
@@ -63,7 +62,7 @@ namespace dyntrace
     }
 
     template<typename Int>
-    std::enable_if_t<std::is_integral_v<Int>, std::string> to_hex_string(Int i) noexcept
+    std::enable_if_t<std::is_integral_v<Int> || std::is_pointer_v<Int>, std::string> to_hex_string(Int i) noexcept
     {
         static constexpr const char chars[] = "0123456789abcdef";
         std::string res;
@@ -77,13 +76,13 @@ namespace dyntrace
     };
 
     template<typename T>
-    class resource
+    class raii
     {
     public:
         template<typename FuncType>
-        explicit resource(T t, FuncType&& func)
+        explicit raii(T t, FuncType&& func)
             : _t{std::move(t)}, _cleanup{func} {}
-        ~resource() noexcept
+        ~raii() noexcept
         {
             _cleanup(_t);
         }

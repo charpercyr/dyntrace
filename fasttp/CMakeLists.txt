@@ -1,10 +1,9 @@
 include(arch/${arch}/arch_src.cmake)
 
 add_library(fasttp SHARED
-    arch/asm.hpp
+    arch/tracepoint.hpp
     ${${arch}_src}
-    code_allocator.cpp code_allocator.hpp
-    error.hpp
+        error.hpp
     fasttp.cpp fasttp.hpp
     location.cpp location.hpp)
 target_include_directories(fasttp PRIVATE ${CAPSTONE_INCLUDE_DIRS})
