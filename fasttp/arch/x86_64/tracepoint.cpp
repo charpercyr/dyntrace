@@ -73,14 +73,40 @@ namespace
         }
         return static_cast<int32_t>(diff);
     }
+
+    void safe_store(void *to, uintptr_t data)
+    {
+        asm("lock xchg (%0), %1" :: "r"(to), "r"(data));
+    }
 }
 
-void dyntrace::fasttp::safe_store(void *to, uintptr_t data)
+void dyntrace::fasttp::print_code(void *to, const void *from, size_t size, bool need_atomic)
 {
-    asm("lock xchg (%0), %1" :: "r"(to), "r"(data));
+    auto uto = reinterpret_cast<uintptr_t*>(to);
+    auto ufrom = reinterpret_cast<const uintptr_t*>(from);
+    size_t leftover = size % 8;
+    size_t count = size / 8;
+
+    if(count && need_atomic)
+    {
+        throw fasttp_error("Cannot atomically write " + std::to_string(size) + " bytes");
+    }
+
+    for(size_t i = 0; i < count; ++i)
+    {
+        safe_store(uto + i, ufrom[i]);
+    }
+
+    if(leftover)
+    {
+        uintptr_t data = uto[count];
+        memcpy(&data, ufrom + count, leftover);
+        safe_store(uto + count, data);
+    }
+
 }
 
-void dyntrace::fasttp::print_branch(void *target, void *to)
+void dyntrace::fasttp::print_branch(void *target, void *to, bool)
 {
     static constexpr uint8_t jmp = 0xe9;
 
