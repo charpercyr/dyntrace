@@ -92,6 +92,11 @@ namespace dyntrace
             return _t;
         }
 
+        T operator->() const noexcept
+        {
+            return _t;
+        }
+
     private:
         T _t;
         std::function<void(T t)> _cleanup;
@@ -105,13 +110,13 @@ namespace dyntrace
         UInt start{0};
         UInt end{std::numeric_limits<UInt>::max()};
 
-        constexpr bool is_inside(UInt v) const noexcept
+        constexpr bool contains(UInt v) const noexcept
         {
             return v >= start && v < end;
         }
 
         template<typename UInt2>
-        constexpr bool is_inside(const range<UInt2>& r) const noexcept
+        constexpr bool contains(const range<UInt2> &r) const noexcept
         {
             return r.start >= start && r.end <= end;
         }

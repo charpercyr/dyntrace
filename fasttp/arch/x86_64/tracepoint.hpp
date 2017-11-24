@@ -3,6 +3,7 @@
 
 #include <process/process.hpp>
 #include <tracer.hpp>
+#include <util/code_ptr.hpp>
 
 namespace dyntrace::fasttp
 {
@@ -17,7 +18,7 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
         arch_tracepoint(void* location, const process::process& proc, handler&& h)
-            : _location{location}, _handler{std::move(h)}
+            : _location{location}, _user_handler{std::move(h)}
         {
             do_insert(proc);
         }
@@ -38,12 +39,14 @@ namespace dyntrace::fasttp
         void do_insert(const process::process& proc);
         void do_remove();
 
-        void handle(const tracer::regs& r);
+        static void do_handle(arch_tracepoint *self, const tracer::regs &r);
 
-        void* _location;
-        handler _handler;
-        volatile uint64_t _refcount{0};
+        handler _user_handler;
+        code_ptr _location;
+        code_ptr _handler_location;
+        size_t _handler_size;
         uint64_t _old_code;
+        volatile uint64_t _refcount{0};
     };
 }
 

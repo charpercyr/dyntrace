@@ -1,5 +1,18 @@
 #include "tracepoint.hpp"
 
+#include "jmp.hpp"
+#include "out_of_line.hpp"
+
+#include <capstone.h>
+#include <sys/mman.h>
+#include <sys/user.h>
+
+#include <util/util.hpp>
+#include <fasttp/error.hpp>
+
+using namespace dyntrace;
+using namespace dyntrace::fasttp;
+
 namespace
 {
     constexpr uint8_t handler_code[] = {
@@ -63,32 +76,26 @@ namespace
         asm volatile("lock xchg (%0), %1"::"r"(where),"r"(val) : "memory");
     }
 
-    void set_refcount(uint8_t* code, uintptr_t refcount) noexcept
+    void set_refcount(void* _code, uintptr_t refcount) noexcept
     {
+        auto code = reinterpret_cast<uint8_t*>(_code);
         safe_write8(code + refcount_addr_1, refcount);
         safe_write8(code + refcount_addr_2, refcount);
     }
 
-    void set_tracepoint(uint8_t* code, uintptr_t tp) noexcept
+    void set_tracepoint(void* _code, uintptr_t tp) noexcept
     {
+        auto code = reinterpret_cast<uint8_t*>(_code);
         safe_write8(code + tp_addr, tp);
     }
 
-    void set_handler(uint8_t* code, uintptr_t handler) noexcept
+    void set_handler(void* _code, uintptr_t handler) noexcept
     {
+        auto code = reinterpret_cast<uint8_t*>(_code);
         safe_write8(code + handler_addr, handler);
     }
 
-    std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to) noexcept
-    {
-        from += 5;
-        auto diff = static_cast<int64_t>(to) - static_cast<int64_t>(from);
-        if(diff < std::numeric_limits<int32_t>::min() || diff > std::numeric_limits<int32_t>::max())
-            return std::nullopt;
-        return static_cast<int32_t>(diff);
-    }
-
-    bool set_jmp(uint8_t* where, uintptr_t to)
+    bool set_jmp(void* where, uintptr_t to)
     {
         auto odiff = calc_jmp(reinterpret_cast<uintptr_t>(where), to);
         if(!odiff)
@@ -101,31 +108,98 @@ namespace
         safe_write8(where, *reinterpret_cast<uint64_t*>(bytes));
         return true;
     }
+
+    uintptr_t find_location(const process::process& proc, address_range range)
+    {
+        auto free = proc.create_memmap().free();
+        for(auto& z : free)
+        {
+            if(range.contains(z.start))
+            {
+                return z.start;
+            }
+            else if(range.contains(z.end - PAGE_SIZE))
+            {
+                return z.end - PAGE_SIZE;
+            }
+            else if(z.contains(range))
+            {
+                return range.start;
+            }
+        }
+    }
+
+    std::pair<code_ptr, size_t> get_pages(code_ptr loc, size_t size) noexcept
+    {
+        // TODO better alloc
+        size_t mmap_size = ((loc.as_int() & PAGE_MASK) - ((loc.as_int()  + size) & PAGE_MASK)) + PAGE_SIZE;
+        loc = loc.as_int() & PAGE_MASK;
+        return {loc, mmap_size};
+    };
+
+    void* do_mmap(code_ptr loc, size_t size)
+    {
+        auto [real_loc, mmap_size] = get_pages(loc, size);
+        real_loc = mmap(
+            real_loc, mmap_size,
+            PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+            -1, 0
+        );
+        if(real_loc == MAP_FAILED)
+            throw fasttp_error("mmap failed for " + to_hex_string(loc.as_int()));
+        return loc.as_ptr();
+    }
+
+    void do_unmap(code_ptr loc, size_t size) noexcept
+    {
+        auto [real_loc, mmap_size] = get_pages(loc, size);
+        munmap(real_loc, mmap_size);
+    }
+}
+void arch_tracepoint::do_insert(const process::process &proc)
+{
+    memcpy(&_old_code, _location, 8);
+
+    auto ool = out_of_line(_location.as_ptr());
+
+    _handler_size = 5 + ool.size() + sizeof(handler_code);
+    _handler_location = do_mmap(find_location(proc, make_address_range(_location.as_int(), 2_G - 5 - _handler_size)), _handler_size);
+
+    memcpy(_handler_location, handler_code, sizeof(handler_code));
+    set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
+    set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
+    set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
+    ool.write(_handler_location + sizeof(handler_code));
+    set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location.as_int() + ool.size());
+
+    auto pages = get_pages(_location, 8);
+    mprotect(pages.first, pages.second, PROT_WRITE | PROT_EXEC | PROT_READ);
+    set_jmp(_location, _handler_location.as_int());
+    mprotect(pages.first, pages.second, PROT_EXEC | PROT_READ);
 }
 
-namespace dyntrace::fasttp
+void arch_tracepoint::do_remove()
 {
-    void arch_tracepoint::do_insert(const process::process &proc)
+    auto pages = get_pages(_location, 8);
+    mprotect(pages.first, pages.second, PROT_WRITE | PROT_EXEC | PROT_READ);
+    safe_write8(_location, _old_code);
+    mprotect(pages.first, pages.second, PROT_EXEC | PROT_READ);
+    while(_refcount);
+    do_unmap(_handler_location, _handler_size);
+}
+
+void arch_tracepoint::do_handle(arch_tracepoint *self, const tracer::regs &r)
+{
+    try
     {
-        
+        self->_user_handler(self->_location, r);
     }
-
-    void arch_tracepoint::do_remove()
+    catch (const std::exception& e)
     {
-
+        fprintf(stderr, "Catched exception from handler: %s", e.what());
     }
-
-    void arch_tracepoint::handle(const tracer::regs &r)
+    catch(...)
     {
-        try
-        {
-            _handler(_location, r);
-        }
-        catch (const std::exception& e)
-        {
-        }
-        catch(...)
-        {
-        }
+        fprintf(stderr, "Catched unknown exception from handler");
     }
 }

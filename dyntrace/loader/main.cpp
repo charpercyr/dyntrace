@@ -34,6 +34,11 @@ private:
         try
         {
             auto proc = std::make_shared<process::process>(getpid());
+            fasttp::context ctx{proc};
+            printf("Insert\n");
+            auto tp = ctx.create(fasttp::symbol_location{"do_inc"}, fasttp::handler{handler});
+            sleep(3);
+            printf("Remove\n");
         }
         catch(const std::exception& e)
         {
@@ -41,10 +46,10 @@ private:
         }
     }
 
-    static void handler(void* from, const dyntrace::tracer::regs& regs)
+    static void handler(const void* from, const dyntrace::tracer::regs& regs)
     {
         using dyntrace::tracer::arg;
-        printf("Handler for %p %lld\n", from, *arg<0, long long*>(regs));
+        printf("Handler for %p a0=%lld(%p)\n", from, *arg<0, long long*>(regs), arg<0, void*>(regs));
     }
 
     pthread_t _th{0};
