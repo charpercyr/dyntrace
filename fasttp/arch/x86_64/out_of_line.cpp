@@ -8,16 +8,63 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
+    class instruction
+    {
+    public:
+        instruction(cs_insn* insn)
+            : _insn {insn} {}
+        virtual ~instruction() = default;
+
+        virtual size_t size() const noexcept
+        {
+            return _insn->size;
+        }
+
+        virtual void write(void* to) const noexcept
+        {
+            memcpy(to, _insn->bytes, _insn->size);
+        }
+
+    protected:
+
+        const cs_insn* inner() const noexcept
+        {
+            return _insn;
+        }
+
+    private:
+        const cs_insn* _insn;
+    };
+
+    struct relative_jmp : instruction
+    {
+        using instruction::instruction;
+
+        size_t size() const noexcept override
+        {
+            return 5;
+        }
+
+        void write(void* to) const noexcept override
+        {
+            
+        }
+    };
+}
+
+namespace
+{
     size_t insn_size(csh handle, cs_insn* insn) noexcept
     {
         // TODO JMP
         return insn->size;
     }
 
-    void write_insn(csh handle, cs_insn* insn, void* to)
+    void* write_insn(csh handle, cs_insn* insn, void* to)
     {
         // TODO JMP
         memcpy(to, insn->bytes, insn->size);
+        return reinterpret_cast<uint8_t*>(to) + insn->size;
     }
 }
 
@@ -58,8 +105,7 @@ void out_of_line::write(void *target)
     auto at = reinterpret_cast<uint8_t*>(target);
     for(auto insn : _insns)
     {
-        write_insn(_handle, insn, at);
-        at += insn_size(_handle, insn);
+        at = reinterpret_cast<uint8_t*>(write_insn(_handle, insn, at));
     }
 }
 
