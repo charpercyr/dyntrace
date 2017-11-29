@@ -49,6 +49,13 @@ namespace dyntrace::fasttp
         void write(void* to) const noexcept override;
     };
 
+    struct ip_relative_instruction : instruction
+    {
+        using instruction::instruction;
+
+        void write(void* to) const noexcept override;
+    };
+
     class out_of_line
     {
     public:

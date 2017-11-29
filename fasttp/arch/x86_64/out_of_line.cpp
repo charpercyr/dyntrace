@@ -32,11 +32,7 @@ namespace
             {
                 if(insn->detail->x86.operands[i].type == X86_OP_MEM)
                 {
-                    printf("%u %d %d\n",
-                           i,
-                           insn->detail->x86.operands[i].mem.base == X86_REG_RIP,
-                           insn->detail->x86.disp
-                    );
+                    return std::make_unique<ip_relative_instruction>(insn);
                 }
             }
         }
@@ -99,6 +95,16 @@ void relative_cond_branch::write(void *to) const noexcept
         bytes[1] = insn()->bytes[1];
     memcpy(bytes + 2, &rel, 4);
     memcpy(to, bytes, 6);
+}
+
+void ip_relative_instruction::write(void *to) const noexcept
+{
+    int32_t rel{0};
+    memcpy(&rel, insn()->bytes + insn()->size - 4, 4);
+    uintptr_t target = insn()->address + insn()->size + rel;
+    rel = calc_jmp(reinterpret_cast<uintptr_t>(to), target, insn()->size).value();
+    memcpy(to, insn()->bytes, insn()->size - 4);
+    memcpy(reinterpret_cast<uint8_t*>(to) + insn()->size - 4, &rel, 4);
 }
 
 out_of_line::out_of_line(const void *_code) noexcept
