@@ -16,7 +16,7 @@ namespace dyntrace::fasttp
                 : _insn {insn} {}
         virtual ~instruction();
 
-        virtual size_t size() const noexcept;
+        virtual uint8_t size() const noexcept;
 
         virtual void write(void* to) const noexcept;
 
@@ -31,22 +31,29 @@ namespace dyntrace::fasttp
         cs_insn* _insn;
     };
 
-    struct relative_branch : instruction
+    class relative_branch : public instruction
     {
+    public:
         using instruction::instruction;
 
-        size_t size() const noexcept override;
+        uint8_t size() const noexcept override;
 
         void write(void* to) const noexcept override;
+
+    protected:
+        virtual uint8_t op_size() const noexcept;
+        virtual void write_op(void* to) const noexcept;
+        virtual int32_t displacement() const noexcept;
     };
 
-    struct relative_cond_branch : instruction
+    struct relative_cond_branch : relative_branch
     {
-        using instruction::instruction;
+        using relative_branch::relative_branch;
 
-        size_t size() const noexcept override;
-
-        void write(void* to) const noexcept override;
+    protected:
+        uint8_t op_size() const noexcept override;
+        void write_op(void* to) const noexcept override;
+        int32_t displacement() const noexcept override;
     };
 
     struct ip_relative_instruction : instruction

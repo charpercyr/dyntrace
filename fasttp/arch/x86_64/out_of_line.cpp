@@ -46,7 +46,7 @@ instruction::~instruction()
     cs_free(_insn, 1);
 }
 
-size_t instruction::size() const noexcept
+uint8_t instruction::size() const noexcept
 {
     return _insn->size;
 }
@@ -56,56 +56,91 @@ void instruction::write(void* to) const noexcept
     memcpy(to, _insn->bytes, _insn->size);
 }
 
-size_t relative_branch::size() const noexcept
+uint8_t relative_branch::size() const noexcept
 {
-    return 5;
+    return 4 + op_size();
 }
 
-void relative_branch::write(void* to) const noexcept
+void relative_branch::write(void* _to) const noexcept
 {
-    int32_t rel{0};
-    if(insn()->size == 2)
-        memcpy(&rel, insn()->bytes + 1, 1);
-    else
-        memcpy(&rel, insn()->bytes + 1, 4);
+    auto to = reinterpret_cast<uint8_t*>(_to);
+    write_op(to);
+
+    int32_t rel = displacement();
     uintptr_t target = insn()->address + insn()->size + rel;
-    rel = calc_jmp(reinterpret_cast<uintptr_t>(to), target).value();
-    uint8_t bytes[5] = {insn()->size == 2 ? uint8_t{0xe9} : insn()->bytes[0]};
-    memcpy(bytes + 1, &rel, 4);
-    memcpy(to, bytes, 5);
+    rel = calc_jmp(reinterpret_cast<uintptr_t>(to), target, size()).value();
+    memcpy(to + op_size(), &rel, 4);
 }
 
-size_t relative_cond_branch::size() const noexcept
+uint8_t relative_branch::op_size() const noexcept
 {
-    return 6;
+    return 1;
 }
 
-void relative_cond_branch::write(void *to) const noexcept
+void relative_branch::write_op(void *to) const noexcept
 {
-    int32_t rel{0};
+    *reinterpret_cast<uint8_t*>(to) = 0xe9;
+}
+
+int32_t relative_branch::displacement() const noexcept
+{
     if(insn()->size == 2)
-        memcpy(&rel, insn()->bytes + 1, 1);
+    {
+        return static_cast<int32_t>(insn()->bytes[1]);
+    }
     else
-        memcpy(&rel, insn()->bytes + 2, 4);
-    uintptr_t target = insn()->address + insn()->size + rel;
-    rel = calc_jmp(reinterpret_cast<uintptr_t>(to), target, 6).value();
-    uint8_t bytes[6] = {0x0f};
+    {
+        return *reinterpret_cast<const int32_t*>(insn()->bytes + 1);
+    }
+}
+
+uint8_t relative_cond_branch::op_size() const noexcept
+{
+    return 2;
+}
+
+void relative_cond_branch::write_op(void *to) const noexcept
+{
+    *reinterpret_cast<uint8_t*>(to) = 0x0f;
     if(insn()->size == 2)
-        bytes[1] = insn()->bytes[0] + 0x10;
+    {
+        *(reinterpret_cast<uint8_t*>(to) + 1) = insn()->bytes[0] + 0x10;
+    }
     else
-        bytes[1] = insn()->bytes[1];
-    memcpy(bytes + 2, &rel, 4);
-    memcpy(to, bytes, 6);
+    {
+        *(reinterpret_cast<uint8_t*>(to) + 1) = insn()->bytes[1];
+    }
+}
+
+int32_t relative_cond_branch::displacement() const noexcept
+{
+    if(insn()->size == 2)
+    {
+        return static_cast<int32_t>(insn()->bytes[1]);
+    }
+    else
+    {
+        return *reinterpret_cast<const int32_t*>(insn()->bytes + 1);
+    }
 }
 
 void ip_relative_instruction::write(void *to) const noexcept
 {
-    int32_t rel{0};
-    memcpy(&rel, insn()->bytes + insn()->size - 4, 4);
-    uintptr_t target = insn()->address + insn()->size + rel;
-    rel = calc_jmp(reinterpret_cast<uintptr_t>(to), target, insn()->size).value();
-    memcpy(to, insn()->bytes, insn()->size - 4);
-    memcpy(reinterpret_cast<uint8_t*>(to) + insn()->size - 4, &rel, 4);
+    uintptr_t disp_diff_bits = 0;
+    for(uintptr_t i = 0; i < insn()->detail->x86.op_count; ++i)
+    {
+        if(insn()->detail->x86.operands[i].type == X86_OP_IMM)
+            disp_diff_bits += insn()->detail->x86.operands[i].size;
+    }
+    uintptr_t disp_idx = insn()->size - 4 - (disp_diff_bits + 7) / 8;
+
+    memcpy(to, insn()->bytes, insn()->size);
+    int32_t disp;
+    memcpy(&disp, insn()->bytes + disp_idx, 4);
+
+    uintptr_t target = insn()->address + disp_idx + 4 + disp;
+    disp = calc_jmp(reinterpret_cast<uintptr_t>(to), target, disp_idx + 4).value();
+    memcpy(reinterpret_cast<uint8_t*>(to) + disp_idx, &disp, 4);
 }
 
 out_of_line::out_of_line(const void *_code) noexcept
