@@ -32,7 +32,8 @@ namespace
             {
                 if(insn->detail->x86.operands[i].type == X86_OP_MEM)
                 {
-                    return std::make_unique<ip_relative_instruction>(insn);
+                    if(insn->detail->x86.operands[i].mem.base == X86_REG_RIP)
+                        return std::make_unique<ip_relative_instruction>(insn);
                 }
             }
         }
