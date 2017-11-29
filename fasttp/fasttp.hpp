@@ -63,8 +63,7 @@ namespace dyntrace::fasttp
     {
         friend class tracepoint;
     public:
-        explicit context(std::shared_ptr<const process::process> proc)
-            : _proc{std::move(proc)} {}
+        explicit context(std::shared_ptr<const process::process> proc);
         ~context();
 
         tracepoint create(const location& loc, handler&& handler, bool auto_remove = false);
@@ -73,6 +72,7 @@ namespace dyntrace::fasttp
 
         void remove(void* ptr);
 
+        std::vector<address_range> _basic_blocks;
         std::shared_ptr<const process::process> _proc;
         dyntrace::locked<std::map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
     };

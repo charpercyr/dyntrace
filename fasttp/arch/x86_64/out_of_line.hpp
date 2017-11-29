@@ -4,10 +4,51 @@
 
 #include <capstone.h>
 
+#include <memory>
 #include <vector>
 
 namespace dyntrace::fasttp
 {
+    class instruction
+    {
+    public:
+        explicit instruction(cs_insn* insn)
+                : _insn {insn} {}
+        virtual ~instruction();
+
+        virtual size_t size() const noexcept;
+
+        virtual void write(void* to) const noexcept;
+
+    protected:
+
+        const cs_insn* insn() const noexcept
+        {
+            return _insn;
+        }
+
+    private:
+        cs_insn* _insn;
+    };
+
+    struct relative_branch : instruction
+    {
+        using instruction::instruction;
+
+        size_t size() const noexcept override;
+
+        void write(void* to) const noexcept override;
+    };
+
+    struct relative_cond_branch : instruction
+    {
+        using instruction::instruction;
+
+        size_t size() const noexcept override;
+
+        void write(void* to) const noexcept override;
+    };
+
     class out_of_line
     {
     public:
@@ -20,7 +61,7 @@ namespace dyntrace::fasttp
         size_t size() const noexcept;
     private:
         csh _handle;
-        std::vector<cs_insn*> _insns;
+        std::vector<std::unique_ptr<instruction>> _insns;
     };
 }
 

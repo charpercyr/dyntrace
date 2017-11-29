@@ -16,6 +16,29 @@ void tracepoint::remove()
     _impl = nullptr;
 }
 
+context::context(std::shared_ptr<const process::process> proc)
+    : _proc{std::move(proc)}
+{
+    auto dw = _proc->dwarf();
+    for(const auto& cu : dw.compilation_units())
+    {
+        for(const auto& sp : cu.root())
+        {
+            if(sp.tag == dwarf::DW_TAG::subprogram)
+            {
+                for(const auto& bb : sp)
+                {
+                    // Custom tag for basic block
+                    if(static_cast<int>(bb.tag) == 0x1001)
+                    {
+
+                    }
+                }
+            }
+        }
+    }
+}
+
 context::~context() = default;
 
 tracepoint context::create(const location &loc, handler &&handler, bool auto_remove)

@@ -127,6 +127,7 @@ namespace
                 return range.start;
             }
         }
+        return 0;
     }
 
     std::pair<code_ptr, size_t> get_pages(code_ptr loc, size_t size) noexcept
@@ -180,10 +181,10 @@ void arch_tracepoint::do_insert(const process::process &proc)
 
 void arch_tracepoint::do_remove()
 {
-    auto pages = get_pages(_location, 8);
-    mprotect(pages.first, pages.second, PROT_WRITE | PROT_EXEC | PROT_READ);
+    auto [real_loc, mmap_size] = get_pages(_location, 8);
+    mprotect(real_loc, mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
     safe_write8(_location, _old_code);
-    mprotect(pages.first, pages.second, PROT_EXEC | PROT_READ);
+    mprotect(real_loc, mmap_size, PROT_EXEC | PROT_READ);
     while(_refcount);
     do_unmap(_handler_location, _handler_size);
 }

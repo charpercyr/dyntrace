@@ -7,9 +7,9 @@
 
 namespace dyntrace::fasttp
 {
-    inline std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to) noexcept
+    inline std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to, uint8_t insn_size = 5) noexcept
     {
-        from += 5;
+        from += insn_size;
         auto diff = static_cast<int64_t>(to) - static_cast<int64_t>(from);
         if(diff < std::numeric_limits<int32_t>::min() || diff > std::numeric_limits<int32_t>::max())
             return std::nullopt;
