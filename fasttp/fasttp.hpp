@@ -66,7 +66,17 @@ namespace dyntrace::fasttp
         explicit context(std::shared_ptr<const process::process> proc);
         ~context();
 
-        tracepoint create(const location& loc, handler&& handler, bool auto_remove = false);
+        tracepoint create(const location& loc, handler&& handler, bool auto_remove = true);
+
+        const process::process& process() const noexcept
+        {
+            return *_proc;
+        }
+
+        const std::vector<address_range>& basic_blocks() const noexcept
+        {
+            return _basic_blocks;
+        }
 
     private:
 

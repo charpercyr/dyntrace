@@ -33,7 +33,9 @@ context::context(std::shared_ptr<const process::process> proc)
                         // Custom tag for basic block
                         if (static_cast<int>(bb.tag) == 0x1001)
                         {
-
+                            auto base = bb[dwarf::DW_AT::low_pc].as_address();
+                            auto size = bb[dwarf::DW_AT::high_pc].as_uconstant();
+                            _basic_blocks.push_back({base, base + size});
                         }
                     }
                 }
@@ -42,7 +44,7 @@ context::context(std::shared_ptr<const process::process> proc)
     }
     catch(const std::exception& e)
     {
-        
+        // No basic block info
     }
 }
 
@@ -56,7 +58,7 @@ tracepoint context::create(const location &loc, handler &&handler, bool auto_rem
     {
         throw fasttp_error{"Tracepoint already exists at " + to_hex_string(addr)};
     }
-    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, *_proc, std::move(handler)))).first;
+    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, this, std::move(handler)))).first;
     return tracepoint{it->second.get(), this, auto_remove};
 }
 

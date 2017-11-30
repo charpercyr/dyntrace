@@ -9,6 +9,7 @@
 
 #include <util/util.hpp>
 #include <fasttp/error.hpp>
+#include <fasttp/fasttp.hpp>
 
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
@@ -154,14 +155,21 @@ namespace
         munmap(real_loc, mmap_size);
     }
 }
-void arch_tracepoint::do_insert(const process::process &proc)
+void arch_tracepoint::do_insert(const context *ctx)
 {
+    for(const auto& bb : ctx->basic_blocks())
+    {
+        if(bb.crosses(address_range{_location.as_int(), _location.as_int() + 5}))
+        {
+            throw fasttp_error("Jump crosses basic block");
+        }
+    }
     memcpy(&_old_code, _location, 8);
 
     auto ool = out_of_line(_location.as_ptr());
 
     _handler_size = 5 + ool.size() + sizeof(handler_code);
-    _handler_location = do_mmap(find_location(proc, make_address_range(_location.as_int(), 2_G - 5 - _handler_size)), _handler_size);
+    _handler_location = do_mmap(find_location(ctx->process(), make_address_range(_location.as_int(), 2_G - 5 - _handler_size)), _handler_size);
 
     memcpy(_handler_location, handler_code, sizeof(handler_code));
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));

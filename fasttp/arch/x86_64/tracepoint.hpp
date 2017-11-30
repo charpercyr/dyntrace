@@ -9,6 +9,8 @@ namespace dyntrace::fasttp
 {
     using handler = std::function<void(const void*, const tracer::regs&)>;
 
+    class context;
+
     class arch_tracepoint
     {
     public:
@@ -17,10 +19,10 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, const process::process& proc, handler&& h)
+        arch_tracepoint(void* location, const context* ctx, handler&& h)
             : _location{location}, _user_handler{std::move(h)}
         {
-            do_insert(proc);
+            do_insert(ctx);
         }
 
         ~arch_tracepoint()
@@ -36,7 +38,7 @@ namespace dyntrace::fasttp
 
     private:
 
-        void do_insert(const process::process& proc);
+        void do_insert(const context* ctx);
         void do_remove();
 
         static void do_handle(arch_tracepoint *self, const tracer::regs &r);
