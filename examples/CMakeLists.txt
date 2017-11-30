@@ -34,3 +34,9 @@ endfunction()
 
 add_traceable_executable(loop loop.c loop.S)
 target_link_libraries(loop loader)
+
+pkg_check_modules(BENCHMARK benchmark)
+
+add_executable(bm_tracepoint bm_tracepoint.cpp)
+target_include_directories(bm_tracepoint PRIVATE ${BENCHMARK_INCLUDE_DIRS})
+target_link_libraries(bm_tracepoint ${BENCHMARK_LIBRARIES} fasttp pthread)

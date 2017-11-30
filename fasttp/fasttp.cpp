@@ -19,23 +19,30 @@ void tracepoint::remove()
 context::context(std::shared_ptr<const process::process> proc)
     : _proc{std::move(proc)}
 {
-    auto dw = _proc->dwarf();
-    for(const auto& cu : dw.compilation_units())
+    try
     {
-        for(const auto& sp : cu.root())
+        auto dw = _proc->dwarf();
+        for (const auto &cu : dw.compilation_units())
         {
-            if(sp.tag == dwarf::DW_TAG::subprogram)
+            for (const auto &sp : cu.root())
             {
-                for(const auto& bb : sp)
+                if (sp.tag == dwarf::DW_TAG::subprogram)
                 {
-                    // Custom tag for basic block
-                    if(static_cast<int>(bb.tag) == 0x1001)
+                    for (const auto &bb : sp)
                     {
+                        // Custom tag for basic block
+                        if (static_cast<int>(bb.tag) == 0x1001)
+                        {
 
+                        }
                     }
                 }
             }
         }
+    }
+    catch(const std::exception& e)
+    {
+        
     }
 }
 

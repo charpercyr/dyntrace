@@ -13,6 +13,8 @@
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
 
+extern "C" void safe_write8(void* where, uint64_t val) noexcept;
+
 namespace
 {
     constexpr uint8_t handler_code[] = {
@@ -70,11 +72,6 @@ namespace
     constexpr size_t refcount_addr_2 = 0x59;
     constexpr size_t tp_addr = 0x2a;
     constexpr size_t handler_addr = 0x37;
-
-    void safe_write8(void* where, uint64_t val) noexcept
-    {
-        asm volatile("lock xchg (%0), %1"::"r"(where),"r"(val) : "memory");
-    }
 
     void set_refcount(void* _code, uintptr_t refcount) noexcept
     {

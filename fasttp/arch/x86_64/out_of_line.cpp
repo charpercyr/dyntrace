@@ -179,7 +179,6 @@ void out_of_line::write(void *target)
         insn->write(at);
         at += insn->size();
     }
-    hexdump(target, size());
 }
 
 size_t out_of_line::size() const noexcept
