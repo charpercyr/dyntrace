@@ -5,6 +5,8 @@
 #include <tracer.hpp>
 #include <util/code_ptr.hpp>
 
+#include <fasttp/options.hpp>
+
 namespace dyntrace::fasttp
 {
     using handler = std::function<void(const void*, const tracer::regs&)>;
@@ -19,8 +21,8 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, const context* ctx, handler&& h)
-            : _location{location}, _user_handler{std::move(h)}
+        arch_tracepoint(void* location, const context* ctx, handler&& h, options ops)
+            : _location{location}, _user_handler{std::move(h)}, _ops{ops}
         {
             do_insert(ctx);
         }
@@ -49,6 +51,7 @@ namespace dyntrace::fasttp
         size_t _handler_size;
         uint64_t _old_code;
         volatile uint64_t _refcount{0};
+        options _ops;
     };
 }
 

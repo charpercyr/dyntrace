@@ -3,6 +3,7 @@
 #include "jmp.hpp"
 #include "out_of_line.hpp"
 
+#include <array>
 #include <capstone.h>
 #include <sys/mman.h>
 #include <sys/user.h>
@@ -107,23 +108,50 @@ namespace
         return true;
     }
 
-    uintptr_t find_location(const process::process& proc, address_range range)
+    using condition = std::array<std::optional<uint8_t>, 4>;
+
+    condition make_condition(uintptr_t start, const out_of_line& ool)
+    {
+        condition res;
+        for(const auto& insn : ool.instructions())
+        {
+            auto idx = insn->address() - start;
+            if(idx != 0)
+            {
+                res[idx - 1] = 0xcc;
+            }
+        }
+        return res;
+    };
+
+    uintptr_t find_location(uintptr_t from, const address_range& zone, const address_range& range, const condition& cond)
+    {
+        if(range.contains(zone.start))
+        {
+            return zone.start;
+        }
+        else if(range.contains(zone.end - PAGE_SIZE))
+        {
+            return zone.end - PAGE_SIZE;
+        }
+        else if(zone.contains(range))
+        {
+            return range.start;
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    uintptr_t find_location(uintptr_t from, const process::process& proc, address_range range, const condition& cond)
     {
         auto free = proc.create_memmap().free();
         for(auto& z : free)
         {
-            if(range.contains(z.start))
-            {
-                return z.start;
-            }
-            else if(range.contains(z.end - PAGE_SIZE))
-            {
-                return z.end - PAGE_SIZE;
-            }
-            else if(z.contains(range))
-            {
-                return range.start;
-            }
+            auto ret = find_location(from, z, range, cond);
+            if(ret != 0)
+                return ret;
         }
         return 0;
     }
@@ -157,19 +185,34 @@ namespace
 }
 void arch_tracepoint::do_insert(const context *ctx)
 {
-    for(const auto& bb : ctx->basic_blocks())
+    if(!flag(_ops, options::disable_basic_block))
     {
-        if(bb.crosses(address_range{_location.as_int(), _location.as_int() + 5}))
+        for (const auto &bb : ctx->basic_blocks())
         {
-            throw fasttp_error("Jump crosses basic block");
+            if (bb.crosses(address_range{_location.as_int(), _location.as_int() + 5}))
+            {
+                throw fasttp_error("Jump crosses basic block");
+            }
         }
     }
+
     memcpy(&_old_code, _location, 8);
 
     auto ool = out_of_line(_location.as_ptr());
 
     _handler_size = 5 + ool.size() + sizeof(handler_code);
-    _handler_location = do_mmap(find_location(ctx->process(), make_address_range(_location.as_int(), 2_G - 5 - _handler_size)), _handler_size);
+
+    condition cond;
+    if(!flag(_ops, options::disable_thread_safe))
+    {
+        cond = make_condition(_location.as_int(), ool);
+    }
+    auto loc = find_location(_location.as_int(), ctx->process(), make_address_range(_location.as_int(), 2_G - 5 - _handler_size), cond);
+    if(loc == 0)
+    {
+        throw fasttp_error("Could not find space for tracepoint");
+    }
+    _handler_location = do_mmap(loc, _handler_size);
 
     memcpy(_handler_location, handler_code, sizeof(handler_code));
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));

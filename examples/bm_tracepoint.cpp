@@ -39,7 +39,7 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 
     for(auto _ : state)
     {
-        ctx.create(loc, fasttp::handler{handler}, true);
+        ctx.create(loc, fasttp::handler{handler});
     }
 }
 

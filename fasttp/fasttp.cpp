@@ -50,7 +50,7 @@ context::context(std::shared_ptr<const process::process> proc)
 
 context::~context() = default;
 
-tracepoint context::create(const location &loc, handler &&handler, bool auto_remove)
+tracepoint context::create(const location &loc, handler &&handler, options ops)
 {
     auto tracepoints = _tracepoints.lock();
     void* addr = loc.resolve(*_proc);
@@ -58,8 +58,8 @@ tracepoint context::create(const location &loc, handler &&handler, bool auto_rem
     {
         throw fasttp_error{"Tracepoint already exists at " + to_hex_string(addr)};
     }
-    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, this, std::move(handler)))).first;
-    return tracepoint{it->second.get(), this, auto_remove};
+    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, this, std::move(handler), ops))).first;
+    return tracepoint{it->second.get(), this, !flag(ops, options::disable_auto_remove)};
 }
 
 void context::remove(void *ptr)

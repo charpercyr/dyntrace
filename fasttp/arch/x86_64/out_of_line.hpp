@@ -20,6 +20,11 @@ namespace dyntrace::fasttp
 
         virtual void write(void* to) const noexcept;
 
+        uintptr_t address() const noexcept
+        {
+            return _insn->address;
+        }
+
     protected:
 
         const cs_insn* insn() const noexcept
@@ -73,6 +78,11 @@ namespace dyntrace::fasttp
         void write(void* target);
 
         size_t size() const noexcept;
+
+        const std::vector<std::unique_ptr<instruction>>& instructions() const noexcept
+        {
+            return _insns;
+        }
     private:
         csh _handle;
         std::vector<std::unique_ptr<instruction>> _insns;

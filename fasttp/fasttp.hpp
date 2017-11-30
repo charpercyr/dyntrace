@@ -10,7 +10,9 @@
 
 #include "arch/tracepoint.hpp"
 #include "location.hpp"
+#include "options.hpp"
 #include "util/locked.hpp"
+#include "util/flag.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -63,10 +65,11 @@ namespace dyntrace::fasttp
     {
         friend class tracepoint;
     public:
+
         explicit context(std::shared_ptr<const process::process> proc);
         ~context();
 
-        tracepoint create(const location& loc, handler&& handler, bool auto_remove = true);
+        tracepoint create(const location& loc, handler&& handler, options ops = options::none);
 
         const process::process& process() const noexcept
         {
