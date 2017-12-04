@@ -80,8 +80,7 @@ namespace dyntrace::tracer
 
         uint return_address() const noexcept
         {
-            auto st = reinterpret_cast<uint*>(stack());
-            return *(st);
+            return *reinterpret_cast<uint*>(stack());
         }
 
         uint stack() const noexcept

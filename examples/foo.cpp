@@ -27,7 +27,6 @@ int main()
         {
             foo(i, j);
         }
-        tp.remove();
         using namespace std::chrono_literals;
         std::this_thread::sleep_for(250ms);
     }
