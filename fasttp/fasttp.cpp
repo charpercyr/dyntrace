@@ -5,15 +5,18 @@ using namespace dyntrace::fasttp;
 
 tracepoint::~tracepoint()
 {
-    if(_auto_remove && _impl)
+    if(_auto_remove)
         remove();
 }
 
 void tracepoint::remove()
 {
     _auto_remove = false;
-    _ctx->remove(_impl->location());
-    _impl = nullptr;
+    if(_impl)
+    {
+        _ctx->remove(_impl->location());
+        _impl = nullptr;
+    }
 }
 
 context::context(std::shared_ptr<const process::process> proc)

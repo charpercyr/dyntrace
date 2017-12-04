@@ -16,7 +16,8 @@ namespace dyntrace::fasttp
     {
         void* resolve(const process::process& proc) const override;
 
-        explicit addr_location(void* a) noexcept : addr{a} {}
+        template<typename T>
+        explicit addr_location(T* a) noexcept : addr{reinterpret_cast<void*>(a)} {}
 
         void* addr;
     };

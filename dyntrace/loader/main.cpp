@@ -34,7 +34,7 @@ private:
         try
         {
             auto proc = std::make_shared<process::process>(getpid());
-            fasttp::context ctx{proc};
+            auto ctx = fasttp::context{proc};
             printf("Insert\n");
             auto tp = ctx.create(fasttp::symbol_location{"do_inc"}, fasttp::handler{handler});
             sleep(3);

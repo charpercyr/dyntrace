@@ -55,6 +55,11 @@ namespace dyntrace::fasttp
             _auto_remove = auto_remove;
         }
 
+        operator bool() const noexcept
+        {
+            return _impl != nullptr;
+        }
+
     private:
         arch_tracepoint* _impl;
         context* _ctx;
