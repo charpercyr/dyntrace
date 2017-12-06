@@ -245,10 +245,10 @@ void arch_tracepoint::do_handle(arch_tracepoint *self, const tracer::regs &r)
     }
     catch (const std::exception& e)
     {
-        fprintf(stderr, "Catched exception from handler: %s", e.what());
+        fprintf(stderr, "Caught exception from handler: %s\n", e.what());
     }
     catch(...)
     {
-        fprintf(stderr, "Catched unknown exception from handler");
+        fprintf(stderr, "Caught unknown exception from handler\n");
     }
 }

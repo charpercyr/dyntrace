@@ -21,7 +21,7 @@ static void bm_run_tracepoints(benchmark::State& state)
 {
     auto proc = std::make_shared<process::process>(getpid());
     fasttp::context ctx{proc};
-    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler});
+    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe);
 
     count = 0;
     for(auto _ : state)
@@ -39,13 +39,13 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 
     for(auto _ : state)
     {
-        ctx.create(loc, fasttp::handler{handler});
+        ctx.create(loc, fasttp::handler{handler}, fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe);
     }
 }
 
 static void bm_place_tracepoints_with_addr(benchmark::State& state)
 {
-    do_place_tracepoint(state, fasttp::addr_location{reinterpret_cast<void*>(some_func)});
+    do_place_tracepoint(state, fasttp::addr_location{some_func});
 }
 BENCHMARK(bm_place_tracepoints_with_addr);
 
