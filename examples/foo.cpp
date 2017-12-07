@@ -4,22 +4,17 @@
 
 using namespace dyntrace;
 
-extern "C" void foo(int a, int b)
+extern "C" void __attribute__((noinline)) foo(int a, const std::string& b)
 {
-    printf("Foo     a=%d b=%d\n", a, b);
-}
-
-void handler(const void*, const tracer::regs& regs)
-{
-    using tracer::arg;
-    printf("Handler a=%d b=%d\n", arg<0, int>(regs), arg<1, int>(regs));
+    printf("Foo a=%d b=%s\n", a, b.c_str());
 }
 
 void do_run()
 {
     for(int i = 0; i < 5; ++i)
     {
-        foo(i, i*i);
+        std::string str = "Hello-" + std::to_string(i*i);
+        foo(i, str);
         using namespace std::chrono_literals;
         std::this_thread::sleep_for(100ms);
     }
@@ -28,12 +23,26 @@ void do_run()
 int main()
 {
     do_run();
-    printf("===========\n");
+
+    auto handler = [](const void* caller, const tracer::regs& regs)
+    {
+        using tracer::arg;
+        printf("Handler for %p a=%d b=%s\n",
+               caller,
+               arg<0, int>(regs),
+               arg<1, const std::string&>(regs).c_str()
+        );
+    };
 
     auto proc = std::make_shared<process::process>(getpid());
     auto ctx = fasttp::context{proc};
-    auto tp = ctx.create(fasttp::addr_location{foo}, fasttp::handler{handler});
+    auto tp = ctx.create(
+            fasttp::addr_location{foo},
+            fasttp::handler{handler},
+            fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe
+    );
 
+    printf("===========\n");
     do_run();
     return 0;
 }

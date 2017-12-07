@@ -22,6 +22,12 @@ namespace dyntrace::tracer
         {
             return reinterpret_cast<T>(v);
         };
+
+        template<typename T>
+        constexpr std::enable_if_t<std::is_reference_v<T>, T> cast(regs::uint v) noexcept
+        {
+            return *reinterpret_cast<std::remove_reference_t<T>*>(v);
+        };
     }
 
     template<size_t N, typename T = regs::uint>

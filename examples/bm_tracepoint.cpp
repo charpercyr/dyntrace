@@ -11,19 +11,19 @@ extern "C" void __attribute__((noinline)) some_func() noexcept
     asm volatile("":::"memory");
 }
 
-static size_t count;
-static void handler(const void*, const dyntrace::tracer::regs&)
-{
-    ++count;
-}
-
 static void bm_run_tracepoints(benchmark::State& state)
 {
     auto proc = std::make_shared<process::process>(getpid());
     fasttp::context ctx{proc};
-    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe);
 
-    count = 0;
+    size_t count = 0;
+
+    auto handler = [&count](const void*, const tracer::regs&)
+    {
+        ++count;
+    };
+
+    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe);
     for(auto _ : state)
     {
         some_func();
@@ -36,6 +36,8 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 {
     auto proc = std::make_shared<process::process>(getpid());
     fasttp::context ctx{proc};
+
+    auto handler = [](const void*, const tracer::regs&) {};
 
     for(auto _ : state)
     {
