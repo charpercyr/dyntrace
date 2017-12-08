@@ -1,6 +1,7 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 
+#include <fasttp/code_ptr.hpp>
 
 #include <capstone.h>
 
@@ -18,7 +19,7 @@ namespace dyntrace::fasttp
 
         virtual uint8_t size() const noexcept;
 
-        virtual void write(void* to) const noexcept;
+        virtual void write(code_ptr to) const noexcept;
 
         uintptr_t address() const noexcept
         {
@@ -43,11 +44,11 @@ namespace dyntrace::fasttp
 
         uint8_t size() const noexcept override;
 
-        void write(void* to) const noexcept override;
+        void write(code_ptr to) const noexcept override;
 
     protected:
         virtual uint8_t op_size() const noexcept;
-        virtual void write_op(void* to) const noexcept;
+        virtual void write_op(code_ptr to) const noexcept;
         virtual int32_t displacement() const noexcept;
     };
 
@@ -57,7 +58,7 @@ namespace dyntrace::fasttp
 
     protected:
         uint8_t op_size() const noexcept override;
-        void write_op(void* to) const noexcept override;
+        void write_op(code_ptr to) const noexcept override;
         int32_t displacement() const noexcept override;
     };
 
@@ -65,17 +66,17 @@ namespace dyntrace::fasttp
     {
         using instruction::instruction;
 
-        void write(void* to) const noexcept override;
+        void write(code_ptr to) const noexcept override;
     };
 
     class out_of_line
     {
     public:
 
-        explicit out_of_line(const void* code) noexcept;
+        explicit out_of_line(code_ptr code) noexcept;
         ~out_of_line() noexcept;
 
-        void write(void* target);
+        void write(code_ptr target);
 
         size_t size() const noexcept;
 

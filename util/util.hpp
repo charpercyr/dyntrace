@@ -75,99 +75,12 @@ namespace dyntrace
         return res;
     };
 
-    template<typename T>
-    class raii
-    {
-    public:
-        template<typename FuncType>
-        explicit raii(T t, FuncType&& func)
-            : _t{std::move(t)}, _cleanup{func} {}
-        ~raii() noexcept
-        {
-            _cleanup(_t);
-        }
-
-        operator T() const noexcept
-        {
-            return _t;
-        }
-
-        T operator->() const noexcept
-        {
-            return _t;
-        }
-
-    private:
-        T _t;
-        std::function<void(T t)> _cleanup;
-    };
-
-    template<typename UInt>
-    struct range
-    {
-        static_assert(std::is_unsigned_v<UInt>, "Type must be unsigned");
-
-        UInt start{0};
-        UInt end{std::numeric_limits<UInt>::max()};
-
-        constexpr bool contains(UInt v) const noexcept
-        {
-            return v >= start && v < end;
-        }
-
-        template<typename UInt2>
-        constexpr bool contains(const range<UInt2> &r) const noexcept
-        {
-            return r.start >= start && r.end <= end;
-        }
-
-        template<typename UInt2>
-        constexpr bool crosses(const range<UInt2>& r) const noexcept
-        {
-            return (r.start < start && r.end > start) || (r.start < end && r.end > end);
-        }
-
-        constexpr UInt size() const noexcept
-        {
-            return end - start;
-        }
-    };
-    using address_range = range<uintptr_t>;
-
-    template<typename Int>
-    constexpr auto make_range(std::make_unsigned_t<Int> center, std::make_unsigned_t<Int> size) noexcept
-    {
-        return range<std::make_unsigned_t<Int>>{center < (size >> 1) ? 0llu : center - (size >> 1), center + (size >> 1)};
-    }
-    constexpr auto make_address_range = make_range<uintptr_t>;
-
-    std::string realpath(const std::string& path);
-    std::string get_executable(pid_t pid);
-    pid_t find_process(const std::string& name);
-
-    constexpr unsigned long long int operator""_K(unsigned long long int i) noexcept
-    {
-        return i << 10;
-    }
-    constexpr unsigned long long int operator""_M(unsigned long long int i) noexcept
-    {
-        return i << 20;
-    }
     constexpr unsigned long long int operator""_G(unsigned long long int i) noexcept
     {
         return i << 30;
     }
 
     void hexdump(void* addr, size_t size) noexcept;
-
-    inline uintptr_t from_ptr(void* ptr) noexcept
-    {
-        return reinterpret_cast<uintptr_t>(ptr);
-    }
-    inline void* to_ptr(uintptr_t ptr) noexcept
-    {
-        return reinterpret_cast<void*>(ptr);
-    }
 }
 
 #endif

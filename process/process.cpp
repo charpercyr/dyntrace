@@ -3,6 +3,7 @@
 #include <fcntl.h>
 
 #include <util/flag.hpp>
+#include <util/path.hpp>
 
 using namespace dyntrace::process;
 

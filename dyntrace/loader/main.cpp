@@ -1,10 +1,8 @@
 
 #include <atomic>
 
-#include <process/process.hpp>
-#include <tracer.hpp>
-
 #include <fasttp/fasttp.hpp>
+#include <process/process.hpp>
 
 using namespace dyntrace;
 
@@ -46,9 +44,9 @@ private:
         }
     }
 
-    static void handler(const void* from, const dyntrace::tracer::regs& regs)
+    static void handler(const void* from, const dyntrace::arch::regs& regs)
     {
-        using dyntrace::tracer::arg;
+        using dyntrace::arch::arg;
         printf("Handler for %p a0=%lld(%p)\n", from, *arg<0, long long*>(regs), arg<0, void*>(regs));
     }
 

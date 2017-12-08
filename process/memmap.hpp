@@ -11,6 +11,7 @@
 #include "error.hpp"
 
 #include <util/flag.hpp>
+#include <util/integer_range.hpp>
 #include <util/util.hpp>
 
 namespace dyntrace::process

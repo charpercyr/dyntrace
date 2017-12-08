@@ -7,6 +7,7 @@
 #include <inject/injector.hpp>
 
 #include <process/process.hpp>
+#include <util/path.hpp>
 
 using namespace std;
 using namespace dyntrace;

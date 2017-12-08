@@ -24,9 +24,9 @@ int main()
 {
     do_run();
 
-    auto handler = [](const void* caller, const tracer::regs& regs)
+    auto handler = [](const void* caller, const arch::regs& regs)
     {
-        using tracer::arg;
+        using arch::arg;
         printf("Handler for %p a=%d b=%s\n",
                caller,
                arg<0, int>(regs),
@@ -39,9 +39,8 @@ int main()
     auto tp = ctx.create(
             fasttp::addr_location{foo},
             fasttp::handler{handler},
-            fasttp::options::disable_basic_block | fasttp::options::disable_thread_safe
+            fasttp::options::x86_disable_jmp_safe | fasttp::options::x86_disable_thread_safe
     );
-
     printf("===========\n");
     do_run();
     return 0;

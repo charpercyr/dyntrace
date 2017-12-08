@@ -13,6 +13,7 @@
 #include <wait.h>
 
 #include <process/process.hpp>
+#include <util/path.hpp>
 
 namespace dyntrace::inject
 {

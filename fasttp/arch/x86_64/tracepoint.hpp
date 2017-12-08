@@ -1,15 +1,15 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_TRACEPOINT_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_TRACEPOINT_HPP_
 
+#include <arch/arch.hpp>
 #include <process/process.hpp>
-#include <tracer.hpp>
-#include <util/code_ptr.hpp>
 
+#include <fasttp/code_ptr.hpp>
 #include <fasttp/options.hpp>
 
 namespace dyntrace::fasttp
 {
-    using handler = std::function<void(const void*, const tracer::regs&)>;
+    using handler = std::function<void(const void*, const arch::regs&)>;
 
     class context;
 
@@ -35,7 +35,7 @@ namespace dyntrace::fasttp
 
         void* location() const noexcept
         {
-            return _location;
+            return _location.as_ptr();
         }
 
     private:
@@ -43,7 +43,7 @@ namespace dyntrace::fasttp
         void do_insert(const context* ctx);
         void do_remove();
 
-        static void do_handle(arch_tracepoint *self, const tracer::regs &r);
+        static void do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept;
 
         handler _user_handler;
         code_ptr _location;

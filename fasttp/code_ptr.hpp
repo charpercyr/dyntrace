@@ -1,9 +1,10 @@
-#ifndef DYNTRACE_UTIL_CODE_PTR_HPP_
-#define DYNTRACE_UTIL_CODE_PTR_HPP_
+#ifndef DYNTRACE_FASTTP_CODE_PTR_HPP_
+#define DYNTRACE_FASTTP_CODE_PTR_HPP_
 
-#include <stdint.h>
+#include <cstdint>
+#include <type_traits>
 
-namespace dyntrace
+namespace dyntrace::fasttp
 {
     class code_ptr
     {
@@ -13,15 +14,10 @@ namespace dyntrace
         code_ptr(T ptr)
             : _ptr{reinterpret_cast<uint8_t*>(ptr)} {}
 
-        template<typename T = void*>
+        template<typename T>
         T as() const noexcept
         {
             return reinterpret_cast<T>(_ptr);
-        }
-
-        operator void*() const noexcept
-        {
-            return as();
         }
 
         uintptr_t as_int() const noexcept
@@ -31,16 +27,18 @@ namespace dyntrace
 
         void* as_ptr() const noexcept
         {
-            return as();
+            return as<void*>();
         }
 
-        code_ptr operator+(uintptr_t i) noexcept
+        template<typename T>
+        std::enable_if_t<std::is_integral_v<T>, code_ptr> operator+(T p) noexcept
         {
-            return code_ptr{_ptr + i};
+            return code_ptr{_ptr + p};
         }
-        code_ptr& operator+=(uintptr_t i) noexcept
+        template<typename T>
+        std::enable_if_t<std::is_integral_v<T>, code_ptr&> operator+=(T p) noexcept
         {
-            return *this = *this + i;
+            return *this = *this + p;
         }
 
         bool operator==(const code_ptr& ptr) const noexcept
@@ -61,6 +59,11 @@ namespace dyntrace
         bool operator!=(void* ptr) const noexcept
         {
             return _ptr != ptr;
+        }
+
+        operator bool() const noexcept
+        {
+            return _ptr != nullptr;
         }
 
     private:

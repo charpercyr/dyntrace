@@ -3,12 +3,9 @@
 #include "jmp.hpp"
 #include "out_of_line.hpp"
 
-#include <array>
-#include <capstone.h>
 #include <sys/mman.h>
 #include <sys/user.h>
 
-#include <util/util.hpp>
 #include <fasttp/error.hpp>
 #include <fasttp/fasttp.hpp>
 
@@ -75,36 +72,36 @@ namespace
     constexpr size_t tp_addr = 0x2a;
     constexpr size_t handler_addr = 0x37;
 
-    void set_refcount(void* _code, uintptr_t refcount) noexcept
+    constexpr uint8_t jmp_op = 0xe9;
+    constexpr size_t jmp_size = 5;
+
+    void set_refcount(code_ptr code, uintptr_t refcount) noexcept
     {
-        auto code = reinterpret_cast<uint8_t*>(_code);
-        safe_write8(code + refcount_addr_1, refcount);
-        safe_write8(code + refcount_addr_2, refcount);
+        safe_write8((code + refcount_addr_1).as_ptr(), refcount);
+        safe_write8((code + refcount_addr_2).as_ptr(), refcount);
     }
 
-    void set_tracepoint(void* _code, uintptr_t tp) noexcept
+    void set_tracepoint(code_ptr code, uintptr_t tp) noexcept
     {
-        auto code = reinterpret_cast<uint8_t*>(_code);
-        safe_write8(code + tp_addr, tp);
+        safe_write8((code + tp_addr).as_ptr(), tp);
     }
 
-    void set_handler(void* _code, uintptr_t handler) noexcept
+    void set_handler(code_ptr code, uintptr_t handler) noexcept
     {
-        auto code = reinterpret_cast<uint8_t*>(_code);
-        safe_write8(code + handler_addr, handler);
+        safe_write8((code + handler_addr).as_ptr(), handler);
     }
 
-    bool set_jmp(void* where, uintptr_t to)
+    bool set_jmp(code_ptr where, code_ptr to)
     {
-        auto odiff = calc_jmp(reinterpret_cast<uintptr_t>(where), to);
+        auto odiff = calc_jmp(where.as_int(), to.as_int());
         if(!odiff)
             return false;
         auto diff = odiff.value();
         uint8_t bytes[8];
-        memcpy(bytes, where, 8);
-        bytes[0] = 0xe9;
+        memcpy(bytes, where.as_ptr(), 8);
+        bytes[0] = jmp_op;
         memcpy(bytes + 1, &diff, 4);
-        safe_write8(where, *reinterpret_cast<uint64_t*>(bytes));
+        safe_write8(where.as_ptr(), *reinterpret_cast<uint64_t*>(bytes));
         return true;
     }
 
@@ -164,84 +161,88 @@ namespace
         return {loc, mmap_size};
     };
 
-    void* do_mmap(code_ptr loc, size_t size)
+    code_ptr do_mmap(code_ptr loc, size_t size)
     {
         auto [real_loc, mmap_size] = get_pages(loc, size);
         real_loc = mmap(
-            real_loc, mmap_size,
+            real_loc.as_ptr(), mmap_size,
             PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
             -1, 0
         );
         if(real_loc == MAP_FAILED)
             throw fasttp_error("mmap failed for " + to_hex_string(loc.as_int()));
-        return loc.as_ptr();
+        return loc;
     }
 
     void do_unmap(code_ptr loc, size_t size) noexcept
     {
         auto [real_loc, mmap_size] = get_pages(loc, size);
-        munmap(real_loc, mmap_size);
+        munmap(real_loc.as_ptr(), mmap_size);
     }
 }
 void arch_tracepoint::do_insert(const context *ctx)
 {
-    if(!flag(_ops, options::disable_basic_block))
+    if(!flag(_ops, options::x86_disable_jmp_safe))
     {
-        for (const auto &bb : ctx->basic_blocks())
+        if(!ctx->basic_blocks())
         {
-            if (bb.crosses(address_range{_location.as_int(), _location.as_int() + 5}))
+            throw fasttp_error{"No basic block information available"};
+        }
+        for (const auto &bb : ctx->basic_blocks().value())
+        {
+            if (bb.crosses(address_range{_location.as_int(), _location.as_int() + jmp_size}))
             {
                 throw fasttp_error("Jump crosses basic block");
             }
         }
     }
 
-    memcpy(&_old_code, _location, 8);
+    memcpy(&_old_code, _location.as_ptr(), 8);
 
     auto ool = out_of_line(_location.as_ptr());
 
-    _handler_size = 5 + ool.size() + sizeof(handler_code);
+    _handler_size = jmp_size + ool.size() + sizeof(handler_code);
 
     condition cond;
-    if(!flag(_ops, options::disable_thread_safe))
+    if(!flag(_ops, options::x86_disable_thread_safe))
     {
         cond = make_condition(_location.as_int(), ool);
     }
-    auto loc = find_location(_location.as_int(), ctx->process(), make_address_range(_location.as_int(), 2_G - 5 - _handler_size), cond);
+    auto loc = find_location(_location.as_int(), ctx->process(), make_address_range(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
     if(loc == 0)
     {
         throw fasttp_error("Could not find space for tracepoint");
     }
     _handler_location = do_mmap(loc, _handler_size);
 
-    memcpy(_handler_location, handler_code, sizeof(handler_code));
+    memcpy(_handler_location.as_ptr(), handler_code, sizeof(handler_code));
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
     ool.write(_handler_location + sizeof(handler_code));
-    set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location.as_int() + ool.size());
+    set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
-    auto pages = get_pages(_location, 8);
-    mprotect(pages.first, pages.second, PROT_WRITE | PROT_EXEC | PROT_READ);
-    set_jmp(_location, _handler_location.as_int());
-    mprotect(pages.first, pages.second, PROT_EXEC | PROT_READ);
+    auto [pages_loc, pages_size] = get_pages(_location, 8);
+    mprotect(pages_loc.as_ptr(), pages_size, PROT_WRITE | PROT_EXEC | PROT_READ);
+    set_jmp(_location, _handler_location);
+    mprotect(pages_loc.as_ptr(), pages_size, PROT_EXEC | PROT_READ);
 }
 
 void arch_tracepoint::do_remove()
 {
     auto [real_loc, mmap_size] = get_pages(_location, 8);
-    mprotect(real_loc, mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-    safe_write8(_location, _old_code);
-    mprotect(real_loc, mmap_size, PROT_EXEC | PROT_READ);
+    mprotect(real_loc.as_ptr(), mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
+    safe_write8(_location.as_ptr(), _old_code);
+    mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
     while(_refcount);
     do_unmap(_handler_location, _handler_size);
 }
 
-void arch_tracepoint::do_handle(arch_tracepoint *self, const tracer::regs &r)
+void arch_tracepoint::do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept
 {
     try
     {
-        self->_user_handler(self->_location, r);
+        self->_user_handler(self->_location.as_ptr(), r);
     }
     catch (const std::exception& e)
     {

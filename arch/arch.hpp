@@ -1,5 +1,5 @@
-#ifndef DYNTRACE_TRACERS_LIB_TRACER_HPP_
-#define DYNTRACE_TRACERS_LIB_TRACER_HPP_
+#ifndef DYNTRACE_ARCH_ARCH_HPP_
+#define DYNTRACE_ARCH_ARCH_HPP_
 
 #ifdef __x86_64__
 #include "x86_64.hpp"
@@ -7,7 +7,7 @@
 #error "Architecture not supported"
 #endif
 
-namespace dyntrace::tracer
+namespace dyntrace::arch
 {
     namespace _detail
     {
@@ -42,14 +42,14 @@ namespace dyntrace::tracer
         return _detail::cast<T>(r.ret());
     }
 
-    inline const regs::uint* return_address(const regs& r) noexcept
+    inline const void* return_address(const regs& r) noexcept
     {
-        return reinterpret_cast<regs::uint*>(r.return_address());
+        return reinterpret_cast<const void*>(r.return_address());
     }
 
-    inline const regs::uint* stack(const regs& r) noexcept
+    inline const void* stack(const regs& r) noexcept
     {
-        return reinterpret_cast<regs::uint*>(r.stack());
+        return reinterpret_cast<const void*>(r.stack());
     }
 }
 

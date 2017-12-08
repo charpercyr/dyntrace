@@ -6,7 +6,6 @@
 #include <utility>
 
 #include <process/process.hpp>
-#include <tracer.hpp>
 
 #include "arch/tracepoint.hpp"
 #include "location.hpp"
@@ -81,7 +80,7 @@ namespace dyntrace::fasttp
             return *_proc;
         }
 
-        const std::vector<address_range>& basic_blocks() const noexcept
+        const std::optional<std::vector<address_range>>& basic_blocks() const noexcept
         {
             return _basic_blocks;
         }
@@ -90,7 +89,7 @@ namespace dyntrace::fasttp
 
         void remove(void* ptr);
 
-        std::vector<address_range> _basic_blocks;
+        std::optional<std::vector<address_range>> _basic_blocks;
         std::shared_ptr<const process::process> _proc;
         dyntrace::locked<std::map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
     };

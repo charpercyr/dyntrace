@@ -1,11 +1,11 @@
-#ifndef DYNTRACE_TRACERS_LIB_X86_64_HPP_
-#define DYNTRACE_TRACERS_LIB_X86_64_HPP_
+#ifndef DYNTRACE_ARCH_X86_64_HPP_
+#define DYNTRACE_ARCH_X86_64_HPP_
 
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
 
-namespace dyntrace::tracer
+namespace dyntrace::arch
 {
     class regs
     {

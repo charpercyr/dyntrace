@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.9)
 
-include(cmake/tracer.cmake)
 include(FindPkgConfig)
 
 enable_language(ASM)
@@ -14,6 +13,7 @@ pkg_check_modules(CAPSTONE capstone)
 
 include_directories(${CMAKE_SOURCE_DIR})
 
+add_subdirectory(arch)
 add_subdirectory(dyntrace)
 add_subdirectory(examples)
 add_subdirectory(fasttp)
