@@ -29,8 +29,8 @@ int main()
         using arch::arg;
         printf("Handler for %p a=%d b=%s\n",
                caller,
-               arg<0, int>(regs),
-               arg<1, const std::string&>(regs).c_str()
+               arg<int>(regs, 0),
+               arg<const std::string&>(regs, 1).c_str()
         );
     };
 

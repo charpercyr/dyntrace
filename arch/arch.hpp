@@ -30,10 +30,10 @@ namespace dyntrace::arch
         };
     }
 
-    template<size_t N, typename T = regs::uint>
-    inline const T arg(const regs& r) noexcept
+    template<typename T = regs::uint>
+    inline const T arg(const regs& r, size_t i) noexcept
     {
-        return _detail::cast<T>(r.arg<N>());
+        return _detail::cast<T>(r.arg(i));
     }
 
     template<typename T = regs::uint>

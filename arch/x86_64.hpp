@@ -31,46 +31,27 @@ namespace dyntrace::arch
         uint rsp;
 
     private:
-        template<size_t N>
-        struct arg_idx{};
-
-        uint arg(arg_idx<0>) const noexcept
-        {
-            return rdi;
-        }
-        uint arg(arg_idx<1>) const noexcept
-        {
-            return rsi;
-        }
-        uint arg(arg_idx<2>) const noexcept
-        {
-            return rdx;
-        }
-        uint arg(arg_idx<3>) const noexcept
-        {
-            return rcx;
-        }
-        uint arg(arg_idx<4>) const noexcept
-        {
-            return r8;
-        }
-        uint arg(arg_idx<5>) const noexcept
-        {
-            return r9;
-        }
-        template<size_t N>
-        std::enable_if_t<(N > 5), uint> arg(arg_idx<N>) const noexcept
-        {
-            auto st = reinterpret_cast<uint*>(stack());
-            return *(st + (N - 5) + 1);
-        };
-
     public:
 
-        template<size_t N>
-        uint arg() const noexcept
+        uint arg(size_t i) const noexcept
         {
-            return arg(arg_idx<N>{});
+            switch(i)
+            {
+            case 0:
+                return rdi;
+            case 1:
+                return rsi;
+            case 2:
+                return rdx;
+            case 3:
+                return rcx;
+            case 4:
+                return r8;
+            case 5:
+                return r9;
+            default:
+                return *(reinterpret_cast<uint*>(rsp) + i - 4);
+            }
         }
 
         uint ret() const noexcept

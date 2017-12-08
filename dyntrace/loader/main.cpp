@@ -47,7 +47,7 @@ private:
     static void handler(const void* from, const dyntrace::arch::regs& regs)
     {
         using dyntrace::arch::arg;
-        printf("Handler for %p a0=%lld(%p)\n", from, *arg<0, long long*>(regs), arg<0, void*>(regs));
+        printf("Handler for %p a0=%lld(%p)\n", from, *arg<long long*>(regs, 0), arg<void*>(regs, 0));
     }
 
     pthread_t _th{0};
