@@ -22,13 +22,14 @@ namespace
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         uintptr_t target = 0;
 
+        // If we call the old handler, red may never unlock
         {
             auto red = redirects.lock();
             auto it = red->find(ctx->uc_mcontext.gregs[REG_RIP] - 1);
             if(it != red->end())
                 target = it->second;
         }
-        
+
         if(target)
         {
             ctx->uc_mcontext.gregs[REG_RIP] = target;
