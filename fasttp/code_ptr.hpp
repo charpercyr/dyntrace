@@ -13,6 +13,8 @@ namespace dyntrace::fasttp
         template<typename T>
         code_ptr(T ptr)
             : _ptr{reinterpret_cast<uint8_t*>(ptr)} {}
+        code_ptr(std::nullptr_t)
+            : _ptr{nullptr} {}
 
         template<typename T>
         T as() const noexcept
@@ -46,19 +48,9 @@ namespace dyntrace::fasttp
             return _ptr == ptr._ptr;
         }
 
-        bool operator==(void* ptr) const noexcept
-        {
-            return _ptr == ptr;
-        }
-
         bool operator!=(const code_ptr& ptr) const noexcept
         {
             return _ptr != ptr._ptr;
-        }
-
-        bool operator!=(void* ptr) const noexcept
-        {
-            return _ptr != ptr;
         }
 
         operator bool() const noexcept

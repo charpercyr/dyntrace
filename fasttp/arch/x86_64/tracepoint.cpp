@@ -12,7 +12,7 @@
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
 
-extern "C" void safe_write8(void* where, uint64_t val) noexcept;
+extern "C" void do_safe_write8(volatile void* where, uint64_t val) noexcept;
 
 namespace
 {
@@ -75,6 +75,11 @@ namespace
     constexpr uint8_t jmp_op = 0xe9;
     constexpr size_t jmp_size = 5;
 
+    void safe_write8(volatile void* where, uint64_t val) noexcept
+    {
+        do_safe_write8(where, val);
+    }
+
     void set_refcount(code_ptr code, uintptr_t refcount) noexcept
     {
         safe_write8((code + refcount_addr_1).as_ptr(), refcount);
@@ -98,7 +103,7 @@ namespace
             return false;
         auto diff = odiff.value();
         uint8_t bytes[8];
-        memcpy(bytes, where.as_ptr(), 8);
+        *reinterpret_cast<uintptr_t*>(bytes) = *where.as<uintptr_t*>();
         bytes[0] = jmp_op;
         memcpy(bytes + 1, &diff, 4);
         safe_write8(where.as_ptr(), *reinterpret_cast<uint64_t*>(bytes));
@@ -121,32 +126,80 @@ namespace
         return res;
     };
 
-    uintptr_t find_location(uintptr_t from, const address_range& zone, const address_range& range, const condition& cond)
+    int32_t generate(const condition& cond, uint8_t val)
     {
-        if(range.contains(zone.start))
+        uint8_t tab[4];
+        for(int i = 0; i < 4; ++i)
         {
-            return zone.start;
+            if(cond[i])
+                tab[i] = cond[i].value();
+            else
+                tab[i] = val;
         }
-        else if(range.contains(zone.end - PAGE_SIZE))
-        {
-            return zone.end - PAGE_SIZE;
-        }
-        else if(zone.contains(range))
-        {
-            return range.start;
-        }
-        else
-        {
-            return 0;
-        }
+        return *reinterpret_cast<int32_t*>(tab);
     }
 
-    uintptr_t find_location(uintptr_t from, const process::process& proc, address_range range, const condition& cond)
+    integer_range<int32_t> condition_range(const condition& cond)
+    {
+        int32_t start = generate(cond, 0x00);
+        int32_t end = generate(cond, 0xff);
+        if(!cond[3])
+            end &= 0x7fff'ffff;
+        return {start, end};
+    }
+
+    uintptr_t find_location(uintptr_t from, uintptr_t size, const address_range& zone, const condition& cond)
+    {
+        uint8_t bytes[4];
+        auto value = reinterpret_cast<int32_t*>(bytes);
+        integer_range<int32_t> to{
+            calc_jmp(from, zone.start).value_or(std::numeric_limits<int32_t>::min()),
+            calc_jmp(from, zone.end).value_or(std::numeric_limits<int32_t>::max())
+        };
+        for(int i = 0; i < 4; ++i)
+        {
+            bytes[i] = cond[i].value_or(0);
+        }
+        for(int i = 0; i < 4; ++i)
+        {
+            if(!cond[i])
+            {
+                for(int v = 0; v < 256; ++v)
+                {
+                    bytes[i] = v;
+                    if(to.contains(integer_range<int32_t>{*value, *value + static_cast<int32_t>(size)}))
+                        return from + jmp_size + *value;
+                    else if(abs(*value - to.start) <= (1 << 8*(3-i)))
+                        break;
+                }
+            }
+        }
+        if(to.contains(integer_range<int32_t>{*value, *value + static_cast<int32_t>(size)}))
+            return from + jmp_size + *value;
+        else
+            return 0;
+    }
+
+    uintptr_t find_location(uintptr_t from, uintptr_t size, const address_range& zone, const address_range& range, const condition& cond)
+    {
+        auto cond_range = condition_range(cond);
+        address_range cond_zone{
+            from + jmp_size + cond_range.start,
+            from + jmp_size + cond_range.end
+        };
+        auto inter = zone.intersection(range).intersection(cond_zone);
+        if(inter)
+            return find_location(from, size, inter, cond);
+        else
+            return 0;
+    }
+
+    uintptr_t find_location(uintptr_t from, uintptr_t size, const process::process& proc, address_range range, const condition& cond)
     {
         auto free = proc.create_memmap().free();
         for(auto& z : free)
         {
-            auto ret = find_location(from, z, range, cond);
+            auto ret = find_location(from, size, z, range, cond);
             if(ret != 0)
                 return ret;
         }
@@ -208,7 +261,7 @@ void arch_tracepoint::do_insert(const context *ctx)
     {
         cond = make_condition(_location.as_int(), ool);
     }
-    auto loc = find_location(_location.as_int(), ctx->process(), make_address_range(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
+    auto loc = find_location(_location.as_int(), _handler_size, ctx->process(), address_range_around(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
     if(loc == 0)
     {
         throw fasttp_error("Could not find space for tracepoint");
@@ -219,7 +272,7 @@ void arch_tracepoint::do_insert(const context *ctx)
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
-    ool.write(_handler_location + sizeof(handler_code));
+    _redirects = ool.write(_handler_location + sizeof(handler_code));
     set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
     auto [pages_loc, pages_size] = get_pages(_location, 8);

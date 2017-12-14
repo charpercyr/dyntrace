@@ -170,13 +170,22 @@ out_of_line::~out_of_line() noexcept
     cs_close(&_handle);
 }
 
-void out_of_line::write(code_ptr at)
+std::vector<trap_redirect_handle> out_of_line::write(code_ptr at)
 {
+    std::vector<trap_redirect_handle> redirects;
+    bool first = true;
     for(const auto& insn : _insns)
     {
+        if(first)
+            first = false;
+        else
+        {
+            redirects.push_back(add_trap_redirect(insn->address(), at));
+        }
         insn->write(at);
         at += insn->size();
     }
+    return redirects;
 }
 
 size_t out_of_line::size() const noexcept

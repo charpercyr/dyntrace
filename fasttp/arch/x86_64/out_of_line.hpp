@@ -8,6 +8,8 @@
 #include <memory>
 #include <vector>
 
+#include "trap.hpp"
+
 namespace dyntrace::fasttp
 {
     class instruction
@@ -76,7 +78,7 @@ namespace dyntrace::fasttp
         explicit out_of_line(code_ptr code) noexcept;
         ~out_of_line() noexcept;
 
-        void write(code_ptr target);
+        std::vector<trap_redirect_handle> write(code_ptr target);
 
         size_t size() const noexcept;
 

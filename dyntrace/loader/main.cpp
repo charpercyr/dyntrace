@@ -29,19 +29,12 @@ private:
 
     void run()
     {
-        try
-        {
             auto proc = std::make_shared<process::process>(getpid());
             auto ctx = fasttp::context{proc};
             printf("Insert\n");
             auto tp = ctx.create(fasttp::symbol_location{"do_inc"}, fasttp::handler{handler});
             sleep(3);
             printf("Remove\n");
-        }
-        catch(const std::exception& e)
-        {
-            fprintf(stderr, "Error: %s\n", e.what());
-        }
     }
 
     static void handler(const void* from, const dyntrace::arch::regs& regs)

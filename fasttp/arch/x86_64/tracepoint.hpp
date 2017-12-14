@@ -7,6 +7,10 @@
 #include <fasttp/code_ptr.hpp>
 #include <fasttp/options.hpp>
 
+#include "trap.hpp"
+
+#include <vector>
+
 namespace dyntrace::fasttp
 {
     using handler = std::function<void(const void*, const arch::regs&)>;
@@ -52,6 +56,7 @@ namespace dyntrace::fasttp
         uint64_t _old_code;
         volatile uint64_t _refcount{0};
         options _ops;
+        std::vector<trap_redirect_handle> _redirects;
     };
 }
 

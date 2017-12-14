@@ -11,6 +11,7 @@
 #include "error.hpp"
 
 #include <util/flag.hpp>
+#include <util/path.hpp>
 #include <util/integer_range.hpp>
 #include <util/util.hpp>
 
@@ -27,6 +28,8 @@ namespace dyntrace::process
 
     struct zone : address_range
     {
+        zone(uintptr_t start, uintptr_t end, permissions _perms, std::string _bin)
+            : address_range{start, end}, perms{_perms}, bin{std::move(_bin)} {}
         permissions perms;
         std::string bin;
     };

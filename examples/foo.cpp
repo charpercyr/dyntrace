@@ -39,7 +39,7 @@ int main()
     auto tp = ctx.create(
             fasttp::addr_location{foo},
             fasttp::handler{handler},
-            fasttp::options::x86_disable_jmp_safe | fasttp::options::x86_disable_thread_safe
+            fasttp::options::x86_disable_jmp_safe
     );
     printf("===========\n");
     do_run();

@@ -13,6 +13,18 @@ namespace dyntrace
         return (a + b - 1) / b;
     }
 
+    template<typename Int, typename Int2>
+    constexpr auto max(Int a, Int2 b) noexcept
+    {
+        return a > b ? a : b;
+    }
+
+    template<typename Int, typename Int2>
+    constexpr auto min(Int a, Int2 b) noexcept
+    {
+        return a < b ? a : b;
+    }
+
     template<typename Int>
     constexpr Int next_pow2(Int v) noexcept
     {
