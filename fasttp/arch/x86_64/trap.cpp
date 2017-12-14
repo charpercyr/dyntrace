@@ -19,6 +19,7 @@ namespace
     struct sigaction old_handler{};
     void trap_handler(int sig, siginfo_t* info, void* _ctx)
     {
+        printf("Trap\n");
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         uintptr_t target = 0;
 

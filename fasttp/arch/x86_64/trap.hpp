@@ -14,7 +14,7 @@ namespace dyntrace::fasttp
     {
         explicit trap_redirect_handle(code_ptr _at = {})
             : at{_at} {}
-        explicit trap_redirect_handle(trap_redirect_handle&& h)
+        trap_redirect_handle(trap_redirect_handle&& h)
             : at{h.at}
         {
             h.at = nullptr;

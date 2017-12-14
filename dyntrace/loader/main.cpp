@@ -32,7 +32,9 @@ private:
             auto proc = std::make_shared<process::process>(getpid());
             auto ctx = fasttp::context{proc};
             printf("Insert\n");
-            auto tp = ctx.create(fasttp::symbol_location{"do_inc"}, fasttp::handler{handler});
+            auto addr = fasttp::symbol_location{"do_inc"}.resolve(*proc);
+            addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) + 7);
+            auto tp = ctx.create(fasttp::addr_location{addr}, fasttp::handler{handler});
             sleep(3);
             printf("Remove\n");
     }
@@ -40,7 +42,7 @@ private:
     static void handler(const void* from, const dyntrace::arch::regs& regs)
     {
         using dyntrace::arch::arg;
-        printf("Handler for %p a0=%lld(%p)\n", from, *arg<long long*>(regs, 0), arg<void*>(regs, 0));
+        printf("Handler for %p rcx=%lu\n", from, regs.rcx);
     }
 
     pthread_t _th{0};
