@@ -19,51 +19,17 @@ void tracepoint::remove()
     }
 }
 
-context::context(std::shared_ptr<const process::process> proc)
-    : _proc{std::move(proc)}
-{
-    try
-    {
-        auto dw = _proc->dwarf();
-        for (const auto &cu : dw.compilation_units())
-        {
-            for (const auto &sp : cu.root())
-            {
-                if (sp.tag == dwarf::DW_TAG::subprogram)
-                {
-                    for (const auto &bb : sp)
-                    {
-                        // Custom tag for basic block
-                        if (static_cast<int>(bb.tag) == 0x1001)
-                        {
-                            if(!_basic_blocks)
-                                _basic_blocks = std::vector<address_range>();
-                            auto base = bb[dwarf::DW_AT::low_pc].as_address();
-                            auto size = bb[dwarf::DW_AT::high_pc].as_uconstant();
-                            _basic_blocks->push_back({base, base + size});
-                        }
-                    }
-                }
-            }
-        }
-    }
-    catch(const std::exception& e)
-    {
-        // No basic block info
-    }
-}
-
 context::~context() = default;
 
 tracepoint context::create(const location &loc, handler &&handler, options ops)
 {
     auto tracepoints = _tracepoints.lock();
-    void* addr = loc.resolve(*_proc);
+    void* addr = loc.resolve(_impl.process());
     if(tracepoints->find(addr) != _tracepoints->end())
     {
         throw fasttp_error{"Tracepoint already exists at " + to_hex_string(addr)};
     }
-    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, this, std::move(handler), ops))).first;
+    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, _impl, std::move(handler), ops))).first;
     return tracepoint{it->second.get(), this, !flag(ops, options::disable_auto_remove)};
 }
 

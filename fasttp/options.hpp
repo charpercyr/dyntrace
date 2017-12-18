@@ -12,6 +12,7 @@ namespace dyntrace
             // x86(_64)
             x86_disable_jmp_safe = 2,
             x86_disable_thread_safe = 4,
+            x86_call_handler_on_trap = 8,
         };
 
     }

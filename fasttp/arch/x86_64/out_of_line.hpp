@@ -3,12 +3,12 @@
 
 #include <fasttp/code_ptr.hpp>
 
-#include <capstone.h>
+#include <capstone/capstone.h>
 
 #include <memory>
 #include <vector>
 
-#include "trap.hpp"
+#include "context.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -78,7 +78,7 @@ namespace dyntrace::fasttp
         explicit out_of_line(code_ptr code) noexcept;
         ~out_of_line() noexcept;
 
-        std::vector<trap_redirect_handle> write(code_ptr target);
+        std::vector<redirect_handle> write(arch_context& ctx, code_ptr target, handler&& h = nullptr);
 
         size_t size() const noexcept;
 

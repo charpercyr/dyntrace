@@ -53,10 +53,18 @@ namespace dyntrace::fasttp
             return _ptr != ptr._ptr;
         }
 
-        operator bool() const noexcept
+        explicit operator bool() const noexcept
         {
             return _ptr != nullptr;
         }
+
+        struct hash
+        {
+            uintptr_t operator()(const code_ptr& ptr) const noexcept
+            {
+                return ptr.as_int();
+            }
+        };
 
     private:
         uint8_t* _ptr{nullptr};

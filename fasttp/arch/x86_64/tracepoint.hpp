@@ -7,13 +7,12 @@
 #include <fasttp/code_ptr.hpp>
 #include <fasttp/options.hpp>
 
-#include "trap.hpp"
+#include "context.hpp"
 
 #include <vector>
 
 namespace dyntrace::fasttp
 {
-    using handler = std::function<void(const void*, const arch::regs&)>;
 
     class context;
 
@@ -25,10 +24,10 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, const context* ctx, handler&& h, options ops)
-            : _location{location}, _user_handler{std::move(h)}, _ops{ops}
+        arch_tracepoint(void* location, arch_context& ctx, handler&& h, options ops)
+            : _location{location}, _user_handler{std::move(h)}
         {
-            do_insert(ctx);
+            do_insert(ctx, ops);
         }
 
         ~arch_tracepoint()
@@ -44,7 +43,7 @@ namespace dyntrace::fasttp
 
     private:
 
-        void do_insert(const context* ctx);
+        void do_insert(arch_context& ctx, options ops);
         void do_remove();
 
         static void do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept;
@@ -55,8 +54,7 @@ namespace dyntrace::fasttp
         size_t _handler_size;
         uint64_t _old_code;
         volatile uint64_t _refcount{0};
-        options _ops;
-        std::vector<trap_redirect_handle> _redirects;
+        std::vector<redirect_handle> _redirects;
     };
 }
 

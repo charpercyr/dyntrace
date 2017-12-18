@@ -70,28 +70,19 @@ namespace dyntrace::fasttp
         friend class tracepoint;
     public:
 
-        explicit context(std::shared_ptr<const process::process> proc);
+        explicit context(std::shared_ptr<const process::process> proc) noexcept
+            : _proc{std::move(proc)}, _impl{*_proc} {}
         ~context();
 
         tracepoint create(const location& loc, handler&& handler, options ops = options::none);
-
-        const process::process& process() const noexcept
-        {
-            return *_proc;
-        }
-
-        const std::optional<std::vector<address_range>>& basic_blocks() const noexcept
-        {
-            return _basic_blocks;
-        }
 
     private:
 
         void remove(void* ptr);
 
-        std::optional<std::vector<address_range>> _basic_blocks;
         std::shared_ptr<const process::process> _proc;
         dyntrace::locked<std::map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
+        arch_context _impl;
     };
 }
 

@@ -170,9 +170,9 @@ out_of_line::~out_of_line() noexcept
     cs_close(&_handle);
 }
 
-std::vector<trap_redirect_handle> out_of_line::write(code_ptr at)
+std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, handler&& h)
 {
-    std::vector<trap_redirect_handle> redirects;
+    std::vector<redirect_handle> redirects;
     bool first = true;
     for(const auto& insn : _insns)
     {
@@ -180,7 +180,7 @@ std::vector<trap_redirect_handle> out_of_line::write(code_ptr at)
             first = false;
         else
         {
-            redirects.push_back(add_trap_redirect(insn->address(), at));
+            redirects.push_back(ctx.add_redirect(insn->address(), at, std::move(h)));
         }
         insn->write(at);
         at += insn->size();

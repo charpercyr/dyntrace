@@ -233,15 +233,15 @@ namespace
         munmap(real_loc.as_ptr(), mmap_size);
     }
 }
-void arch_tracepoint::do_insert(const context *ctx)
+void arch_tracepoint::do_insert(arch_context& ctx, options ops)
 {
-    if(!flag(_ops, options::x86_disable_jmp_safe))
+    if(!flag(ops, options::x86_disable_jmp_safe))
     {
-        if(!ctx->basic_blocks())
+        if(!ctx.basic_blocks())
         {
             throw fasttp_error{"No basic block information available"};
         }
-        for (const auto &bb : ctx->basic_blocks().value())
+        for (const auto &bb : ctx.basic_blocks().value())
         {
             if (bb.crosses(address_range{_location.as_int(), _location.as_int() + jmp_size}))
             {
@@ -257,11 +257,11 @@ void arch_tracepoint::do_insert(const context *ctx)
     _handler_size = jmp_size + ool.size() + sizeof(handler_code);
 
     condition cond;
-    if(!flag(_ops, options::x86_disable_thread_safe))
+    if(!flag(ops, options::x86_disable_thread_safe))
     {
         cond = make_condition(_location.as_int(), ool);
     }
-    auto loc = find_location(_location.as_int(), _handler_size, ctx->process(), address_range_around(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
+    auto loc = find_location(_location.as_int(), _handler_size, ctx.process(), address_range_around(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
     if(loc == 0)
     {
         throw fasttp_error("Could not find space for tracepoint");
@@ -272,7 +272,8 @@ void arch_tracepoint::do_insert(const context *ctx)
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
-    _redirects = ool.write(_handler_location + sizeof(handler_code));
+    handler h = flag(ops, options::x86_call_handler_on_trap) ? _user_handler : nullptr;
+    _redirects = ool.write(ctx, _handler_location + sizeof(handler_code), std::move(h));
     set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
     auto [pages_loc, pages_size] = get_pages(_location, 8);
