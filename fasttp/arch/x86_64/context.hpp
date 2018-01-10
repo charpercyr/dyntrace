@@ -7,12 +7,12 @@
 
 #include <arch/arch.hpp>
 #include <fasttp/code_ptr.hpp>
+#include <fasttp/common.hpp>
 #include <process/process.hpp>
 #include <util/integer_range.hpp>
 
 namespace dyntrace::fasttp
 {
-    using handler = std::function<void(const void*, const arch::regs&)>;
 
     class arch_context;
 

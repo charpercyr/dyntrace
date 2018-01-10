@@ -5,7 +5,7 @@
 #include <process/process.hpp>
 
 #include <fasttp/code_ptr.hpp>
-#include <fasttp/options.hpp>
+#include <fasttp/common.hpp>
 
 #include "context.hpp"
 
@@ -24,10 +24,10 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, arch_context& ctx, handler&& h, options ops)
+        arch_tracepoint(void* location, arch_context& ctx, handler&& h, common&& ops)
             : _location{location}, _user_handler{std::move(h)}
         {
-            do_insert(ctx, ops);
+            do_insert(ctx, std::move(ops));
         }
 
         ~arch_tracepoint()
@@ -43,7 +43,7 @@ namespace dyntrace::fasttp
 
     private:
 
-        void do_insert(arch_context& ctx, options ops);
+        void do_insert(arch_context& ctx, common&& ops);
         void do_remove();
 
         static void do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept;
@@ -51,8 +51,8 @@ namespace dyntrace::fasttp
         handler _user_handler;
         code_ptr _location;
         code_ptr _handler_location;
-        size_t _handler_size;
-        uint64_t _old_code;
+        size_t _handler_size{0};
+        uint64_t _old_code{0};
         volatile uint64_t _refcount{0};
         std::vector<redirect_handle> _redirects;
     };

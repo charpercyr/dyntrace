@@ -23,7 +23,8 @@ static void bm_run_tracepoints(benchmark::State& state)
         ++count;
     };
 
-    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, fasttp::options::x86_disable_jmp_safe | fasttp::options::x86_disable_thread_safe);
+    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler},
+                         fasttp::common{.x86.disable_thread_safe = true, .x86.disable_jmp_safe = true});
     for(auto _ : state)
     {
         some_func();
@@ -41,7 +42,8 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 
     for(auto _ : state)
     {
-        ctx.create(loc, fasttp::handler{handler}, fasttp::options::x86_disable_jmp_safe | fasttp::options::x86_disable_thread_safe);
+        ctx.create(loc, fasttp::handler{handler},
+                   fasttp::common{.x86.disable_thread_safe = true, .x86.disable_jmp_safe = true});
     }
 }
 

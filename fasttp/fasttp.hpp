@@ -9,7 +9,7 @@
 
 #include "arch/tracepoint.hpp"
 #include "location.hpp"
-#include "options.hpp"
+#include "common.hpp"
 #include "util/locked.hpp"
 #include "util/flag.hpp"
 
@@ -74,7 +74,7 @@ namespace dyntrace::fasttp
             : _proc{std::move(proc)}, _impl{*_proc} {}
         ~context();
 
-        tracepoint create(const location& loc, handler&& handler, options ops = options::none);
+        tracepoint create(const location& loc, handler&& handler, common&& ops = {});
 
     private:
 

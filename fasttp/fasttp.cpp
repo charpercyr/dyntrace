@@ -21,7 +21,7 @@ void tracepoint::remove()
 
 context::~context() = default;
 
-tracepoint context::create(const location &loc, handler &&handler, options ops)
+tracepoint context::create(const location &loc, handler &&handler, common&& ops)
 {
     auto tracepoints = _tracepoints.lock();
     void* addr = loc.resolve(_impl.process());
@@ -29,8 +29,10 @@ tracepoint context::create(const location &loc, handler &&handler, options ops)
     {
         throw fasttp_error{"Tracepoint already exists at " + to_hex_string(addr)};
     }
-    auto it = tracepoints->insert(std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, _impl, std::move(handler), ops))).first;
-    return tracepoint{it->second.get(), this, !flag(ops, options::disable_auto_remove)};
+    auto it = tracepoints->insert(
+        std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, _impl, std::move(handler), std::move(ops)))
+    ).first;
+    return tracepoint{it->second.get(), this, !ops.disable_auto_remove};
 }
 
 void context::remove(void *ptr)

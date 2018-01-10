@@ -34,7 +34,8 @@ private:
             printf("Insert\n");
             auto addr = fasttp::symbol_location{"do_inc"}.resolve(*proc);
             addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr) + 7);
-            auto tp = ctx.create(fasttp::addr_location{addr}, fasttp::handler{handler});
+            auto tp = ctx.create(fasttp::addr_location{addr}, fasttp::handler{handler},
+            fasttp::common{.x86.trap_handler = fasttp::handler{trap}});
             sleep(3);
             printf("Remove\n");
     }
@@ -43,6 +44,11 @@ private:
     {
         using dyntrace::arch::arg;
         printf("Handler for %p rcx=%lu\n", from, regs.rcx);
+    }
+
+    static void trap(const void* from, const dyntrace::arch::regs& regs)
+    {
+        printf("Trap\n");
     }
 
     pthread_t _th{0};

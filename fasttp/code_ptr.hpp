@@ -9,7 +9,9 @@ namespace dyntrace::fasttp
     class code_ptr
     {
     public:
-        code_ptr() noexcept = default;
+        code_ptr() noexcept
+            : _ptr{nullptr} {}
+
         template<typename T>
         code_ptr(T ptr)
             : _ptr{reinterpret_cast<uint8_t*>(ptr)} {}
@@ -67,7 +69,7 @@ namespace dyntrace::fasttp
         };
 
     private:
-        uint8_t* _ptr{nullptr};
+        uint8_t* _ptr;
     };
 }
 
