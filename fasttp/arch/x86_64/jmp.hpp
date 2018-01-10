@@ -7,6 +7,13 @@
 
 namespace dyntrace::fasttp
 {
+    /**
+     * Calculates a relative jmp.
+     * @param from jmp location.
+     * @param to jmp target
+     * @param insn_size Size of the instruction
+     * @return The offset to write for the instruction. Empty if the jmp is impossible.
+     */
     inline std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to, uint8_t insn_size = 5) noexcept
     {
         from += insn_size;

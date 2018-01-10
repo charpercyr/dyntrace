@@ -13,9 +13,9 @@
 
 namespace dyntrace::fasttp
 {
-
-    class context;
-
+    /**
+     * x86_64 tracepoint implementation.
+     */
     class arch_tracepoint
     {
     public:
@@ -24,7 +24,7 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, arch_context& ctx, handler&& h, common&& ops)
+        arch_tracepoint(void* location, arch_context& ctx, handler&& h, options&& ops)
             : _location{location}, _user_handler{std::move(h)}
         {
             do_insert(ctx, std::move(ops));
@@ -43,7 +43,7 @@ namespace dyntrace::fasttp
 
     private:
 
-        void do_insert(arch_context& ctx, common&& ops);
+        void do_insert(arch_context& ctx, options&& ops);
         void do_remove();
 
         static void do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept;

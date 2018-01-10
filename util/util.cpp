@@ -2,12 +2,12 @@
 
 #include "../process/error.hpp"
 
-void dyntrace::hexdump(void *addr, size_t size) noexcept
+void dyntrace::hexdump(const void *addr, size_t size, FILE* stream) noexcept
 {
-    auto data = reinterpret_cast<uint8_t*>(addr);
+    auto data = reinterpret_cast<const uint8_t*>(addr);
     for(size_t i = 0; i < size;)
     {
-        printf("%p: ", data + i);
+        fprintf(stream, "%p: ", data + i);
         for(size_t j = 0; j < 16 && i < size; ++i, ++j)
         {
             printf("%.2x ", static_cast<uint32_t>(data[i]) & 0xff);

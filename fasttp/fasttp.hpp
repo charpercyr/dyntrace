@@ -1,3 +1,6 @@
+/**
+ * Fast tracepoints user classes.
+ */
 #ifndef DYNTRACE_FASTTP_FASTTP_HPP_
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
@@ -18,6 +21,10 @@ namespace dyntrace::fasttp
 
     class context;
 
+    /**
+     * Handle for a single tracepoint.
+     * When this class is destroyed, the tracepoint is removed (unless auto_remove() = false, but you lose the handle).
+     */
     class tracepoint
     {
         friend class context;
@@ -65,6 +72,9 @@ namespace dyntrace::fasttp
         bool _auto_remove;
     };
 
+    /**
+     * Tracepoint factory class. When this class is destroyed, all tracepoints that were created by this class are destroyed.
+     */
     class context
     {
         friend class tracepoint;
@@ -74,7 +84,14 @@ namespace dyntrace::fasttp
             : _proc{std::move(proc)}, _impl{*_proc} {}
         ~context();
 
-        tracepoint create(const location& loc, handler&& handler, common&& ops = {});
+        /**
+         * Creates a tracepoint that will call handler when hit.
+         * @param loc Location resolver
+         * @param handler Handler to call on hit
+         * @param ops Optional options for the tracepoint
+         * @return The tracepoint handle. Don't discard or the tracepoint will be immediately deleted (unless auto_remove = false).
+         */
+        [[nodiscard]] tracepoint create(const location& loc, handler&& handler, options&& ops = {});
 
     private:
 

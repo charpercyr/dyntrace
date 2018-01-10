@@ -1,3 +1,6 @@
+/**
+ * Classes that represent the instruction that will be executed out of line.
+ */
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 
@@ -12,6 +15,9 @@
 
 namespace dyntrace::fasttp
 {
+    /**
+     * Base instruction. No patching is done.
+     */
     class instruction
     {
     public:
@@ -39,6 +45,9 @@ namespace dyntrace::fasttp
         cs_insn* _insn;
     };
 
+    /**
+     * jmp instruction. If it is a 2-byte jmp, the 5-byte version will be used. The offset is patched with the new location.
+     */
     class relative_branch : public instruction
     {
     public:
@@ -54,6 +63,9 @@ namespace dyntrace::fasttp
         virtual int32_t displacement() const noexcept;
     };
 
+    /**
+     * j[cond] instruction. It is a relative branch. If it is 2-byte, the 6 bytes version will be used.
+     */
     struct relative_cond_branch : relative_branch
     {
         using relative_branch::relative_branch;
@@ -64,6 +76,9 @@ namespace dyntrace::fasttp
         int32_t displacement() const noexcept override;
     };
 
+    /**
+     * Instruction that addresses memory relative to the instruction pointer. The offset from rip is patched.
+     */
     struct ip_relative_instruction : instruction
     {
         using instruction::instruction;
@@ -71,6 +86,9 @@ namespace dyntrace::fasttp
         void write(code_ptr to) const noexcept override;
     };
 
+    /**
+     * Constains all the out of line instructions.
+     */
     class out_of_line
     {
     public:
@@ -78,7 +96,11 @@ namespace dyntrace::fasttp
         explicit out_of_line(code_ptr code) noexcept;
         ~out_of_line() noexcept;
 
-        std::vector<redirect_handle> write(arch_context& ctx, code_ptr target, handler&& h = nullptr);
+        /**
+         * Writes the instructions to the handler.
+         * @return A vector of redirect handles. These handle are used when a trap is hit.
+         */
+        std::vector<redirect_handle> write(arch_context& ctx, code_ptr target, bool add_redirects, handler&& h = nullptr);
 
         size_t size() const noexcept;
 

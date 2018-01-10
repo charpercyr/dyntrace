@@ -170,7 +170,7 @@ out_of_line::~out_of_line() noexcept
     cs_close(&_handle);
 }
 
-std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, handler&& h)
+std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, bool add_redirects, handler&& h)
 {
     std::vector<redirect_handle> redirects;
     bool first = true;
@@ -178,9 +178,9 @@ std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, 
     {
         if(first)
             first = false;
-        else
+        else if(add_redirects)
         {
-            redirects.push_back(ctx.add_redirect(insn->address(), at, std::move(h)));
+            redirects.push_back(ctx.add_redirect(code_ptr{insn->address()}, at, std::move(h)));
         }
         insn->write(at);
         at += insn->size();

@@ -1,3 +1,6 @@
+/**
+ * x86_64 registers and accessors.
+ */
 #ifndef DYNTRACE_ARCH_X86_64_HPP_
 #define DYNTRACE_ARCH_X86_64_HPP_
 
@@ -35,6 +38,16 @@ namespace dyntrace::arch
 
         uint arg(size_t i) const noexcept
         {
+            /*
+             * Arguments
+             * 0: rdi
+             * 1: rsi
+             * 2: rdx
+             * 3: rcx
+             * 4: r8
+             * 5: r9
+             * 6-: stack
+             */
             switch(i)
             {
             case 0:
@@ -61,6 +74,7 @@ namespace dyntrace::arch
 
         uint return_address() const noexcept
         {
+            // A call pushes the return address on the stack.
             return *reinterpret_cast<uint*>(stack());
         }
 

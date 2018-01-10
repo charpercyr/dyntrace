@@ -1,3 +1,6 @@
+/**
+ * Resolver classes for addresses in a process.
+ */
 #ifndef DYNTRACE_FASTTP_LOCATION_HPP_
 #define DYNTRACE_FASTTP_LOCATION_HPP_
 
@@ -12,6 +15,9 @@ namespace dyntrace::fasttp
         virtual void* resolve(const process::process& proc) const = 0;
     };
 
+    /**
+     * Resolves to the address given in the constructor
+     */
     struct addr_location : location
     {
         void* resolve(const process::process& proc) const override;
@@ -22,6 +28,9 @@ namespace dyntrace::fasttp
         void* addr;
     };
 
+    /**
+     * Resolves to the address of the given symbol
+     */
     struct symbol_location : location
     {
         void* resolve(const process::process& proc) const override;

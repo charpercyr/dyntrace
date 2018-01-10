@@ -1,3 +1,6 @@
+/**
+ * Includes arch-specific files. A user should NOT include this file or use any arch-specific classes.
+ */
 #ifndef DYNTRACE_FASTTP_TRACEPOINT_ASM_HPP_
 #define DYNTRACE_FASTTP_TRACEPOINT_ASM_HPP_
 

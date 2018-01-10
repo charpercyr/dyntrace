@@ -15,6 +15,9 @@
 
 namespace dyntrace::process
 {
+    /**
+     * Represents a symbol in the processe's memory. The value represents the address in the virtual-space.
+     */
     struct symbol
     {
         std::string name;
@@ -22,25 +25,50 @@ namespace dyntrace::process
         size_t size;
     };
 
+    /**
+     * Process handle
+     */
     class process
     {
     public:
         explicit process(pid_t pid) noexcept
             : _pid{pid} {}
 
+        /**
+         * Returns the current memory map of the process.
+         */
         memmap create_memmap() const
         {
             return memmap::from_pid(_pid);
         }
 
+        /**
+         * Elf of the executable.
+         */
         const elf::elf& elf() const;
+        /**
+         * Elf of a mapped file that matches the regex.
+         */
         const elf::elf& elf(const std::regex& name) const;
+        /**
+         * Debug info of the executable.
+         * @return
+         */
         dwarf::dwarf dwarf() const;
 
-
+        /**
+         * Gets a symbol from the executable.
+         */
         symbol get(const std::string& sym) const;
+        /**
+         * Gets a symbol from a mapped file that matches the regex.
+         */
         symbol get(const std::string& sym, const std::regex& lib) const;
 
+        /**
+         * Base address of the executable region of the process.
+         * @return
+         */
         uintptr_t base() const;
 
         pid_t pid() const noexcept

@@ -17,6 +17,9 @@
 
 namespace dyntrace::process
 {
+    /**
+     * Permissions on a region. Is a flag enum (see util/flag.hpp).
+     */
     enum class permissions
     {
         none = 0,
@@ -26,14 +29,20 @@ namespace dyntrace::process
         shared = 8
     };
 
+    /**
+     * Memory zone of a process
+     */
     struct zone : address_range
     {
-        zone(uintptr_t start, uintptr_t end, permissions _perms, std::string _bin)
+        zone(uintptr_t start, uintptr_t end, permissions _perms, std::string _bin) noexcept
             : address_range{start, end}, perms{_perms}, bin{std::move(_bin)} {}
         permissions perms;
         std::string bin;
     };
 
+    /**
+     * Mapped binary in a process.
+     */
     class binary
     {
         friend class memmap;
@@ -56,6 +65,9 @@ namespace dyntrace::process
         zone_list _zones;
     };
 
+    /**
+     * Memory map of a process
+     */
     class memmap
     {
     public:
@@ -82,6 +94,11 @@ namespace dyntrace::process
             throw process_error("Could not find name");
         }
 
+        /**
+         * Returns a list of ranges that are not used by the process.
+         * May not be all mappable because of kernel reserved addresses.
+         * @return
+         */
         const std::vector<address_range> free() const noexcept;
 
     private:

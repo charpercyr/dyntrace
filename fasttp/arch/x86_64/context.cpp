@@ -40,7 +40,7 @@ namespace
     {
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         uintptr_t target = 0;
-        code_ptr from = ctx->uc_mcontext.gregs[REG_RIP] - 1;
+        code_ptr from{ctx->uc_mcontext.gregs[REG_RIP] - 1}; // We are one byte too far (after the trap)
 
         // If we call the old handler, red may never unlock
         {
@@ -128,7 +128,7 @@ void redirect_handle::remove()
     if(_at)
     {
         _ctx->remove_redirect(_at);
-        _at = nullptr;
+        _at = {};
     }
 }
 

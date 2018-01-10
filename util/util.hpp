@@ -1,3 +1,6 @@
+/**
+ * Utilities for the project.
+ */
 #ifndef DYNTRACE_UTIL_UTIL_HPP_
 #define DYNTRACE_UTIL_UTIL_HPP_
 
@@ -25,6 +28,9 @@ namespace dyntrace
         return a < b ? a : b;
     }
 
+    /**
+     * Returns the next power of two after v
+     */
     template<typename Int>
     constexpr Int next_pow2(Int v) noexcept
     {
@@ -36,22 +42,9 @@ namespace dyntrace
         return v + 1;
     }
 
-    constexpr uint32_t log2(uint32_t v) noexcept
-    {
-        constexpr uint32_t arr[] = {
-           0,  9,  1, 10, 13, 21,  2, 29,
-           11, 14, 16, 18, 22, 25,  3, 30,
-           8, 12, 20, 28, 15, 17, 24,  7,
-           19, 27, 23,  6, 26,  5,  4, 31
-        };
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        return arr[(v * 0x07c4acdd) >> 27];
-    }
-
+    /**
+     * Fast integer log2
+     */
     constexpr uint64_t log2(uint64_t v) noexcept
     {
         constexpr uint64_t arr[] = {
@@ -73,6 +66,9 @@ namespace dyntrace
         return arr[((v - (v >> 1))*0x07edd5e59a4e28c2) >> 58];
     }
 
+    /**
+     * Converts an integer to a hexadecimal string.
+     */
     template<typename Int>
     std::enable_if_t<std::is_integral_v<Int> || std::is_pointer_v<Int>, std::string> to_hex_string(Int i) noexcept
     {
@@ -87,12 +83,15 @@ namespace dyntrace
         return res;
     };
 
+    /**
+     * Gigabyte literal.
+     */
     constexpr unsigned long long int operator""_G(unsigned long long int i) noexcept
     {
         return i << 30;
     }
 
-    void hexdump(void* addr, size_t size) noexcept;
+    void hexdump(const void* addr, size_t size, FILE* stream = stdout) noexcept;
 }
 
 #endif

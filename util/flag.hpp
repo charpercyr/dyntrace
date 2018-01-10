@@ -1,3 +1,7 @@
+/**
+ * Adds flag operators and check for an enum type
+ */
+
 #ifndef DYNTRACE_UTIL_FLAG_HPP_
 #define DYNTRACE_UTIL_FLAG_HPP_
 

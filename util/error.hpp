@@ -1,3 +1,7 @@
+/**
+ * Base class for all the exceptions in the project
+ */
+
 #ifndef DYNTRACE_UTIL_ERROR_HPP_
 #define DYNTRACE_UTIL_ERROR_HPP_
 
@@ -11,7 +15,7 @@ namespace dyntrace
     };
 
 }
-
+// Creates a class that inherits from dyntrace::dyntrace_error
 #define DYNTRACE_CREATE_ERROR(name) \
 struct name : ::dyntrace::dyntrace_error \
 {\

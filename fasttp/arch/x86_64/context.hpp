@@ -1,3 +1,6 @@
+/**
+ * Global tracepoint data for x86_64.
+ */
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_CONTEXT_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_CONTEXT_HPP_
 
@@ -16,19 +19,26 @@ namespace dyntrace::fasttp
 
     class arch_context;
 
+    /**
+     * Handle that represents a trap redirection.
+     * When this class is destroyed, the redirection is removed from the active list.
+     * When a trap is hit, it checks for the active redirections.
+     * If found, it calls a handler and then sets rip to the redirection. Else it calls the old handler.
+     * **DOES NOT WORK WITH GDB**. GDB ignores the fact that a trap handler could be set by the debugged program.
+     */
     class redirect_handle
     {
     public:
         redirect_handle(const redirect_handle&) = delete;
         redirect_handle& operator=(const redirect_handle&) = delete;
 
-        redirect_handle(arch_context* ctx, code_ptr at)
+        redirect_handle(arch_context* ctx, code_ptr at) noexcept
             : _ctx{ctx}, _at{at} {}
 
         redirect_handle(redirect_handle&& h) noexcept
             : _ctx{h._ctx}, _at{h._at}
         {
-            h._at = nullptr;
+            h._at = {};
         }
 
         redirect_handle& operator=(redirect_handle&& h) noexcept
@@ -36,7 +46,7 @@ namespace dyntrace::fasttp
             remove();
             _ctx = h._ctx;
             _at = h._at;
-            h._at = nullptr;
+            h._at = {};
             return *this;
         }
 
@@ -52,6 +62,9 @@ namespace dyntrace::fasttp
         code_ptr _at;
     };
 
+    /**
+     * Global data for tracepoints.
+     */
     class arch_context
     {
         friend class redirect_handle;

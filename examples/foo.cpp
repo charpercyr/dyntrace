@@ -35,7 +35,7 @@ int main()
     auto tp = ctx.create(
             fasttp::addr_location{foo},
             fasttp::make_handler(std::function{handler}),
-            fasttp::common{.x86.disable_jmp_safe = true, .x86.disable_thread_safe = true}
+            fasttp::options{.x86.disable_jmp_safe = true, .x86.disable_thread_safe = true}
     );
     printf("===========\n");
     do_run();
