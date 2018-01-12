@@ -288,7 +288,7 @@ namespace
         munmap(real_loc.as_ptr(), mmap_size);
     }
 }
-void arch_tracepoint::do_insert(arch_context& ctx, options&& ops)
+void arch_tracepoint::do_insert(arch_context& ctx, const options& ops)
 {
     if(!ops.x86.disable_jmp_safe)
     {
@@ -328,7 +328,7 @@ void arch_tracepoint::do_insert(arch_context& ctx, options&& ops)
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
-    _redirects = ool.write(ctx, _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, std::move(ops.x86.trap_handler));
+    _redirects = ool.write(ctx, _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
     set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
     // Atomically place tracepoint.

@@ -91,7 +91,7 @@ namespace dyntrace::fasttp
          * @param ops Optional options for the tracepoint
          * @return The tracepoint handle. Don't discard or the tracepoint will be immediately deleted (unless auto_remove = false).
          */
-        [[nodiscard]] tracepoint create(const location& loc, handler&& handler, options&& ops = {});
+        [[nodiscard]] tracepoint create(const location& loc, handler&& handler, const options& ops = {});
 
     private:
 

@@ -2,6 +2,7 @@
 #include <benchmark/benchmark.h>
 
  #include <fasttp/fasttp.hpp>
+#include <fasttp/common.hpp>
 
 using namespace dyntrace;
 
@@ -23,8 +24,10 @@ static void bm_run_tracepoints(benchmark::State& state)
         ++count;
     };
 
-    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler},
-                         fasttp::options{.x86.disable_thread_safe = true, .x86.disable_jmp_safe = true});
+    fasttp::options ops;
+    ops.x86.disable_thread_safe = true;
+    ops.x86.disable_jmp_safe = true;
+    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, ops);
     for(auto _ : state)
     {
         some_func();
@@ -40,10 +43,12 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 
     auto handler = [](const void*, const arch::regs&) {};
 
+    fasttp::options ops;
+    ops.x86.disable_thread_safe = true;
+    ops.x86.disable_jmp_safe = true;
     for(auto _ : state)
     {
-        (void)ctx.create(loc, fasttp::handler{handler},
-                   fasttp::options{.x86.disable_thread_safe = true, .x86.disable_jmp_safe = true});
+        (void)ctx.create(loc, fasttp::handler{handler}, ops);
     }
 }
 

@@ -1,6 +1,7 @@
 #include <cstdio>
 #include <fasttp/fasttp.hpp>
 #include <thread>
+#include <fasttp/common.hpp>
 
 using namespace dyntrace;
 
@@ -32,11 +33,10 @@ int main()
 
     auto proc = std::make_shared<process::process>(getpid());
     auto ctx = fasttp::context{proc};
-    auto tp = ctx.create(
-            fasttp::addr_location{foo},
-            fasttp::make_handler(std::function{handler}),
-            fasttp::options{.x86.disable_jmp_safe = true, .x86.disable_thread_safe = true}
-    );
+    fasttp::options ops;
+    ops.x86.disable_jmp_safe = true;
+    ops.x86.disable_thread_safe = true;
+    auto tp = ctx.create(fasttp::addr_location{foo}, fasttp::make_handler(std::function{handler}), ops);
     printf("===========\n");
     do_run();
     return 0;
