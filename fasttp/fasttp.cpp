@@ -21,7 +21,7 @@ void tracepoint::remove()
 
 context::~context() = default;
 
-tracepoint context::create(const location &loc, handler &&handler, const options& ops)
+tracepoint context::create(const location &loc, handler handler, const options& ops)
 {
     auto tracepoints = _tracepoints.lock();
     void* addr = loc.resolve(_impl.process());
