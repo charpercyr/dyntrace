@@ -1,6 +1,7 @@
 set(
     x86_64_src
     arch/x86_64/atomic.S
+    arch/x86_64/code_allocator.cpp arch/x86_64/code_allocator.hpp
     arch/x86_64/context.cpp arch/x86_64/context.hpp
     arch/x86_64/out_of_line.cpp arch/x86_64/out_of_line.hpp
     arch/x86_64/jmp.hpp

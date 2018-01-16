@@ -26,7 +26,7 @@ namespace dyntrace
         }
 
         constexpr integer_range() noexcept
-            : integer_range{std::numeric_limits<Int>::min(), std::numeric_limits<Int>::max()} {}
+            : integer_range{0, 0} {}
 
         /**
          * True if v >= start and v <= end
@@ -72,6 +72,27 @@ namespace dyntrace
         explicit constexpr operator bool() const noexcept
         {
             return size() != 0;
+        }
+
+        template<typename Int2>
+        constexpr bool operator==(const integer_range<Int2>& r) const noexcept
+        {
+            return start == r.start && end == r.end;
+        }
+
+        template<typename Int2>
+        constexpr bool operator!=(const integer_range<Int2>& r) const noexcept
+        {
+            return start != r.start || end != r.end;
+        }
+
+        template<typename Int2>
+        constexpr bool operator<(const integer_range<Int2>& r) const noexcept
+        {
+            if(start != r.start)
+                return start < r.start;
+            else
+                return end < r.end;
         }
     };
 
