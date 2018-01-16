@@ -133,15 +133,12 @@ namespace
         return true;
     }
 
-    /// Tells which bytes are fixed.
-    using condition = std::array<std::optional<uint8_t>, 4>;
-
     /**
      * Creates a condition object. The fixed bytes will be the first byte of every instruction but the first.
      */
-    condition make_condition(uintptr_t start, const out_of_line& ool)
+    constraint make_constraint(uintptr_t start, const out_of_line &ool)
     {
-        condition res;
+        constraint res;
         for(const auto& insn : ool.instructions())
         {
             auto idx = insn->address() - start;
@@ -152,102 +149,6 @@ namespace
         }
         return res;
     };
-
-    /**
-     * Generates an offset where every unfixed byte of cond will be val.
-     */
-    int32_t generate(const condition& cond, uint8_t val)
-    {
-        uint8_t tab[4];
-        for(int i = 0; i < 4; ++i)
-        {
-            if(cond[i])
-                tab[i] = cond[i].value();
-            else
-                tab[i] = val;
-        }
-        return *reinterpret_cast<int32_t*>(tab);
-    }
-
-    /**
-     * Generates the offset range from a condition (min and max possible with a condition).
-     */
-    integer_range<int32_t> condition_range(const condition& cond)
-    {
-        int32_t start = generate(cond, 0x00);
-        int32_t end = generate(cond, 0xff);
-        // We need to generate the max of a signed 32-bit.
-        if(!cond[3])
-            end &= 0x7fff'ffff;
-        return {start, end};
-    }
-
-    uintptr_t find_location(uintptr_t from, uintptr_t size, const address_range& zone, const condition& cond)
-    {
-        uint8_t bytes[4];
-        auto value = reinterpret_cast<int32_t*>(bytes);
-        integer_range<int32_t> to{
-            calc_jmp(from, zone.start).value_or(std::numeric_limits<int32_t>::min()),
-            calc_jmp(from, zone.end).value_or(std::numeric_limits<int32_t>::max())
-        };
-        for(int i = 0; i < 4; ++i)
-        {
-            bytes[i] = cond[i].value_or(0);
-        }
-        for(int i = 0; i < 4; ++i)
-        {
-            if(!cond[i])
-            {
-                for(int v = 0; v < 256; ++v)
-                {
-                    bytes[i] = v;
-                    if(to.contains(integer_range<int32_t>{*value, *value + static_cast<int32_t>(size)}))
-                        return from + jmp_size + *value;
-                    else if(abs(*value - to.start) <= (1 << 8*(3-i)))
-                        break;
-                }
-            }
-        }
-        if(to.contains(integer_range<int32_t>{*value, *value + static_cast<int32_t>(size)}))
-            return from + jmp_size + *value;
-        else
-            return 0;
-    }
-
-    uintptr_t find_location(uintptr_t from, uintptr_t size, const address_range& zone, const address_range& range, const condition& cond)
-    {
-        auto cond_range = condition_range(cond);
-        address_range cond_zone{
-            from + jmp_size + cond_range.start,
-            from + jmp_size + cond_range.end
-        };
-        auto inter = zone.intersection(range).intersection(cond_zone);
-        if(inter)
-            return find_location(from, size, inter, cond);
-        else
-            return 0;
-    }
-
-    /**
-     * Finds a suitable location for a tracepoint.
-     * @param from The insert location
-     * @param size The size of the handler
-     * @param proc The current process handle
-     * @param range The range where the handler can be allocated.
-     * @param cond The condition on the jmp offset.
-     * @return The location of the handler.
-     */
-    code_ptr find_location(uintptr_t from, uintptr_t size, const process::process& proc, address_range range, const condition& cond)
-    {
-        auto free = proc.create_memmap().free();
-        for(auto& z : free)
-        {
-            auto ret = find_location(from, size, z, range, cond);
-            if(ret != 0)
-                return code_ptr{ret};
-        }
-        return {};
-    }
 
     /**
      * Gets all the pages that contain [loc, loc + size)
@@ -262,42 +163,17 @@ namespace
         loc = code_ptr{loc.as_int() & PAGE_MASK};
         return {loc, mmap_size};
     };
-
-    /**
-     * maps executable code at loc with size size.
-     */
-    code_ptr do_mmap(code_ptr loc, size_t size)
-    {
-        auto [real_loc, mmap_size] = get_pages(loc, size);
-        real_loc = code_ptr{mmap(
-            real_loc.as_ptr(), mmap_size,
-            PROT_EXEC | PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
-            -1, 0
-        )};
-        if(real_loc == code_ptr{MAP_FAILED})
-            throw fasttp_error("mmap failed for " + to_hex_string(loc.as_int()));
-        return loc;
-    }
-
-    /**
-     * unmaps the executable code at loc with size size.
-     */
-    void do_unmap(code_ptr loc, size_t size) noexcept
-    {
-        auto [real_loc, mmap_size] = get_pages(loc, size);
-        munmap(real_loc.as_ptr(), mmap_size);
-    }
 }
-void arch_tracepoint::do_insert(arch_context& ctx, const options& ops)
+void arch_tracepoint::do_insert(const options& ops)
 {
     if(!ops.x86.disable_jmp_safe)
     {
         // Check in the debug info that code doesn't jmp in the middle of the jmp.
-        if(!ctx.basic_blocks())
+        if(!_ctx->basic_blocks())
         {
             throw fasttp_error{"No basic block information available"};
         }
-        for (const auto &bb : ctx.basic_blocks().value())
+        for (const auto &bb : _ctx->basic_blocks().value())
         {
             if (bb.crosses(address_range{_location.as_int(), _location.as_int() + jmp_size}))
             {
@@ -312,23 +188,21 @@ void arch_tracepoint::do_insert(arch_context& ctx, const options& ops)
 
     _handler_size = jmp_size + ool.size() + sizeof(handler_code);
 
-    // Create handler in memory
-    condition cond;
+    auto alloc = _ctx->allocator();
+
+    // Create handler in memory.
+    constraint cond;
     if(!ops.x86.disable_thread_safe)
     {
-        cond = make_condition(_location.as_int(), ool);
+        cond = make_constraint(_location.as_int(), ool);
     }
-    auto loc = find_location(_location.as_int(), _handler_size, ctx.process(), address_range_around(_location.as_int(), 2_G - jmp_size - _handler_size), cond);
-    if(!loc)
-    {
-        throw fasttp_error("Could not find space for tracepoint");
-    }
-    _handler_location = do_mmap(loc, _handler_size);
+    _handler_location = alloc->alloc(_location + jmp_size, _handler_size, cond);
+
     memcpy(_handler_location.as_ptr(), handler_code, sizeof(handler_code));
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
-    _redirects = ool.write(ctx, _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
+    _redirects = ool.write(*_ctx, _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
     set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
     // Atomically place tracepoint.
@@ -347,7 +221,8 @@ void arch_tracepoint::do_remove()
     mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
     // Wait for all tracepoints to be done executing and then unmap it.
     while(_refcount);
-    do_unmap(_handler_location, _handler_size);
+    auto alloc = _ctx->allocator();
+    alloc->free(_handler_location, _handler_size);
 }
 
 void arch_tracepoint::do_handle(const arch_tracepoint *self, const arch::regs &r) noexcept

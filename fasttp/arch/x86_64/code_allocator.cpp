@@ -46,9 +46,17 @@ namespace
         return offset_range{static_cast<int32_t>(start), static_cast<int32_t>(end)};
     }
 
-    code_ptr find_address(const constraint &c, const offset_range &off)
+    code_ptr find_address(code_ptr from, size_t size, const constraint &c, const address_range &range)
     {
-        if(!off)
+        if(!range)
+            return {};
+        auto off = make_offset_range(from, range);
+        auto off_start_data = reinterpret_cast<uint8_t*>(&off.start);
+        for(size_t i = 0; i < 4; ++i)
+            off_start_data[i] = c[i].value_or(off_start_data[i]);
+        if(range.contains(address_range{from.as_int() + off.start, from.as_int() + off.start + size}))
+            return from + off.start;
+        else
             return {};
     }
 
@@ -75,7 +83,7 @@ namespace
     }
 }
 
-code_allocator::~code_allocator()
+code_allocator::~code_allocator() noexcept
 {
     for(const auto& f : _refcount)
         dealloc_page(f.first);
@@ -83,14 +91,12 @@ code_allocator::~code_allocator()
 
 code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
 {
-    auto range_around = address_range_around(from.as_int(), 2_G - 6 - size);
     auto offset_range = make_offset_range(c);
     auto constraint_range = address_range{from.as_int() + offset_range.start, from.as_int() + offset_range.end};
     code_ptr res;
     for(const auto& f :_free)
     {
-        auto range = range_around.intersection(constraint_range).intersection(f);
-        res = find_address(c, make_offset_range(from, range));
+        res = find_address(from, size, c, constraint_range.intersection(f));
         if(res)
             break;
     }
@@ -99,8 +105,7 @@ code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
         auto free = _proc->create_memmap().free();
         for(const auto& f : free)
         {
-            auto range = range_around.intersection(constraint_range).intersection(f);
-            res = find_address(c, make_offset_range(from, range));
+            res = find_address(from, size, c, constraint_range.intersection(f));
             if(res)
                 break;
         }
@@ -120,13 +125,91 @@ code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
         {
             alloc_page(i);
             _refcount.insert(std::make_pair(i, 1));
+            add_free({i.as_int(), i.as_int() + PAGE_SIZE});
         }
     }
-
+    remove_free({res.as_int(), res.as_int() + size});
     return res;
 }
 
 void code_allocator::free(code_ptr ptr, size_t size) noexcept
 {
+    auto first_page = get_page(ptr);
+    auto last_page = get_page(ptr + size - 1);
+
+    add_free({ptr.as_int(), ptr.as_int() + size});
+
+    for(auto i = first_page; i <= last_page; i += PAGE_SIZE)
+    {
+        auto it = _refcount.find(i);
+        if(it != _refcount.end())
+        {
+            --it->second;
+            if(it->second == 0)
+            {
+                _refcount.erase(it);
+                remove_free({i.as_int(), i.as_int() + PAGE_SIZE});
+            }
+        }
+    }
 }
 
+void code_allocator::add_free(const address_range &range) noexcept
+{
+    auto it = _free.begin();
+    for(; it != _free.end(); ++it)
+    {
+        auto cur = it;
+        if(it->start == range.end)
+        {
+            it->start = range.start;
+            if(it != _free.begin())
+            {
+                --it;
+                if(it->end == range.start)
+                {
+                    auto start = it->start;
+                    _free.erase(it);
+                    cur->start = start;
+                }
+            }
+            return;
+        }
+        else if(it->end == range.start)
+        {
+            it->end = range.end;
+            ++it;
+            if(it != _free.end() && it->start == range.end)
+            {
+                auto end = it->end;
+                _free.erase(it);
+                cur->end = end;
+            }
+            return;
+        }
+        else if(range.start > it->end)
+        {
+            ++it;
+            break;
+        }
+    }
+    _free.insert(it, range);
+}
+
+void code_allocator::remove_free(const address_range &range) noexcept
+{
+    for(auto it = _free.begin(); it != _free.end(); ++it)
+    {
+        if(it->contains(range))
+        {
+            address_range before(it->start, range.start);
+            address_range after(it->end, range.end);
+            _free.erase(it++);
+            if(before)
+                _free.insert(it, before);
+            if(after)
+                _free.insert(it, after);
+            break;
+        }
+    }
+}

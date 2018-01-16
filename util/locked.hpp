@@ -18,34 +18,38 @@ namespace dyntrace
         template<typename, typename>
         friend class locked_proxy;
     public:
-        locked_proxy(T* t, Lock& lock) noexcept
-                : _t{t}, _guard{lock} {}
+        using value_type = T;
+        using lock_type = Lock;
+        using guard_type = std::unique_lock<Lock>;
 
-        T& operator*() noexcept
-        {
-            return *_t;
-        }
-        const T& operator*() const noexcept
-        {
-            return *_t;
-        }
+        locked_proxy(value_type* val, lock_type& lock) noexcept
+                : _val{val}, _guard{val ? guard_type{lock} : guard_type{}} {}
 
-        T* operator->() noexcept
+        value_type& operator*() noexcept
         {
-            return _t;
+            return *_val;
         }
-        const T* operator->() const noexcept
+        const value_type& operator*() const noexcept
         {
-            return _t;
+            return *_val;
         }
 
-        T* get() noexcept
+        value_type* operator->() noexcept
         {
-            return _t;
+            return _val;
         }
-        const T* get() const noexcept
+        const value_type* operator->() const noexcept
         {
-            return _t;
+            return _val;
+        }
+
+        value_type* get() noexcept
+        {
+            return _val;
+        }
+        const value_type* get() const noexcept
+        {
+            return _val;
         }
 
         /**
@@ -54,21 +58,21 @@ namespace dyntrace
         template<typename U>
         auto lock_for(U* u)
         {
-            _t = nullptr;
-            return locked_proxy<U, Lock>{u, std::move(_guard)};
+            _val = nullptr;
+            return locked_proxy<U, lock_type>{u, std::move(_guard)};
         }
 
         explicit operator bool() const noexcept
         {
-            return _t != nullptr;
+            return _val != nullptr;
         }
 
     private:
-        locked_proxy(T* val, std::unique_lock<Lock>&& guard)
-            : _t{val}, _guard{std::move(guard)} {}
+        locked_proxy(T* val, guard_type&& guard)
+            : _val{val}, _guard{std::move(guard)} {}
 
-        T* _t;
-        std::unique_lock<Lock> _guard;
+        value_type* _val;
+        guard_type _guard;
     };
 
     /**
@@ -80,51 +84,56 @@ namespace dyntrace
     class locked
     {
     public:
+        using value_type = T;
+        using lock_type = Lock;
+        using locked_type = locked<value_type, lock_type>;
+        using proxy_type = locked_proxy<value_type, lock_type>;
+        using const_proxy_type = locked_proxy<const value_type, lock_type>;
 
         template<typename...Args>
         explicit locked(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
-        : _val{std::forward<Args>(args)...} {}
+            : _val{std::forward<Args>(args)...} {}
 
-        locked(const locked<T, Lock>&) = delete;
-        locked(locked<T, Lock>&&) = delete;
-        locked<T, Lock>& operator=(const locked<T, Lock>&) = delete;
-        locked<T, Lock>& operator=(locked<T, Lock>&&) = delete;
+        locked(const locked_type&) = delete;
+        locked(locked_type&&) = delete;
+        locked_type& operator=(const locked_type&) = delete;
+        locked_type& operator=(locked_type&&) = delete;
 
         /**
          * Obtains a locked proxy. The object can now be used safely.
          * @return
          */
-        locked_proxy<T, Lock> lock()
+        proxy_type lock()
         {
-            return locked_proxy<T, Lock>(&_val, _lock);
+            return proxy_type{&_val, _lock};
         };
         /**
          * Obtains a const locked proxy. The object can now be used safely.
          * @return
          */
-        locked_proxy<const T, Lock> lock() const
+        const_proxy_type lock() const
         {
-            return locked_proxy<const T, Lock>(&_val, _lock);
+            return const_proxy_type{_val, _lock};
         };
 
         /**
          * Const accessors for the object since const (should) be thread-safe.
          */
-        const T& operator*() const
+        const value_type& operator*() const
         {
             return _val;
         }
         /**
          * Const accessors for the object since const (should) be thread-safe.
          */
-        const T* operator->() const
+        const value_type* operator->() const
         {
             return &_val;
         }
 
     private:
-        T _val;
-        mutable Lock _lock;
+        value_type _val;
+        mutable lock_type _lock;
     };
 }
 

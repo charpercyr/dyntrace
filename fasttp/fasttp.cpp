@@ -30,7 +30,7 @@ tracepoint context::create(const location &loc, handler handler, const options& 
         throw fasttp_error{"Tracepoint already exists at " + to_hex_string(addr)};
     }
     auto it = tracepoints->insert(
-        std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, _impl, std::move(handler), ops))
+        std::make_pair(addr, std::make_unique<arch_tracepoint>(addr, &_impl, std::move(handler), ops))
     ).first;
     return tracepoint{it->second.get(), this, !ops.disable_auto_remove};
 }

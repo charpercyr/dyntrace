@@ -13,6 +13,9 @@
 #include <fasttp/common.hpp>
 #include <process/process.hpp>
 #include <util/integer_range.hpp>
+#include <util/locked.hpp>
+
+#include "code_allocator.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -68,6 +71,8 @@ namespace dyntrace::fasttp
     class arch_context
     {
         friend class redirect_handle;
+
+        using allocator_type = dyntrace::locked<code_allocator>;
     public:
         arch_context(const process::process& proc);
         ~arch_context();
@@ -84,6 +89,11 @@ namespace dyntrace::fasttp
 
         redirect_handle add_redirect(code_ptr at, code_ptr redirect, handler&& h = nullptr);
 
+        allocator_type::proxy_type allocator() noexcept
+        {
+            return _allocator.lock();
+        }
+
     private:
 
         void remove_redirect(code_ptr at);
@@ -91,6 +101,7 @@ namespace dyntrace::fasttp
         const process::process& _proc;
         std::optional<std::vector<address_range>> _basic_blocks;
         std::unordered_set<code_ptr, code_ptr::hash> _redirects;
+        allocator_type _allocator;
     };
 }
 

@@ -6,10 +6,10 @@
 #include <util/integer_range.hpp>
 
 #include <array>
+#include <list>
 #include <memory>
 #include <optional>
 #include <unordered_map>
-#include <set>
 
 #include <sys/user.h>
 
@@ -21,7 +21,7 @@ namespace dyntrace::fasttp
     {
     public:
 
-        code_allocator(const process::process* proc) noexcept
+        explicit code_allocator(const process::process* proc) noexcept
             : _proc{proc} {}
         ~code_allocator() noexcept;
 
@@ -29,8 +29,12 @@ namespace dyntrace::fasttp
         void free(code_ptr ptr, size_t size) noexcept;
 
     private:
+
+        void add_free(const address_range& range) noexcept;
+        void remove_free(const address_range& range) noexcept;
+
         const process::process* _proc;
-        std::set<dyntrace::address_range> _free;
+        std::list<dyntrace::address_range> _free;
         std::unordered_map<code_ptr, size_t, code_ptr::hash> _refcount;
     };
 }

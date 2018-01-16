@@ -1,13 +1,15 @@
 
 .global do_inc
 .type do_inc, @function
+// This function will trap on every loop if there is a tracepoint at do_inc
 do_inc:
-    mov $10, %rcx
-    nop
+    xor %rcx, %rcx
 .L0:
-    nopl (%eax, %eax, 1)
+    xchg %ax, %ax
     incq (%rdi)
-    loop .L0
+    inc %rcx
+    cmp $10, %rcx
+    jne .L0
     ret
 .size do_inc, . - do_inc
 

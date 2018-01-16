@@ -133,7 +133,7 @@ void redirect_handle::remove()
 }
 
 arch_context::arch_context(const process::process &proc)
-    : _proc{proc}
+    : _proc{proc}, _allocator{&_proc}
 {
     try
     {
