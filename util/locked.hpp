@@ -91,7 +91,7 @@ namespace dyntrace
         using const_proxy_type = locked_proxy<const value_type, lock_type>;
 
         template<typename...Args>
-        explicit locked(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
+        locked(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
             : _val{std::forward<Args>(args)...} {}
 
         locked(const locked_type&) = delete;

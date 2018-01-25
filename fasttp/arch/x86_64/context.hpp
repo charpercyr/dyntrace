@@ -19,7 +19,7 @@
 
 namespace dyntrace::fasttp
 {
-
+    class context;
     class arch_context;
 
     /**
@@ -74,13 +74,8 @@ namespace dyntrace::fasttp
 
         using allocator_type = dyntrace::locked<code_allocator>;
     public:
-        arch_context(const process::process& proc);
+        arch_context(context* ctx);
         ~arch_context();
-
-        const process::process& process() const noexcept
-        {
-            return _proc;
-        }
 
         const std::optional<std::vector<address_range>>& basic_blocks() const noexcept
         {
@@ -98,7 +93,6 @@ namespace dyntrace::fasttp
 
         void remove_redirect(code_ptr at);
 
-        const process::process& _proc;
         std::optional<std::vector<address_range>> _basic_blocks;
         std::unordered_set<code_ptr, code_ptr::hash> _redirects;
         allocator_type _allocator;

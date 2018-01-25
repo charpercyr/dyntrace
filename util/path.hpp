@@ -5,6 +5,7 @@
 #define DYNTRACE_UTIL_PATH_HPP_
 
 #include <string>
+#include <vector>
 
 namespace dyntrace
 {
@@ -21,6 +22,11 @@ namespace dyntrace
      * @param name The name of the executable. The function returns for the first executable that contains the name.
      */
     pid_t find_process(const std::string& name);
+
+    /**
+     * Gets the list of files in a directory
+     */
+    std::vector<std::string> read_dir(const std::string& path);
 }
 
 #endif

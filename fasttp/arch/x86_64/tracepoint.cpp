@@ -13,6 +13,7 @@
 #include <fasttp/error.hpp>
 #include <fasttp/fasttp.hpp>
 #include <fasttp/common.hpp>
+#include <fasttp/context.hpp>
 
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
@@ -119,7 +120,7 @@ namespace
     /**
      * Calculates a jmp and atomically writes the instruction to where.
      */
-    bool set_jmp(code_ptr where, code_ptr to)
+    bool set_jmp(code_ptr where, code_ptr to) noexcept
     {
         auto odiff = calc_jmp(where.as_int(), to.as_int());
         if(!odiff)
@@ -136,7 +137,7 @@ namespace
     /**
      * Creates a condition object. The fixed bytes will be the first byte of every instruction but the first.
      */
-    constraint make_constraint(uintptr_t start, const out_of_line &ool)
+    constraint make_constraint(uintptr_t start, const out_of_line &ool) noexcept
     {
         constraint res;
         for(const auto& insn : ool.instructions())
@@ -169,11 +170,11 @@ void arch_tracepoint::do_insert(const options& ops)
     if(!ops.x86.disable_jmp_safe)
     {
         // Check in the debug info that code doesn't jmp in the middle of the jmp.
-        if(!_ctx->basic_blocks())
+        if(!_ctx->arch().basic_blocks())
         {
             throw fasttp_error{"No basic block information available"};
         }
-        for (const auto &bb : _ctx->basic_blocks().value())
+        for (const auto &bb : _ctx->arch().basic_blocks().value())
         {
             if (bb.crosses(address_range{_location.as_int(), _location.as_int() + jmp_size}))
             {
@@ -188,7 +189,7 @@ void arch_tracepoint::do_insert(const options& ops)
 
     _handler_size = jmp_size + ool.size() + sizeof(handler_code);
 
-    auto alloc = _ctx->allocator();
+    auto alloc = _ctx->arch().allocator();
 
     // Create handler in memory.
     constraint cond;
@@ -202,26 +203,18 @@ void arch_tracepoint::do_insert(const options& ops)
     set_refcount(_handler_location, reinterpret_cast<uintptr_t>(&_refcount));
     set_tracepoint(_handler_location, reinterpret_cast<uintptr_t>(this));
     set_handler(_handler_location, reinterpret_cast<uintptr_t>(do_handle));
-    _redirects = ool.write(*_ctx, _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
+    _redirects = ool.write(_ctx->arch(), _handler_location + sizeof(handler_code), !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
     set_jmp(_handler_location + sizeof(handler_code) + ool.size(), _location + ool.size());
 
-    // Atomically place tracepoint.
-    auto [pages_loc, pages_size] = get_pages(_location, 8);
-    mprotect(pages_loc.as_ptr(), pages_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-    set_jmp(_location, _handler_location);
-    mprotect(pages_loc.as_ptr(), pages_size, PROT_EXEC | PROT_READ);
+    enable();
 }
 
 void arch_tracepoint::do_remove()
 {
-    // Atomically remove tracepoint.
-    auto [real_loc, mmap_size] = get_pages(_location, 8);
-    mprotect(real_loc.as_ptr(), mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-    safe_write8(_location.as_ptr(), _old_code);
-    mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
+    disable();
     // Wait for all tracepoints to be done executing and then unmap it.
     while(_refcount);
-    auto alloc = _ctx->allocator();
+    auto alloc = _ctx->arch().allocator();
     alloc->free(_handler_location, _handler_size);
 }
 
@@ -238,5 +231,31 @@ void arch_tracepoint::do_handle(const arch_tracepoint *self, const arch::regs &r
     catch(...)
     {
         fprintf(stderr, "Caught unknown exception from handler\n");
+    }
+}
+
+void arch_tracepoint::enable() noexcept
+{
+    if(!_enabled)
+    {
+        // Atomically place tracepoint.
+        auto [pages_loc, pages_size] = get_pages(_location, 8);
+        mprotect(pages_loc.as_ptr(), pages_size, PROT_WRITE | PROT_EXEC | PROT_READ);
+        set_jmp(_location, _handler_location);
+        mprotect(pages_loc.as_ptr(), pages_size, PROT_EXEC | PROT_READ);
+        _enabled = true;
+    }
+}
+
+void arch_tracepoint::disable() noexcept
+{
+    if(_enabled)
+    {
+        // Atomically remove tracepoint.
+        auto [real_loc, mmap_size] = get_pages(_location, 8);
+        mprotect(real_loc.as_ptr(), mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
+        safe_write8(_location.as_ptr(), _old_code);
+        mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
+        _enabled = false;
     }
 }

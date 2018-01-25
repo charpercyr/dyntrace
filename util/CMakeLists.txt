@@ -1,8 +1,11 @@
 
 add_library(util STATIC
-        error.hpp
-        flag.hpp
-        integer_range.hpp
-        locked.hpp
-        path.hpp path.cpp
-        util.cpp util.hpp)
+    barrier.hpp
+    error.hpp
+    flag.hpp
+    function.hpp
+    integer_range.hpp
+    locked.hpp
+    path.hpp path.cpp
+    safe_queue.hpp
+    util.cpp util.hpp)

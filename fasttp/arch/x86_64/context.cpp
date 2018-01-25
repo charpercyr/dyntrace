@@ -1,5 +1,7 @@
 #include "context.hpp"
 
+#include <fasttp/context.hpp>
+
 #include <util/locked.hpp>
 
 #include <signal.h>
@@ -132,12 +134,12 @@ void redirect_handle::remove()
     }
 }
 
-arch_context::arch_context(const process::process &proc)
-    : _proc{proc}, _allocator{&_proc}
+arch_context::arch_context(context* ctx)
+    : _allocator{&ctx->process()}
 {
     try
     {
-        auto dw = _proc.dwarf();
+        auto dw = ctx->process().dwarf();
         for (const auto &cu : dw.compilation_units())
         {
             for (const auto &sp : cu.root())

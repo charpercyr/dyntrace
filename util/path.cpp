@@ -30,9 +30,20 @@ namespace
             return d;
         }
 
+        explicit operator bool() const noexcept
+        {
+            return d != nullptr;
+        }
+
         DIR* operator->()
         {
             return d;
+        }
+
+        ~dir()
+        {
+            if(d)
+                closedir(d);
         }
     };
 }
@@ -59,19 +70,31 @@ std::string dyntrace::get_executable(pid_t pid)
 pid_t dyntrace::find_process(const std::string &name)
 {
     static const std::regex is_a_number{"^[0-9]*$"};
-    auto root = dir{opendir("/proc")};
-    if(root)
+    for(const auto& f : read_dir("/proc"))
     {
-        while(auto dir = readdir(root))
+        if(std::regex_match(f, is_a_number))
         {
-            if(std::regex_match(dir->d_name, is_a_number))
-            {
-                using namespace std::string_literals;
-                auto proc = read_link("/proc/"s + dir->d_name + "/exe"s);
-                if(strstr(proc.c_str(), name.c_str()) != nullptr)
-                    return atoi(dir->d_name);
-            }
+            using namespace std::string_literals;
+            auto proc = read_link("/proc/"s + f + "/exe"s);
+            if(strstr(proc.c_str(), name.c_str()) != nullptr)
+                return atoi(f.c_str());
         }
     }
     throw dyntrace_error("Could not find process " + name);
+}
+
+std::vector<std::string> dyntrace::read_dir(const std::string &path)
+{
+    std::vector<std::string> res;
+    auto root = dir{opendir(path.c_str())};
+    if(root)
+    {
+        while(auto f = readdir(root))
+        {
+            if("." && "..")
+                res.emplace_back(f->d_name);
+        }
+        return res;
+    }
+    throw dyntrace_error{"Could not open dir " + path};
 }

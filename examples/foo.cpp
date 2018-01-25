@@ -23,21 +23,20 @@ void do_run()
 
 int main()
 {
-    do_run();
-
-    auto handler = [](const void* caller, int a, const std::string& b)
     {
-        using arch::arg;
-        printf("Handler for %p a=%d b=%s\n", caller, a, b.c_str());
-    };
+        auto handler = [](const void *caller, int a, const std::string &b)
+        {
+            using arch::arg;
+            printf("Handler for %p a=%d b=%s\n", caller, a, b.c_str());
+        };
 
-    auto proc = std::make_shared<process::process>(getpid());
-    auto ctx = fasttp::context{proc};
-    fasttp::options ops;
-    ops.x86.disable_jmp_safe = true;
-    ops.x86.disable_thread_safe = true;
-    auto tp = ctx.create(fasttp::addr_location{foo}, fasttp::make_handler(std::function{handler}), ops);
-    printf("===========\n");
+        fasttp::options ops;
+        ops.x86.disable_jmp_safe = true;
+        ops.x86.disable_thread_safe = true;
+        auto tp = fasttp::tracepoint{fasttp::addr_location{foo}, fasttp::make_handler(std::function{handler}), ops};
+        printf("===========\n");
+        do_run();
+    }
     do_run();
     return 0;
 }

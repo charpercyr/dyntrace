@@ -95,3 +95,14 @@ symbol process::_get(const std::string &sym, const binary &bin) const
     }
     throw process_error("Could not find symbol " + sym);
 }
+
+std::vector<pid_t> process::threads() const
+{
+    std::vector<pid_t> res;
+    for(const auto& f : read_dir("/proc/" + std::to_string(_pid) + "/task"))
+    {
+        if(f != "." && f != "..")
+            res.emplace_back(atoi(f.c_str()));
+    }
+    return res;
+}

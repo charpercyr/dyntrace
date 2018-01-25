@@ -4,6 +4,7 @@
 #include <fasttp/fasttp.hpp>
 #include <process/process.hpp>
 #include <fasttp/common.hpp>
+#include <fasttp/context.hpp>
 
 using namespace dyntrace;
 
@@ -30,15 +31,13 @@ private:
 
     void run()
     {
-        auto proc = std::make_shared<process::process>(getpid());
-        auto ctx = fasttp::context{proc};
         printf("Insert\n");
-        auto addr = fasttp::symbol_location{"do_inc"}.resolve(*proc);
+        auto addr = fasttp::symbol_location{"do_inc"}.resolve(fasttp::context::instance().process());
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr));
 
         fasttp::options ops;
         ops.x86.trap_handler = fasttp::handler{trap};
-        auto tp = ctx.create(fasttp::addr_location{addr}, handler, ops);
+        auto tp = fasttp::tracepoint{fasttp::addr_location{addr}, handler, ops};
         sleep(3);
         printf("Remove\n");
     }

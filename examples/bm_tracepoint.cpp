@@ -14,9 +14,6 @@ extern "C" void __attribute__((noinline)) some_func() noexcept
 
 static void bm_run_tracepoints(benchmark::State& state)
 {
-    auto proc = std::make_shared<process::process>(getpid());
-    fasttp::context ctx{proc};
-
     size_t count = 0;
 
     auto handler = [&count](const void*, const arch::regs&)
@@ -27,7 +24,7 @@ static void bm_run_tracepoints(benchmark::State& state)
     fasttp::options ops;
     ops.x86.disable_thread_safe = true;
     ops.x86.disable_jmp_safe = true;
-    auto tp = ctx.create(fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, ops);
+    auto tp = fasttp::tracepoint{fasttp::symbol_location{"some_func"}, fasttp::handler{handler}, ops};
     for(auto _ : state)
     {
         some_func();
@@ -38,9 +35,6 @@ BENCHMARK(bm_run_tracepoints);
 
 static void do_place_tracepoint(benchmark::State& state, const fasttp::location& loc)
 {
-    auto proc = std::make_shared<process::process>(getpid());
-    fasttp::context ctx{proc};
-
     auto handler = [](const void*, const arch::regs&) {};
 
     fasttp::options ops;
@@ -48,7 +42,7 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
     ops.x86.disable_jmp_safe = true;
     for(auto _ : state)
     {
-        (void)ctx.create(loc, fasttp::handler{handler}, ops);
+        fasttp::tracepoint{loc, fasttp::handler{handler}, ops};
     }
 }
 

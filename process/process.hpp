@@ -76,6 +76,8 @@ namespace dyntrace::process
             return _pid;
         }
 
+        std::vector<pid_t> threads() const;
+
     private:
 
         const elf::elf& _elf(const std::string& path) const;
