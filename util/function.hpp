@@ -17,6 +17,7 @@ namespace dyntrace
     class function<R(Args...)>
     {
         using this_type = function<R(Args...)>;
+        using sbo_type = std::aligned_storage<16>;
         template<typename T>
         static constexpr bool is_not_this = !std::is_same_v<std::decay_t<T>, function>;
     public:
@@ -64,7 +65,7 @@ namespace dyntrace
             create<std::decay_t<FuncType>>(std::forward<FuncType>(f));
             return *this;
         }
-        function& operator=(nullptr_t)
+        function& operator=(std::nullptr_t)
         {
             destroy();
             return *this;
@@ -88,7 +89,7 @@ namespace dyntrace
         template<typename FuncType, typename...Ts>
         void create(Ts...ts)
         {
-            if constexpr (sizeof(FuncType) <= sizeof(_sbo))
+            if constexpr (sizeof(FuncType) <= sizeof(sbo_type))
             {
                 _base = new (&_sbo) data<FuncType>(std::forward<Ts>(ts)...);
                 _is_sbo = true;
@@ -139,7 +140,7 @@ namespace dyntrace
             {
                 if constexpr (std::is_copy_constructible_v<FuncType>)
                 {
-                    if constexpr (sizeof(FuncType) <= sizeof(_sbo))
+                    if constexpr (sizeof(FuncType) <= sizeof(sbo_type))
                     {
                         is_sbo = true;
                         return new(sbo) data<FuncType>{_func};
@@ -157,7 +158,7 @@ namespace dyntrace
             {
                 if constexpr (std::is_move_constructible_v<FuncType>)
                 {
-                    if constexpr (sizeof(FuncType) <= sizeof(_sbo))
+                    if constexpr (sizeof(FuncType) <= sizeof(sbo_type))
                     {
                         is_sbo = true;
                         return new(sbo) data<FuncType>{std::move(_func)};

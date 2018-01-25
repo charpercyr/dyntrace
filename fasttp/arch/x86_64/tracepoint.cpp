@@ -18,76 +18,38 @@
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
 
-/**
- * 8-byte atomic write to location.
- */
-extern "C" void do_safe_write8(volatile void* where, uint64_t val) noexcept;
+extern "C" void __tracepoint_handler() noexcept;
+extern "C" void tracepoint_handler(arch::regs* regs) noexcept
+{
+    auto tp = reinterpret_cast<arch_tracepoint**>(regs->_res);
+    (*tp)->call_handler(*regs);
+    // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
+    regs->_res += sizeof(arch_tracepoint_data);
+}
 
 namespace
 {
-    /**
-     * Bytecode that saves the state and call the tracepoint. This code will be copied for every tracepoint.
-     */
-    constexpr uint8_t handler_code[] = {
-    /// Save urgent registers (rsp, rbp, rflags)
-        /* 00: push %rsp                        */ 0x54,
-        /* 01: push %rbp                        */ 0x55,
-        /* 02: pushf                            */ 0x9c,
-    /// Increment refcount
-        /* 03: movabs &refcount, %rbp           */ 0x48, 0xbd, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,
-        /* 0d: lock incq (%rbp)                 */ 0xf0, 0x48, 0xff, 0x45, 0x00,
-    /// Save other registers
-        /* 12: push %r15                        */ 0x41, 0x57,
-        /* 14: push %r14                        */ 0x41, 0x56,
-        /* 16: push %r13                        */ 0x41, 0x55,
-        /* 18: push %r12                        */ 0x41, 0x54,
-        /* 1a: push %r11                        */ 0x41, 0x53,
-        /* 1c: push %r10                        */ 0x41, 0x52,
-        /* 1e: push %rbx                        */ 0x53,
-        /* 1f: push %r9                         */ 0x41, 0x51,
-        /* 21: push %r8                         */ 0x41, 0x50,
-        /* 23: push %rcx                        */ 0x51,
-        /* 24: push %rdx                        */ 0x52,
-        /* 25: push %rsi                        */ 0x56,
-        /* 26: push %rdi                        */ 0x57,
-        /* 27: push %rax                        */ 0x50,
-    /// call handler(arch_tracepoint*, regs*)
-        /* 28: movabs &tracepoint, %rdi         */ 0x48, 0xbf, 0xef, 0xbe, 0xad, 0xde, 0xef, 0xbe, 0xad, 0xde,
-        /* 32: mov %rsp, %rsi                   */ 0x48, 0x89, 0xe6,
-        /* 35: movabs &handler, %rax            */ 0x48, 0xb8, 0xbe, 0xba, 0xad, 0xde, 0xbe, 0xba, 0xad, 0xde,
-        /* 3f: callq *%rax                      */ 0xff, 0xd0,
-    /// Restore other registers
-        /* 41: pop %rax                         */ 0x58,
-        /* 42: pop %rdi                         */ 0x5f,
-        /* 43: pop %rsi                         */ 0x5e,
-        /* 44: pop %rdx                         */ 0x5a,
-        /* 45: pop %rcx                         */ 0x59,
-        /* 46: pop %r8                          */ 0x41, 0x58,
-        /* 48: pop %r9                          */ 0x41, 0x59,
-        /* 4a: pop %rbx                         */ 0x5b,
-        /* 4b: pop %r10                         */ 0x41, 0x5a,
-        /* 4d: pop %r11                         */ 0x41, 0x5b,
-        /* 4f: pop %r12                         */ 0x41, 0x5c,
-        /* 51: pop %r13                         */ 0x41, 0x5d,
-        /* 53: pop %r14                         */ 0x41, 0x5e,
-        /* 55: pop %r15                         */ 0x41, 0x5f,
-    /// Decrement refcount
-        /* 57: movabs &refcount, %rbp           */ 0x48, 0xbd, 0xef, 0xcd, 0xab, 0x89, 0x67, 0x45, 0x23, 0x01,
-        /* 61: lock decq (%rbp)                 */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
-    /// Restore urgent registers (rsp, rbp, rflags)
-        /* 66: popf                             */ 0x9d,
-        /* 67: pop %rbp                         */ 0x5d,
-        /* 68: pop %rsp                         */ 0x5c
+    constexpr uint8_t tracepoint_handler_enter_code[] = {
+        /* 00: push %rsp              */ 0x54,
+        /* 01: pushf                  */ 0x9c,
+        /* 02: lock incq 0x16(%rip)   */ 0xf0, 0x48, 0xff, 0x05, 0x16, 0x00, 0x00, 0x00,
+        /* 0a: callq *0x8(%rip)       */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
     };
-
-    /// Indices for the tracepoint's refcount variable address.
-    constexpr size_t refcount_addr_1 = 0x05;
-    /// Indices for the tracepoint's refcount variable address.
-    constexpr size_t refcount_addr_2 = 0x59;
-    /// Index for the insert location of the tracepoint.
-    constexpr size_t tp_addr = 0x2a;
-    /// Index for the address of the tracepoint handler.
-    constexpr size_t handler_addr = 0x37;
+        /* 10: arch_tracepoint*       */
+        /* 18: tracepoint common code */
+        /* 20: refcount (uint64_t)    */
+    constexpr uint8_t tracepoint_handler_exit_code[] = {
+        /* 28: lock decq -0x10(%rip)  */ 0xf0, 0x48, 0xff, 0x0d, 0xf0, 0xff, 0xff, 0xff,
+        /* 30: popf                   */ 0x9d,
+        /* 31: pop %rsp               */ 0x5c,
+    };
+        /* 32: ool                    */
+        /* 32 + ool_size: jmp addr    */
+    const arch_tracepoint_data init_tracepoint_data = {
+        nullptr,
+        reinterpret_cast<void*>(__tracepoint_handler),
+        0
+    };
 
     /// Opcode for a 5-byte jmp
     constexpr uint8_t jmp_op = 0xe9;
@@ -96,25 +58,20 @@ namespace
     /// Opcode for a 1-byte trap
     constexpr uint8_t trap_op = 0xcc;
 
-    void safe_write8(volatile void* where, uint64_t val) noexcept
+    size_t tracepoint_handler_size(size_t ool_size) noexcept
     {
-        do_safe_write8(where, val);
+        return
+            sizeof(tracepoint_handler_enter_code) +
+            sizeof(arch_tracepoint_data) +
+            sizeof(tracepoint_handler_exit_code) +
+            ool_size +
+            jmp_size;
     }
 
-    void set_refcount(code_ptr code, uintptr_t refcount) noexcept
+    template<typename Int>
+    std::enable_if_t<std::is_integral_v<Int>> atomic_store(volatile void *where, Int val) noexcept
     {
-        safe_write8((code + refcount_addr_1).as_ptr(), refcount);
-        safe_write8((code + refcount_addr_2).as_ptr(), refcount);
-    }
-
-    void set_tracepoint(code_ptr code, uintptr_t tp) noexcept
-    {
-        safe_write8((code + tp_addr).as_ptr(), tp);
-    }
-
-    void set_handler(code_ptr code, uintptr_t handler) noexcept
-    {
-        safe_write8((code + handler_addr).as_ptr(), handler);
+        __atomic_store(reinterpret_cast<volatile Int*>(where), &val, __ATOMIC_SEQ_CST);
     }
 
     /**
@@ -130,7 +87,7 @@ namespace
         *reinterpret_cast<uintptr_t*>(bytes) = *where.as<uintptr_t*>();
         bytes[0] = jmp_op;
         memcpy(bytes + 1, &diff, 4);
-        safe_write8(where.as_ptr(), *reinterpret_cast<uint64_t*>(bytes));
+        atomic_store(where.as_ptr(), *reinterpret_cast<uint64_t *>(bytes));
         return true;
     }
 
@@ -165,6 +122,12 @@ namespace
         return {loc, mmap_size};
     };
 }
+
+void arch_tracepoint::call_handler(const arch::regs &r) noexcept
+{
+    _user_handler(location(), r);
+}
+
 void arch_tracepoint::do_insert(const options& ops)
 {
     if(!ops.x86.disable_jmp_safe)
@@ -187,7 +150,7 @@ void arch_tracepoint::do_insert(const options& ops)
 
     auto ool = out_of_line(_location);
 
-    _handler_size = jmp_size + ool.size() + sizeof(handler_code);
+    _handler_size = tracepoint_handler_size(ool.size());
 
     auto alloc = _ctx->arch().allocator();
 
@@ -254,8 +217,13 @@ void arch_tracepoint::disable() noexcept
         // Atomically remove tracepoint.
         auto [real_loc, mmap_size] = get_pages(_location, 8);
         mprotect(real_loc.as_ptr(), mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-        safe_write8(_location.as_ptr(), _old_code);
+        atomic_store(_location.as_ptr(), _old_code);
         mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
         _enabled = false;
     }
+}
+
+arch_tracepoint_data* arch_tracepoint::data()
+{
+    return (_handler_location + sizeof(tracepoint_handler_enter_code)).as<arch_tracepoint_data*>();
 }

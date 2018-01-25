@@ -13,6 +13,14 @@
 
 namespace dyntrace::fasttp
 {
+    class arch_tracepoint;
+
+    struct __attribute__((packed)) arch_tracepoint_data
+    {
+        arch_tracepoint* tracepoint;
+        void* tracepoint_common_code;
+        volatile uintptr_t refcount;
+    };
     /**
      * x86_64 tracepoint implementation.
      */
@@ -54,7 +62,11 @@ namespace dyntrace::fasttp
             return {_handler_location.as_int(), _handler_location.as_int() + _handler_size};
         }
 
+        void call_handler(const arch::regs& r) noexcept;
+
     private:
+
+        arch_tracepoint_data* data() noexcept;
 
         void do_insert(const options& ops);
         void do_remove();
@@ -66,7 +78,6 @@ namespace dyntrace::fasttp
         code_ptr _handler_location;
         size_t _handler_size{0};
         uint64_t _old_code{0};
-        volatile uint64_t _refcount{0};
         std::vector<redirect_handle> _redirects;
         context* _ctx;
         bool _enabled{false};

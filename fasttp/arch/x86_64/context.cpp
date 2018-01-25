@@ -31,8 +31,9 @@ namespace
             .r13 = static_cast<uintptr_t>(r[REG_R13]),
             .r14 = static_cast<uintptr_t>(r[REG_R14]),
             .r15 = static_cast<uintptr_t>(r[REG_R15]),
-            .rflags = static_cast<uintptr_t>(r[REG_EFL]),
             .rbp = static_cast<uintptr_t>(r[REG_RBP]),
+            ._res = 0,
+            .rflags = static_cast<uintptr_t>(r[REG_EFL]),
             .rsp = static_cast<uintptr_t>(r[REG_RSP]),
         };
     }

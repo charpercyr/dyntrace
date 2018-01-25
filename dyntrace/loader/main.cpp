@@ -45,12 +45,12 @@ private:
     static void handler(const void* from, const dyntrace::arch::regs& regs)
     {
         using dyntrace::arch::arg;
-        printf("Handler for %p rcx=%lu\n", from, regs.rcx);
+        printf("Handler for %p\n", from);
     }
 
     static void trap(const void* from, const dyntrace::arch::regs& regs)
     {
-        printf("Trap for %p\n", from);
+        printf("Trap for %p rcx=%lu\n", from, regs.rcx);
     }
 
     pthread_t _th{0};

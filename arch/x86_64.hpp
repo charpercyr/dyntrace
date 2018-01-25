@@ -29,8 +29,9 @@ namespace dyntrace::arch
         uint r13;
         uint r14;
         uint r15;
-        uint rflags;
         uint rbp;
+        uint _res;
+        uint rflags;
         uint rsp;
 
     private:
