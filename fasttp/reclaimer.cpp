@@ -7,6 +7,7 @@ using namespace dyntrace::fasttp;
 using namespace std::chrono_literals;
 
 inline constexpr auto reclaim_period = 5s;
+inline constexpr auto reclaim_count = 2000;
 
 reclaimer::reclaim_data* reclaimer::_reclaim_data{nullptr};
 std::mutex reclaimer::_reclaim_lock;
@@ -46,6 +47,8 @@ void reclaimer::run()
             else if(std::holds_alternative<reclaim_work>(next))
             {
                 _batch.push_back(std::move(std::get<reclaim_work>(next)));
+                if(_batch.size() >= reclaim_count)
+                    reclaim_batch();
             }
         }
         else
@@ -60,6 +63,7 @@ void reclaimer::reclaim_batch()
 {
     if(_batch.empty())
         return;
+
     std::unique_lock lock{_reclaim_lock};
 
     auto ths = _proc->threads();
