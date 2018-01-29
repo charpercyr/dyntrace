@@ -14,7 +14,7 @@ namespace dyntrace::fasttp
      * @param insn_size Size of the instruction
      * @return The offset to write for the instruction. Empty if the jmp is impossible.
      */
-    inline std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to, uint8_t insn_size = 5) noexcept
+    inline std::optional<int32_t> calc_jmp(uintptr_t from, uintptr_t to, uint8_t insn_size) noexcept
     {
         from += insn_size;
         auto diff = static_cast<int64_t>(to) - static_cast<int64_t>(from);

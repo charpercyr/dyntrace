@@ -77,12 +77,7 @@ namespace dyntrace::fasttp
         arch_context(context* ctx);
         ~arch_context();
 
-        const std::optional<std::vector<address_range>>& basic_blocks() const noexcept
-        {
-            return _basic_blocks;
-        }
-
-        redirect_handle add_redirect(code_ptr at, code_ptr redirect, handler&& h = nullptr);
+        redirect_handle add_redirect(code_ptr at, code_ptr redirect, handler h = nullptr);
 
         allocator_type::proxy_type allocator() noexcept
         {
@@ -93,10 +88,12 @@ namespace dyntrace::fasttp
 
         void remove_redirect(code_ptr at);
 
-        std::optional<std::vector<address_range>> _basic_blocks;
         std::unordered_set<code_ptr, code_ptr::hash> _redirects;
         allocator_type _allocator;
     };
 }
+
+extern "C" void __tracepoint_handler() noexcept;
+extern const uintptr_t __tracepoint_handler_size;
 
 #endif

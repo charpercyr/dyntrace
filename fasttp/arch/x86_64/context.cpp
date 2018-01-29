@@ -32,7 +32,6 @@ namespace
             .r14 = static_cast<uintptr_t>(r[REG_R14]),
             .r15 = static_cast<uintptr_t>(r[REG_R15]),
             .rbp = static_cast<uintptr_t>(r[REG_RBP]),
-            ._res = 0,
             .rflags = static_cast<uintptr_t>(r[REG_EFL]),
             .rsp = static_cast<uintptr_t>(r[REG_RSP]),
         };
@@ -42,7 +41,7 @@ namespace
     void trap_handler(int sig, siginfo_t* info, void* _ctx) noexcept
     {
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
-        uintptr_t target = 0;
+        code_ptr target{};
         code_ptr from{ctx->uc_mcontext.gregs[REG_RIP] - 1}; // We are one byte too far (after the trap)
 
         // If we call the old handler, red may never unlock
@@ -51,7 +50,7 @@ namespace
             auto it = red->find(from);
             if(it != red->end())
             {
-                target = std::get<code_ptr>(it->second).as_int();
+                target = std::get<code_ptr>(it->second);
                 if(std::get<handler>(it->second))
                 {
                     std::get<handler>(it->second)(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
@@ -61,7 +60,7 @@ namespace
 
         if(target)
         {
-            ctx->uc_mcontext.gregs[REG_RIP] = target;
+            ctx->uc_mcontext.gregs[REG_RIP] = target.as<greg_t>();
         }
         else
         {
@@ -138,35 +137,12 @@ void redirect_handle::remove()
 arch_context::arch_context(context* ctx)
     : _allocator{&ctx->process()}
 {
-    try
-    {
-        auto dw = ctx->process().dwarf();
-        for (const auto &cu : dw.compilation_units())
+    ctx->get_reclaimer().add_invalid(
         {
-            for (const auto &sp : cu.root())
-            {
-                if (sp.tag == dwarf::DW_TAG::subprogram)
-                {
-                    for (const auto &bb : sp)
-                    {
-                        // Custom tag for basic block
-                        if (static_cast<int>(bb.tag) == 0x1001)
-                        {
-                            if (!_basic_blocks)
-                                _basic_blocks = std::vector<address_range>();
-                            auto base = bb[dwarf::DW_AT::low_pc].as_address();
-                            auto size = bb[dwarf::DW_AT::high_pc].as_uconstant();
-                            _basic_blocks->push_back({base, base + size});
-                        }
-                    }
-                }
-            }
+            reinterpret_cast<uintptr_t>(__tracepoint_handler),
+            reinterpret_cast<uintptr_t>(__tracepoint_handler) + __tracepoint_handler_size,
         }
-    }
-    catch (const std::exception &e)
-    {
-        // No basic block info
-    }
+    );
 }
 
 arch_context::~arch_context()
@@ -174,7 +150,7 @@ arch_context::~arch_context()
     do_remove_redirects(_redirects);
 }
 
-redirect_handle arch_context::add_redirect(code_ptr at, code_ptr redirect, handler&& h)
+redirect_handle arch_context::add_redirect(code_ptr at, code_ptr redirect, handler h)
 {
     do_add_redirect(at, redirect, std::move(h));
     _redirects.insert(at);

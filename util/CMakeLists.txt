@@ -1,6 +1,7 @@
 
 add_library(util STATIC
     barrier.hpp
+        ../fasttp/arch/x86_64/buffer_writer.hpp
     error.hpp
     flag.hpp
     function.hpp

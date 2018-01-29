@@ -10,7 +10,7 @@
 
 namespace dyntrace::arch
 {
-    class regs
+    class __attribute__((packed)) regs
     {
     public:
         using uint = uintptr_t;
@@ -30,7 +30,6 @@ namespace dyntrace::arch
         uint r14;
         uint r15;
         uint rbp;
-        uint _res;
         uint rflags;
         uint rsp;
 

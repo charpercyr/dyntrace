@@ -51,9 +51,9 @@ uint8_t instruction::size() const noexcept
     return _insn->size;
 }
 
-void instruction::write(code_ptr to) const noexcept
+void instruction::write(buffer_writer &writer) const noexcept
 {
-    memcpy(to.as_ptr(), _insn->bytes, _insn->size);
+    writer.write_bytes(_insn->bytes, _insn->size);
 }
 
 uint8_t relative_branch::size() const noexcept
@@ -61,14 +61,14 @@ uint8_t relative_branch::size() const noexcept
     return 4 + op_size();
 }
 
-void relative_branch::write(code_ptr to) const noexcept
+void relative_branch::write(buffer_writer &writer) const noexcept
 {
-    write_op(to);
-
     int32_t rel = displacement();
     uintptr_t target = insn()->address + insn()->size + rel;
-    rel = calc_jmp(to.as_int(), target, size()).value();
-    memcpy((to + op_size()).as_ptr(), &rel, 4);
+    rel = calc_jmp(writer.ptr().as_int(), target, size()).value();
+
+    write_op(writer);
+    writer.write(rel);
 }
 
 uint8_t relative_branch::op_size() const noexcept
@@ -76,9 +76,9 @@ uint8_t relative_branch::op_size() const noexcept
     return 1;
 }
 
-void relative_branch::write_op(code_ptr to) const noexcept
+void relative_branch::write_op(buffer_writer &writer) const noexcept
 {
-    *to.as<uint8_t*>() = 0xe9;
+    writer.write(uint8_t{0xe9});
 }
 
 int32_t relative_branch::displacement() const noexcept
@@ -98,17 +98,13 @@ uint8_t relative_cond_branch::op_size() const noexcept
     return 2;
 }
 
-void relative_cond_branch::write_op(code_ptr to) const noexcept
+void relative_cond_branch::write_op(buffer_writer &writer) const noexcept
 {
-    *to.as<uint8_t*>() = 0x0f;
+    writer.write(uint8_t{0x0f});
     if(insn()->size == 2)
-    {
-        *((to + 1).as<uint8_t*>()) = insn()->bytes[0] + 0x10;
-    }
+        writer.write(insn()->bytes[0] + 0x10);
     else
-    {
-        *((to + 1).as<uint8_t*>()) = insn()->bytes[1];
-    }
+        writer.write(insn()->bytes[1]);
 }
 
 int32_t relative_cond_branch::displacement() const noexcept
@@ -123,7 +119,7 @@ int32_t relative_cond_branch::displacement() const noexcept
     }
 }
 
-void ip_relative_instruction::write(code_ptr to) const noexcept
+void ip_relative_instruction::write(buffer_writer &writer) const noexcept
 {
     uintptr_t disp_diff_bits = 0;
     for(uintptr_t i = 0; i < insn()->detail->x86.op_count; ++i)
@@ -133,7 +129,9 @@ void ip_relative_instruction::write(code_ptr to) const noexcept
     }
     uintptr_t disp_idx = insn()->size - 4 - (disp_diff_bits + 7) / 8;
 
-    memcpy(to.as_ptr(), insn()->bytes, insn()->size);
+    code_ptr to = writer.ptr();
+
+    writer.write_bytes(insn()->bytes, insn()->size);
     int32_t disp;
     memcpy(&disp, insn()->bytes + disp_idx, 4);
 
@@ -170,7 +168,7 @@ out_of_line::~out_of_line() noexcept
     cs_close(&_handle);
 }
 
-std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, bool add_redirects, handler&& h)
+std::vector<redirect_handle> out_of_line::write(arch_context& ctx, buffer_writer& writer, bool add_redirects, handler h)
 {
     std::vector<redirect_handle> redirects;
     bool first = true;
@@ -180,10 +178,9 @@ std::vector<redirect_handle> out_of_line::write(arch_context& ctx, code_ptr at, 
             first = false;
         else if(add_redirects)
         {
-            redirects.push_back(ctx.add_redirect(code_ptr{insn->address()}, at, std::move(h)));
+            redirects.push_back(ctx.add_redirect(code_ptr{insn->address()}, writer.ptr(), h));
         }
-        insn->write(at);
-        at += insn->size();
+        insn->write(writer);
     }
     return redirects;
 }

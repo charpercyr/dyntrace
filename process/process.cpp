@@ -33,11 +33,6 @@ const elf::elf& process::elf(const std::regex& name) const
     return _elf(memmap.find(name).name());
 }
 
-dwarf::dwarf process::dwarf() const
-{
-    return dwarf::dwarf{dwarf::elf::create_loader(elf())};
-}
-
 symbol process::get(const std::string &sym) const
 {
     auto memmap = create_memmap();

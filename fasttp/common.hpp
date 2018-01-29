@@ -47,7 +47,6 @@ namespace dyntrace
             /// x86(_64) specific options.
             struct
             {
-                bool disable_jmp_safe{false};
                 bool disable_thread_safe{false};
                 handler trap_handler{nullptr};
             } x86;

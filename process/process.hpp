@@ -50,11 +50,6 @@ namespace dyntrace::process
          * Elf of a mapped file that matches the regex.
          */
         const elf::elf& elf(const std::regex& name) const;
-        /**
-         * Debug info of the executable.
-         * @return
-         */
-        dwarf::dwarf dwarf() const;
 
         /**
          * Gets a symbol from the executable.

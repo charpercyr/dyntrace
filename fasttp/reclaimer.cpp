@@ -43,7 +43,7 @@ void reclaimer::run()
                 reclaim_batch();
                 return;
             }
-            else
+            else if(std::holds_alternative<reclaim_work>(next))
             {
                 _batch.push_back(std::move(std::get<reclaim_work>(next)));
             }
@@ -60,7 +60,6 @@ void reclaimer::reclaim_batch()
 {
     if(_batch.empty())
         return;
-
     std::unique_lock lock{_reclaim_lock};
 
     auto ths = _proc->threads();
@@ -100,9 +99,9 @@ void reclaimer::reclaim_batch()
 
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
 {
-    auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
     if(_reclaim_data)
     {
+        auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_RIP]);
 
         std::call_once(_reclaim_data->once_flag, [self = _reclaim_data->self, &invalids = _reclaim_data->invalids]()
@@ -118,13 +117,23 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
         });
 
         {
-            for(auto& b : _reclaim_data->self->_batch)
+            auto ainv = _reclaim_data->self->_always_invalid.lock();
+            for(auto& r : *ainv)
             {
-                if (b.invalid.contains(rip))
+                if(r.contains(rip))
                 {
                     auto inv = _reclaim_data->invalids.lock();
-                    inv->insert(b.invalid);
+                    for(auto& b : _reclaim_data->self->_batch)
+                        inv->insert(b.invalid);
                 }
+            }
+        }
+        for(auto& b : _reclaim_data->self->_batch)
+        {
+            if (b.invalid.contains(rip))
+            {
+                auto inv = _reclaim_data->invalids.lock();
+                inv->insert(b.invalid);
             }
         }
 

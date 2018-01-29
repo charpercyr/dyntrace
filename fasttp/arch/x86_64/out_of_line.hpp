@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 
+#include "buffer_writer.hpp"
 #include "context.hpp"
 
 namespace dyntrace::fasttp
@@ -27,7 +28,7 @@ namespace dyntrace::fasttp
 
         virtual uint8_t size() const noexcept;
 
-        virtual void write(code_ptr to) const noexcept;
+        virtual void write(buffer_writer &writer) const noexcept;
 
         uintptr_t address() const noexcept
         {
@@ -55,11 +56,11 @@ namespace dyntrace::fasttp
 
         uint8_t size() const noexcept override;
 
-        void write(code_ptr to) const noexcept override;
+        void write(buffer_writer &writer) const noexcept override;
 
     protected:
         virtual uint8_t op_size() const noexcept;
-        virtual void write_op(code_ptr to) const noexcept;
+        virtual void write_op(buffer_writer &writer) const noexcept;
         virtual int32_t displacement() const noexcept;
     };
 
@@ -72,7 +73,7 @@ namespace dyntrace::fasttp
 
     protected:
         uint8_t op_size() const noexcept override;
-        void write_op(code_ptr to) const noexcept override;
+        void write_op(buffer_writer &writer) const noexcept override;
         int32_t displacement() const noexcept override;
     };
 
@@ -83,7 +84,7 @@ namespace dyntrace::fasttp
     {
         using instruction::instruction;
 
-        void write(code_ptr to) const noexcept override;
+        void write(buffer_writer &writer) const noexcept override;
     };
 
     /**
@@ -100,7 +101,7 @@ namespace dyntrace::fasttp
          * Writes the instructions to the handler.
          * @return A vector of redirect handles. These handle are used when a trap is hit.
          */
-        std::vector<redirect_handle> write(arch_context& ctx, code_ptr target, bool add_redirects, handler&& h = nullptr);
+        std::vector<redirect_handle> write(arch_context& ctx, buffer_writer &writer, bool add_redirects, handler h = nullptr);
 
         size_t size() const noexcept;
 

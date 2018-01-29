@@ -49,8 +49,7 @@ static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
         ++trap_count;
     };
 
-    fasttp::options ops;
-    ops.x86.disable_jmp_safe = true;
+    fasttp::options ops{};
     ops.x86.trap_handler = trap_handler;
     auto tp = fasttp::tracepoint{fasttp::addr_location{func}, fasttp::handler{handler}, ops};
     for(auto _ : state)
@@ -77,8 +76,7 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 {
     auto handler = [](const void*, const arch::regs&) {};
 
-    fasttp::options ops;
-    ops.x86.disable_jmp_safe = true;
+    fasttp::options ops{};
     for(auto _ : state)
     {
         fasttp::tracepoint{loc, fasttp::handler{handler}, ops};

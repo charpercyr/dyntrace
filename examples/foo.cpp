@@ -30,8 +30,7 @@ int main()
             printf("Handler for %p a=%d b=%s\n", caller, a, b.c_str());
         };
 
-        fasttp::options ops;
-        ops.x86.disable_jmp_safe = true;
+        fasttp::options ops{};
         ops.x86.disable_thread_safe = true;
         auto tp = fasttp::tracepoint{fasttp::addr_location{foo}, fasttp::make_handler(std::function{handler}), ops};
         printf("===========\n");

@@ -1,7 +1,7 @@
 
-if(NOT DEFINED PATCHED_LLVM_ROOT)
-    message(FATAL_ERROR "Please define PATCHED_LLVM_ROOT")
-endif()
+#if(NOT DEFINED PATCHED_LLVM_ROOT)
+#    message(FATAL_ERROR "Please define PATCHED_LLVM_ROOT")
+#endif()
 
 function(add_traceable_executable name)
     set(lang C)
@@ -32,7 +32,7 @@ function(add_traceable_executable name)
     set_target_properties(${name} PROPERTIES LINKER_LANGUAGE ${lang})
 endfunction()
 
-add_traceable_executable(loop loop.c loop.S)
+add_executable(loop loop.c loop.S)
 target_link_libraries(loop loader)
 
 add_executable(foo foo.cpp)

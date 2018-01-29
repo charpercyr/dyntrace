@@ -30,6 +30,11 @@ namespace dyntrace::fasttp
             return _impl;
         }
 
+        reclaimer& get_reclaimer() noexcept
+        {
+            return _reclaimer;
+        }
+
         arch_tracepoint* create(const location &loc, handler handler, const options &ops);
         void destroy(arch_tracepoint* tp);
 

@@ -1,8 +1,14 @@
 
+.section .text
 .global __tracepoint_handler
 .type __tracepoint_handler, @function
 __tracepoint_handler:
+    push %rsp
+    pushf
     push %rbp
+    mov 0x18(%rsp), %rbp
+    mov (%rbp), %rbp
+    lock incq (%rbp)
     push %r15
     push %r14
     push %r13
@@ -33,6 +39,16 @@ __tracepoint_handler:
     pop %r13
     pop %r14
     pop %r15
-    push %rbp
+    lock decq (%rbp)
+    pop %rbp
+    popf
+    pop %rsp
     ret
+.__tracepoint_handler_end:
 .size __tracepoint_handler, . - __tracepoint_handler
+
+.section .rodata
+.global __tracepoint_handler_size
+.type __tracepoint_handler_size, @object
+__tracepoint_handler_size: .quad .__tracepoint_handler_end - __tracepoint_handler
+.size __tracepoint_handler_size, . - __tracepoint_handler_size

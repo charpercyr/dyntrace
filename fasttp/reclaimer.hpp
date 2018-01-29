@@ -6,6 +6,7 @@
 #include <set>
 #include <thread>
 #include <variant>
+#include <vector>
 
 #include <process/process.hpp>
 #include <util/barrier.hpp>
@@ -30,6 +31,12 @@ namespace dyntrace::fasttp
         void reclaim(predicate pred, deleter del, dyntrace::address_range invalid)
         {
             _queue.put(reclaim_work{std::move(pred), std::move(del), invalid});
+        }
+
+        void add_invalid(dyntrace::address_range range) noexcept
+        {
+            auto inv = _always_invalid.lock();
+            inv->push_back(range);
         }
 
     private:
@@ -59,6 +66,7 @@ namespace dyntrace::fasttp
 
         dyntrace::safe_queue<queue_element> _queue;
         std::list<reclaim_work> _batch;
+        dyntrace::locked<std::vector<dyntrace::address_range>> _always_invalid;
         std::thread _thread;
         const process::process* _proc;
     };
