@@ -22,7 +22,7 @@ __tracepoint_handler:
     push %rax
     mov 0x88(%rsp), %rbp
     mov (%rbp), %rbp
-    lock incq (%rbp)
+    lock incq 0x10(%rbp)
     mov %rsp, %rdi
     call tracepoint_handler@plt
     pop %rax

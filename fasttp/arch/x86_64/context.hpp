@@ -76,7 +76,7 @@ namespace dyntrace::fasttp
         explicit arch_context(context* ctx);
         ~arch_context();
 
-        redirect_handle add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect);
+        redirect_handle add_redirect(handler tp, code_ptr at, code_ptr redirect);
 
         allocator_type::proxy_type allocator() noexcept
         {

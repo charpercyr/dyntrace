@@ -12,4 +12,3 @@ do_inc:
     jne .L0
     ret
 .size do_inc, . - do_inc
-

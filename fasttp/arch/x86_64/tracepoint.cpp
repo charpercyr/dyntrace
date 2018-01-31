@@ -49,7 +49,7 @@ namespace
         /* 16+ool: push %rbp                   */ 0x55,
         /* 17+ool: pushf                       */ 0x9c,
         /* 18+ool: mov (-19 - ool)(%rip), %rbp */ 0x48, 0x8b, 0x2d, 0xef, 0xbe, 0xad, 0xde,
-        /* 1f+ool: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
+        /* 1f+ool: lock decq 0x10(%rbp)        */ 0xf0, 0x48, 0xff, 0x4d, 0x10,
         /* 24+ool: popf                        */ 0x9d,
         /* 25+ool: pop %rbp                    */ 0x5d
     };
@@ -146,34 +146,15 @@ void arch_tracepoint::call_handler(const arch::regs &r) noexcept
     }
 }
 
-void arch_tracepoint::call_trap_handler(const void* where, const arch::regs &r) noexcept
-{
-    try
-    {
-        ++_refcount;
-        if(_trap_handler)
-            _trap_handler(where, r);
-    }
-    catch (const std::exception& e)
-    {
-        fprintf(stderr, "Caught exception from trap_handler: %s\n", e.what());
-    }
-    catch(...)
-    {
-        fprintf(stderr, "Caught unknown exception from trap_handler\n");
-    }
-}
-
-arch_tracepoint::arch_tracepoint(void *location, handler &&h, const options &ops)
+arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     : _location{location}, _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}
 {
     memcpy(&_old_code, _location.as_ptr(), 8);
 
     auto ool = out_of_line(_location);
+    auto ool_size = ool.size();
 
-    _handler_size = tracepoint_handler_size(ool.size());
-
-    auto alloc = context::instance().arch().allocator();
+    _handler_size = tracepoint_handler_size(ool_size);
 
     // Create handler in memory.
     constraint cond;
@@ -181,7 +162,7 @@ arch_tracepoint::arch_tracepoint(void *location, handler &&h, const options &ops
     {
         cond = make_constraint(_location.as_int(), ool);
     }
-    _handler_location = alloc->alloc(_location + jmp_size, _handler_size, cond);
+    _handler_location = context::instance().arch().allocator()->alloc(_location + jmp_size, _handler_size, cond);
     if(!_handler_location)
         throw fasttp_error{"Could not allocate tracepoint"};
 
@@ -191,22 +172,41 @@ arch_tracepoint::arch_tracepoint(void *location, handler &&h, const options &ops
     writer.write(this);
     writer.write(__tracepoint_handler);
     bool is_first = true;
-    ool.write(writer, [&is_first, this](code_ptr loc, code_ptr ool_loc) mutable
+    ool.write(writer, [&is_first, this](code_ptr loc, code_ptr ool_loc)
     {
         if(is_first)
             is_first = false;
         else
-            _redirects.push_back(context::instance().arch().add_redirect(this, loc, ool_loc));
+        {
+            _redirects.push_back(context::instance().arch().add_redirect(
+                [this](const void* from, const arch::regs& regs)
+                {
+                    try
+                    {
+                        ++_refcount;
+                        if(_trap_handler)
+                            _trap_handler(from, regs);
+                    }
+                    catch (const std::exception& e)
+                    {
+                        fprintf(stderr, "Caught exception from trap_handler: %s\n", e.what());
+                    }
+                    catch(...)
+                    {
+                        fprintf(stderr, "Caught unknown exception from trap_handler\n");
+                    }
+                },
+                loc, ool_loc)
+            );
+        }
     });
     auto cur = writer.ptr();
     writer.write(tracepoint_handler_exit_code);
-    *(cur + tracepoint_handler_exit_code_offset_idx).as<int32_t*>() = tracepoint_handler_exit_code_offset_base - ool.size();
+    *(cur + tracepoint_handler_exit_code_offset_idx).as<int32_t*>() = tracepoint_handler_exit_code_offset_base - ool_size;
 
-    auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool.size()).as_int(), jmp_size);
+    auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool_size).as_int(), jmp_size);
     writer.write(jmp_op);
     writer.write(jmp.value());
-
-    enable();
 }
 
 arch_tracepoint::~arch_tracepoint()
@@ -240,4 +240,11 @@ void arch_tracepoint::disable() noexcept
         mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
         _enabled = false;
     }
+}
+
+std::shared_ptr<arch_tracepoint> arch_tracepoint::make(void* location, handler h, const options& ops, deleter del)
+{
+    auto res = std::shared_ptr<arch_tracepoint>{new arch_tracepoint{location, std::move(h), ops}, std::move(del)};
+    res->enable();
+    return res;
 }

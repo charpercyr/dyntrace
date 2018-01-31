@@ -14,8 +14,7 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
-
-    locked<std::unordered_map<code_ptr, std::tuple<arch_tracepoint*, code_ptr>, code_ptr::hash>> redirects;
+    locked<std::unordered_map<code_ptr, std::tuple<handler, code_ptr>, code_ptr::hash>> redirects;
 
     arch::regs make_regs(const greg_t* r)
     {
@@ -53,16 +52,10 @@ namespace
             auto it = red->find(from);
             if(it != red->end())
             {
-                if(auto tp = std::get<arch_tracepoint*>(it->second)->shared_from_this())
-                {
-                    printf("Tp at %p, rc=%lu, loc=%p\n", from.as_ptr(), tp->refcount(), tp->location());
-                    tp->call_trap_handler(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
-                    target = std::get<code_ptr>(it->second);
-                }
-                else
-                {
-                    target = from;
-                }
+                const auto& h = std::get<handler>(it->second);
+                if(h)
+                    h(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
+                target = std::get<code_ptr>(it->second);
             }
         }
 
@@ -100,14 +93,14 @@ namespace
         sigaction(SIGTRAP, &old_handler, nullptr);
     }
 
-    void do_add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect) noexcept
+    void do_add_redirect(handler&& h, code_ptr at, code_ptr redirect) noexcept
     {
         auto red = redirects.lock();
         if(red->empty())
         {
             install_trap_handler();
         }
-        red->insert({at, {tp, redirect}});
+        red->insert_or_assign(at, std::make_tuple(std::move(h), redirect));
     }
 
     void do_remove_redirect(code_ptr at) noexcept
@@ -157,9 +150,9 @@ arch_context::~arch_context()
     do_remove_redirects(_redirects);
 }
 
-redirect_handle arch_context::add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect)
+redirect_handle arch_context::add_redirect(handler h, code_ptr at, code_ptr redirect)
 {
-    do_add_redirect(tp, at, redirect);
+    do_add_redirect(std::move(h), at, redirect);
     _redirects.insert(at);
     return redirect_handle{at};
 }

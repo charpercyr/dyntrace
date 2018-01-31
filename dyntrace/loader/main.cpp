@@ -1,5 +1,6 @@
 
 #include <atomic>
+#include <chrono>
 
 #include <fasttp/fasttp.hpp>
 #include <process/process.hpp>
@@ -31,6 +32,8 @@ private:
 
     void run()
     {
+        using namespace std::chrono_literals;
+
         printf("Insert\n");
         auto addr = fasttp::symbol_location{"do_inc"}.resolve(process::process::this_process());
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr));
@@ -38,7 +41,7 @@ private:
         fasttp::options ops;
         ops.x86.trap_handler = fasttp::handler{trap};
         auto tp = fasttp::tracepoint{fasttp::addr_location{addr}, handler, ops};
-        sleep(3);
+        std::this_thread::sleep_for(3s);
         printf("Remove\n");
     }
 

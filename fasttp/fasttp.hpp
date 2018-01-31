@@ -40,8 +40,6 @@ namespace dyntrace::fasttp
 
     private:
 
-        static std::shared_ptr<arch_tracepoint> create(const location& loc, handler&& handler, const options& ops);
-
         std::shared_ptr<arch_tracepoint> _impl;
     };
 }

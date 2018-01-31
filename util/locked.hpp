@@ -9,6 +9,11 @@
 
 namespace dyntrace
 {
+    struct nolock
+    {
+        void lock() noexcept {}
+        void unlock() noexcept {}
+    };
     /**
      * Proxy that represents a locked object. The lock is locked during the lifetime of this object.
      */

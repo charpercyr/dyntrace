@@ -53,7 +53,8 @@ namespace dyntrace::fasttp
         template<typename T>
         std::enable_if_t<std::is_integral_v<T>, code_ptr&> operator+=(T p) noexcept
         {
-            return *this = *this + p;
+            _ptr += p;
+            return *this;
         }
 
         template<typename T>
@@ -65,7 +66,8 @@ namespace dyntrace::fasttp
         template<typename T>
         std::enable_if_t<std::is_integral_v<T>, code_ptr&> operator-=(T p) noexcept
         {
-            return *this = *this - p;
+            _ptr -= p;
+            return *this;
         }
 
         bool operator==(const code_ptr& ptr) const noexcept
