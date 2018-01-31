@@ -6,16 +6,33 @@
 using namespace dyntrace::fasttp;
 
 tracepoint::tracepoint(const location &loc, handler handler, const options &ops)
-    : _impl{context::instance().create(loc, std::move(handler), ops)}, _auto_remove{!ops.disable_auto_remove}
+    : _impl{create(loc, std::move(handler), ops)}
 {
+
 }
 
-void tracepoint::remove()
+tracepoint::~tracepoint()
 {
-    _auto_remove = false;
-    if(_impl)
-    {
-        context::instance().destroy(_impl);
-        _impl = nullptr;
-    }
+    _impl->disable();
+}
+
+std::shared_ptr<arch_tracepoint> tracepoint::create(const location &loc, handler &&handler, const options &ops)
+{
+    return std::shared_ptr<arch_tracepoint>(
+        new arch_tracepoint{loc.resolve(process::process::this_process()), std::move(handler), ops},
+        [](arch_tracepoint* tp)
+        {
+            context::instance().get_reclaimer().reclaim(
+                [tp]()
+                {
+                    return tp->refcount() == 0;
+                },
+                [tp]()
+                {
+                    delete tp;
+                },
+                tp->range()
+            );
+        }
+    );
 }

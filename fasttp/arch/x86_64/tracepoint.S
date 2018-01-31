@@ -6,9 +6,6 @@ __tracepoint_handler:
     push %rsp
     pushf
     push %rbp
-    mov 0x18(%rsp), %rbp
-    mov (%rbp), %rbp
-    lock incq (%rbp)
     push %r15
     push %r14
     push %r13
@@ -23,6 +20,9 @@ __tracepoint_handler:
     push %rsi
     push %rdi
     push %rax
+    mov 0x88(%rsp), %rbp
+    mov (%rbp), %rbp
+    lock incq (%rbp)
     mov %rsp, %rdi
     call tracepoint_handler@plt
     pop %rax
@@ -39,7 +39,6 @@ __tracepoint_handler:
     pop %r13
     pop %r14
     pop %r15
-    lock decq (%rbp)
     pop %rbp
     popf
     pop %rsp

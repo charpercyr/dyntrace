@@ -34,6 +34,8 @@ namespace dyntrace::process
         explicit process(pid_t pid) noexcept
             : _pid{pid} {}
 
+        static const process& this_process() noexcept;
+
         /**
          * Returns the current memory map of the process.
          */

@@ -40,12 +40,20 @@ extern "C" void __attribute__((used)) tracepoint_handler(tracepoint_stack* st) n
 namespace
 {
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: callq *0x8(%rip)     */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+        /* 00: callq *0x8(%rip)                */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
     };
-        /* 06: arch_tracepoint_data */
-        /* 0e: __tracepoint_handler */
-        /* 16: ool                  */
-        /* 16+ool: jmp back         */
+        /* 06: arch_tracepoint_data            */
+        /* 0e: __tracepoint_handler            */
+        /* 16: ool                             */
+    constexpr uint8_t tracepoint_handler_exit_code[] = {
+        /* 16+ool: push %rbp                   */ 0x55,
+        /* 17+ool: pushf                       */ 0x9c,
+        /* 18+ool: mov (-19 - ool)(%rip), %rbp */ 0x48, 0x8b, 0x2d, 0xef, 0xbe, 0xad, 0xde,
+        /* 1f+ool: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
+        /* 24+ool: popf                        */ 0x9d,
+        /* 25+ool: pop %rbp                    */ 0x5d
+    };
+        /* 26+ool: jmp back                    */
 
     /// Opcode for a 5-byte jmp
     constexpr uint8_t jmp_op = 0xe9;
@@ -54,12 +62,16 @@ namespace
     /// Opcode for a 1-byte trap
     constexpr uint8_t trap_op = 0xcc;
 
+    constexpr size_t tracepoint_handler_exit_code_offset_idx = 5;
+    constexpr int32_t tracepoint_handler_exit_code_offset_base = -0x19;
+
     size_t tracepoint_handler_size(size_t ool_size) noexcept
     {
         return
             sizeof(tracepoint_handler_enter_code) +
             sizeof(tracepoint_inline_data) +
             ool_size +
+            sizeof(tracepoint_handler_exit_code) +
             jmp_size;
     }
 
@@ -134,7 +146,26 @@ void arch_tracepoint::call_handler(const arch::regs &r) noexcept
     }
 }
 
-void arch_tracepoint::do_insert(const options& ops)
+void arch_tracepoint::call_trap_handler(const void* where, const arch::regs &r) noexcept
+{
+    try
+    {
+        ++_refcount;
+        if(_trap_handler)
+            _trap_handler(where, r);
+    }
+    catch (const std::exception& e)
+    {
+        fprintf(stderr, "Caught exception from trap_handler: %s\n", e.what());
+    }
+    catch(...)
+    {
+        fprintf(stderr, "Caught unknown exception from trap_handler\n");
+    }
+}
+
+arch_tracepoint::arch_tracepoint(void *location, handler &&h, const options &ops)
+    : _location{location}, _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}
 {
     memcpy(&_old_code, _location.as_ptr(), 8);
 
@@ -142,7 +173,7 @@ void arch_tracepoint::do_insert(const options& ops)
 
     _handler_size = tracepoint_handler_size(ool.size());
 
-    auto alloc = _ctx->arch().allocator();
+    auto alloc = context::instance().arch().allocator();
 
     // Create handler in memory.
     constraint cond;
@@ -159,7 +190,17 @@ void arch_tracepoint::do_insert(const options& ops)
     writer.write(tracepoint_handler_enter_code);
     writer.write(this);
     writer.write(__tracepoint_handler);
-    _redirects = ool.write(_ctx->arch(), writer, !ops.x86.disable_thread_safe, fasttp::handler{ops.x86.trap_handler});
+    bool is_first = true;
+    ool.write(writer, [&is_first, this](code_ptr loc, code_ptr ool_loc) mutable
+    {
+        if(is_first)
+            is_first = false;
+        else
+            _redirects.push_back(context::instance().arch().add_redirect(this, loc, ool_loc));
+    });
+    auto cur = writer.ptr();
+    writer.write(tracepoint_handler_exit_code);
+    *(cur + tracepoint_handler_exit_code_offset_idx).as<int32_t*>() = tracepoint_handler_exit_code_offset_base - ool.size();
 
     auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool.size()).as_int(), jmp_size);
     writer.write(jmp_op);
@@ -168,10 +209,10 @@ void arch_tracepoint::do_insert(const options& ops)
     enable();
 }
 
-void arch_tracepoint::do_remove()
+arch_tracepoint::~arch_tracepoint()
 {
     disable();
-    auto alloc = _ctx->arch().allocator();
+    auto alloc = context::instance().arch().allocator();
     alloc->free(_handler_location, _handler_size);
 }
 

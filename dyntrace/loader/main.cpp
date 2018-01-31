@@ -32,7 +32,7 @@ private:
     void run()
     {
         printf("Insert\n");
-        auto addr = fasttp::symbol_location{"do_inc"}.resolve(fasttp::context::instance().process());
+        auto addr = fasttp::symbol_location{"do_inc"}.resolve(process::process::this_process());
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr));
 
         fasttp::options ops;

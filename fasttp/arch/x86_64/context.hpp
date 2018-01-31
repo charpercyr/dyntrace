@@ -21,6 +21,7 @@ namespace dyntrace::fasttp
 {
     class context;
     class arch_context;
+    class arch_tracepoint;
 
     /**
      * Handle that represents a trap redirection.
@@ -35,11 +36,11 @@ namespace dyntrace::fasttp
         redirect_handle(const redirect_handle&) = delete;
         redirect_handle& operator=(const redirect_handle&) = delete;
 
-        redirect_handle(arch_context* ctx, code_ptr at) noexcept
-            : _ctx{ctx}, _at{at} {}
+        redirect_handle(code_ptr at) noexcept
+            : _at{at} {}
 
         redirect_handle(redirect_handle&& h) noexcept
-            : _ctx{h._ctx}, _at{h._at}
+            : _at{h._at}
         {
             h._at = {};
         }
@@ -47,7 +48,6 @@ namespace dyntrace::fasttp
         redirect_handle& operator=(redirect_handle&& h) noexcept
         {
             remove();
-            _ctx = h._ctx;
             _at = h._at;
             h._at = {};
             return *this;
@@ -61,7 +61,6 @@ namespace dyntrace::fasttp
         void remove();
 
     private:
-        arch_context* _ctx;
         code_ptr _at;
     };
 
@@ -74,10 +73,10 @@ namespace dyntrace::fasttp
 
         using allocator_type = dyntrace::locked<code_allocator>;
     public:
-        arch_context(context* ctx);
+        explicit arch_context(context* ctx);
         ~arch_context();
 
-        redirect_handle add_redirect(code_ptr at, code_ptr redirect, handler h = nullptr);
+        redirect_handle add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect);
 
         allocator_type::proxy_type allocator() noexcept
         {

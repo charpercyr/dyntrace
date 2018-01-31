@@ -43,7 +43,6 @@ namespace dyntrace
          */
         struct options
         {
-            bool disable_auto_remove{false};
             /// x86(_64) specific options.
             struct
             {

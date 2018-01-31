@@ -9,6 +9,7 @@
 
 #include "context.hpp"
 
+#include <atomic>
 #include <vector>
 
 namespace dyntrace::fasttp
@@ -17,7 +18,7 @@ namespace dyntrace::fasttp
     /**
      * x86_64 tracepoint implementation.
      */
-    class arch_tracepoint
+    class arch_tracepoint : public std::enable_shared_from_this<arch_tracepoint>
     {
     public:
         arch_tracepoint(const arch_tracepoint&) = delete;
@@ -25,20 +26,16 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(const arch_tracepoint&) = delete;
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
-        arch_tracepoint(void* location, context* ctx, handler&& h, const options& ops)
-            : _location{location}, _user_handler{std::move(h)}, _ctx{ctx}
-        {
-            do_insert(ops);
-        }
-
-        ~arch_tracepoint()
-        {
-            if(_location)
-                do_remove();
-        }
+        arch_tracepoint(void* location, handler&& h, const options& ops);
+        ~arch_tracepoint();
 
         void enable() noexcept;
         void disable() noexcept;
+
+        bool enabled() const noexcept
+        {
+            return _enabled;
+        }
 
         void* location() const noexcept
         {
@@ -56,20 +53,19 @@ namespace dyntrace::fasttp
         }
 
         void call_handler(const arch::regs& r) noexcept;
+        void call_trap_handler(const void* where, const arch::regs& r) noexcept;
 
     private:
-
-        void do_insert(const options& ops);
         void do_remove();
 
-        volatile uintptr_t _refcount{0}; // Has to be first, assembly increases this value.
+        std::atomic_uint64_t _refcount{0}; // Has to be first, assembly increases this value.
         handler _user_handler;
+        handler _trap_handler;
         code_ptr _location;
         code_ptr _handler_location;
         size_t _handler_size{0};
         uint64_t _old_code{0};
         std::vector<redirect_handle> _redirects;
-        context* _ctx;
         bool _enabled{false};
     };
 }

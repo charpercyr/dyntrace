@@ -4,7 +4,6 @@ add_library(util STATIC
         ../fasttp/arch/x86_64/buffer_writer.hpp
     error.hpp
     flag.hpp
-    function.hpp
     integer_range.hpp
     locked.hpp
     path.hpp path.cpp

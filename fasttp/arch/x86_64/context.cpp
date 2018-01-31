@@ -7,14 +7,17 @@
 #include <signal.h>
 #include <sys/ucontext.h>
 
+#include "tracepoint.hpp"
+
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
 
 namespace
 {
-    locked<std::unordered_map<code_ptr, std::tuple<code_ptr, handler>, code_ptr::hash>> redirects;
 
-    arch::regs make_regs(greg_t* r)
+    locked<std::unordered_map<code_ptr, std::tuple<arch_tracepoint*, code_ptr>, code_ptr::hash>> redirects;
+
+    arch::regs make_regs(const greg_t* r)
     {
         return arch::regs {
             .rax = static_cast<uintptr_t>(r[REG_RAX]),
@@ -50,10 +53,15 @@ namespace
             auto it = red->find(from);
             if(it != red->end())
             {
-                target = std::get<code_ptr>(it->second);
-                if(std::get<handler>(it->second))
+                if(auto tp = std::get<arch_tracepoint*>(it->second)->shared_from_this())
                 {
-                    std::get<handler>(it->second)(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
+                    printf("Tp at %p, rc=%lu, loc=%p\n", from.as_ptr(), tp->refcount(), tp->location());
+                    tp->call_trap_handler(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
+                    target = std::get<code_ptr>(it->second);
+                }
+                else
+                {
+                    target = from;
                 }
             }
         }
@@ -92,14 +100,14 @@ namespace
         sigaction(SIGTRAP, &old_handler, nullptr);
     }
 
-    void do_add_redirect(code_ptr at, code_ptr redirect, handler&& h) noexcept
+    void do_add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect) noexcept
     {
         auto red = redirects.lock();
         if(red->empty())
         {
             install_trap_handler();
         }
-        red->insert({at, {redirect, std::move(h)}});
+        red->insert({at, {tp, redirect}});
     }
 
     void do_remove_redirect(code_ptr at) noexcept
@@ -129,13 +137,12 @@ void redirect_handle::remove()
 {
     if(_at)
     {
-        _ctx->remove_redirect(_at);
+        context::instance().arch().remove_redirect(_at);
         _at = {};
     }
 }
 
 arch_context::arch_context(context* ctx)
-    : _allocator{&ctx->process()}
 {
     ctx->get_reclaimer().add_invalid(
         {
@@ -150,11 +157,11 @@ arch_context::~arch_context()
     do_remove_redirects(_redirects);
 }
 
-redirect_handle arch_context::add_redirect(code_ptr at, code_ptr redirect, handler h)
+redirect_handle arch_context::add_redirect(arch_tracepoint* tp, code_ptr at, code_ptr redirect)
 {
-    do_add_redirect(at, redirect, std::move(h));
+    do_add_redirect(tp, at, redirect);
     _redirects.insert(at);
-    return redirect_handle{this, at};
+    return redirect_handle{at};
 }
 
 void arch_context::remove_redirect(code_ptr at)

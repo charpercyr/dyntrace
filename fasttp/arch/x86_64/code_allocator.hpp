@@ -21,8 +21,6 @@ namespace dyntrace::fasttp
     {
     public:
 
-        explicit code_allocator(const process::process* proc) noexcept
-            : _proc{proc} {}
         ~code_allocator() noexcept;
 
         code_ptr alloc(code_ptr from, size_t size, const constraint& c = {});
@@ -33,7 +31,6 @@ namespace dyntrace::fasttp
         void add_free(const address_range& range) noexcept;
         void remove_free(const address_range& range) noexcept;
 
-        const process::process* _proc;
         std::list<dyntrace::address_range> _free;
         std::unordered_map<code_ptr, size_t, code_ptr::hash> _refcount;
     };

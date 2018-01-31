@@ -15,11 +15,6 @@ namespace dyntrace::fasttp
     public:
         static context& instance();
 
-        const process::process& process() const noexcept
-        {
-            return _proc;
-        }
-
         arch_context& arch() noexcept
         {
             return _impl;
@@ -35,13 +30,9 @@ namespace dyntrace::fasttp
             return _reclaimer;
         }
 
-        arch_tracepoint* create(const location &loc, handler handler, const options &ops);
-        void destroy(arch_tracepoint* tp);
-
     private:
         context();
 
-        const process::process _proc;
         arch_context _impl;
         dyntrace::locked<std::unordered_map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
         reclaimer _reclaimer;

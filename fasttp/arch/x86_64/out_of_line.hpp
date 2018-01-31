@@ -8,11 +8,11 @@
 
 #include <capstone/capstone.h>
 
+#include <functional>
 #include <memory>
 #include <vector>
 
 #include "buffer_writer.hpp"
-#include "context.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -93,15 +93,20 @@ namespace dyntrace::fasttp
     class out_of_line
     {
     public:
+        using write_callback = std::function<void(code_ptr, code_ptr)>;
 
         explicit out_of_line(code_ptr code) noexcept;
         ~out_of_line() noexcept;
 
         /**
          * Writes the instructions to the handler.
+         * @param writer The byte writer
+         * @param callback
+         *          Function to call before writing an instruction.
+         *          The first argument is the location, the second is the out-of-line equivalent location.
          * @return A vector of redirect handles. These handle are used when a trap is hit.
          */
-        std::vector<redirect_handle> write(arch_context& ctx, buffer_writer &writer, bool add_redirects, handler h = nullptr);
+        void write(buffer_writer &writer, write_callback callback);
 
         size_t size() const noexcept;
 

@@ -2,6 +2,7 @@
 #define DYNTRACE_FASTTP_RECLAIMER_HPP_
 
 #include <functional>
+#include <future>
 #include <list>
 #include <set>
 #include <thread>
@@ -10,7 +11,6 @@
 
 #include <process/process.hpp>
 #include <util/barrier.hpp>
-#include <util/function.hpp>
 #include <util/integer_range.hpp>
 #include <util/locked.hpp>
 #include <util/safe_queue.hpp>
@@ -22,13 +22,10 @@ namespace dyntrace::fasttp
     class reclaimer
     {
     public:
-        using predicate = dyntrace::function<bool()>;
-        using deleter = dyntrace::function<void()>;
-
-        reclaimer(const process::process* proc);
+        reclaimer();
         ~reclaimer();
 
-        void reclaim(predicate pred, deleter del, dyntrace::address_range invalid)
+        void reclaim(std::function<bool()> pred, std::function<void()> del, dyntrace::address_range invalid)
         {
             _queue.put(reclaim_work{std::move(pred), std::move(del), invalid});
         }
@@ -39,6 +36,8 @@ namespace dyntrace::fasttp
             inv->push_back(range);
         }
 
+        std::future<void> trigger_reclaim() noexcept;
+
     private:
         struct reclaim_stop {};
         struct reclaim_work
@@ -47,7 +46,11 @@ namespace dyntrace::fasttp
             std::function<void()> deleter;
             dyntrace::address_range invalid;
         };
-        using queue_element = std::variant<std::monostate, reclaim_stop, reclaim_work>;
+        struct reclaim_force
+        {
+            std::function<void()> done;
+        };
+        using queue_element = std::variant<std::monostate, reclaim_stop, reclaim_work, reclaim_force>;
 
         struct reclaim_data
         {
@@ -68,7 +71,6 @@ namespace dyntrace::fasttp
         std::list<reclaim_work> _batch;
         dyntrace::locked<std::vector<dyntrace::address_range>> _always_invalid;
         std::thread _thread;
-        const process::process* _proc;
     };
 }
 

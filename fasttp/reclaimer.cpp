@@ -12,8 +12,8 @@ inline constexpr auto reclaim_count = 2000;
 reclaimer::reclaim_data* reclaimer::_reclaim_data{nullptr};
 std::mutex reclaimer::_reclaim_lock;
 
-reclaimer::reclaimer(const process::process* proc)
-    : _thread{&reclaimer::run, this}, _proc{proc}
+reclaimer::reclaimer()
+    : _thread{&reclaimer::run, this}
 {
     static std::once_flag once_flag;
     std::call_once(once_flag, []()
@@ -29,6 +29,17 @@ reclaimer::~reclaimer()
 {
     _queue.put(reclaim_stop{});
     _thread.join();
+}
+
+std::future<void> reclaimer::trigger_reclaim() noexcept
+{
+    auto p = std::make_shared<std::promise<void>>();
+    auto l = [p]()
+    {
+        p->set_value();
+    };
+    _queue.put(reclaim_force{std::move(l)});
+    return p->get_future();
 }
 
 void reclaimer::run()
@@ -48,7 +59,15 @@ void reclaimer::run()
             {
                 _batch.push_back(std::move(std::get<reclaim_work>(next)));
                 if(_batch.size() >= reclaim_count)
+                {
                     reclaim_batch();
+                    end = std::chrono::steady_clock::now() + reclaim_period;
+                }
+            }
+            else if(std::holds_alternative<reclaim_force>(next))
+            {
+                reclaim_batch();
+                end = std::chrono::steady_clock::now() + reclaim_period;
             }
         }
         else
@@ -66,7 +85,7 @@ void reclaimer::reclaim_batch()
 
     std::unique_lock lock{_reclaim_lock};
 
-    auto ths = _proc->threads();
+    auto ths = process::process::this_process().threads();
 
     _reclaim_data = new reclaim_data{
         this,

@@ -76,10 +76,9 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 {
     auto handler = [](const void*, const arch::regs&) {};
 
-    fasttp::options ops{};
     for(auto _ : state)
     {
-        fasttp::tracepoint{loc, fasttp::handler{handler}, ops};
+        fasttp::tracepoint{loc, fasttp::handler{handler}};
     }
 }
 
@@ -94,5 +93,17 @@ static void bm_place_tracepoints_with_name(benchmark::State& state)
     do_place_tracepoint(state, fasttp::symbol_location{"test_func_no_trap"});
 }
 BENCHMARK(bm_place_tracepoints_with_name);
+
+static void bm_enable_disable_tracepoints(benchmark::State& state)
+{
+    auto handler = [](const void*, const arch::regs&) {};
+    fasttp::tracepoint tp{fasttp::addr_location{test_func_no_trap}, handler};
+    for(auto _ : state)
+    {
+        tp.enable();
+        tp.disable();
+    }
+}
+BENCHMARK(bm_enable_disable_tracepoints);
 
 BENCHMARK_MAIN();

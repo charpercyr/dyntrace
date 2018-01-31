@@ -22,6 +22,12 @@ namespace
     }
 }
 
+const process& process::this_process() noexcept
+{
+    static process proc{getpid()};
+    return proc;
+}
+
 const elf::elf& process::elf() const
 {
     return _elf(get_executable(_pid));

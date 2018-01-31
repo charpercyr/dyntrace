@@ -102,7 +102,7 @@ code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
     }
     if(!res)
     {
-        auto free = _proc->create_memmap().free();
+        auto free = process::process::this_process().create_memmap().free();
         for(const auto& f : free)
         {
             res = find_address(from, size, c, constraint_range.intersection(f));

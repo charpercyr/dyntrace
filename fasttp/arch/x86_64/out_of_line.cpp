@@ -1,7 +1,6 @@
 #include "out_of_line.hpp"
 
-#include <cstring>
-#include <util/util.hpp>
+#include <fasttp/context.hpp>
 
 #include "jmp.hpp"
 
@@ -168,21 +167,14 @@ out_of_line::~out_of_line() noexcept
     cs_close(&_handle);
 }
 
-std::vector<redirect_handle> out_of_line::write(arch_context& ctx, buffer_writer& writer, bool add_redirects, handler h)
+void out_of_line::write(buffer_writer& writer, write_callback callback)
 {
-    std::vector<redirect_handle> redirects;
-    bool first = true;
     for(const auto& insn : _insns)
     {
-        if(first)
-            first = false;
-        else if(add_redirects)
-        {
-            redirects.push_back(ctx.add_redirect(code_ptr{insn->address()}, writer.ptr(), h));
-        }
+        if(callback)
+            callback(code_ptr{insn->address()}, writer.ptr());
         insn->write(writer);
     }
-    return redirects;
 }
 
 size_t out_of_line::size() const noexcept
