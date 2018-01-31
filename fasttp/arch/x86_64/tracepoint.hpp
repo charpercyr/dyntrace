@@ -79,7 +79,6 @@ namespace dyntrace::fasttp
         std::vector<redirect_handle> _redirects;
         bool _enabled{false};
     };
-    static_assert(sizeof(std::enable_shared_from_this<arch_tracepoint>) == 0x10);
 }
 
 #endif
