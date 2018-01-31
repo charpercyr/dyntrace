@@ -49,7 +49,7 @@ namespace
         /* 16+ool: push %rbp                   */ 0x55,
         /* 17+ool: pushf                       */ 0x9c,
         /* 18+ool: mov (-19 - ool)(%rip), %rbp */ 0x48, 0x8b, 0x2d, 0xef, 0xbe, 0xad, 0xde,
-        /* 1f+ool: lock decq 0x10(%rbp)        */ 0xf0, 0x48, 0xff, 0x4d, 0x10,
+        /* 1f+ool: lock decq 0x10(%rbp)        */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
         /* 24+ool: popf                        */ 0x9d,
         /* 25+ool: pop %rbp                    */ 0x5d
     };

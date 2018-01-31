@@ -18,7 +18,7 @@ namespace dyntrace::fasttp
     /**
      * x86_64 tracepoint implementation.
      */
-    class arch_tracepoint : public std::enable_shared_from_this<arch_tracepoint>
+    class arch_tracepoint
     {
     public:
         using deleter = std::function<void(arch_tracepoint*)>;
