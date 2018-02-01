@@ -60,11 +60,6 @@ namespace
             return {};
     }
 
-    code_ptr get_page(code_ptr ptr) noexcept
-    {
-        return code_ptr{ptr.as_int() & PAGE_MASK};
-    }
-
     void alloc_page(code_ptr ptr)
     {
         auto res = mmap(
@@ -81,6 +76,11 @@ namespace
     {
         munmap(ptr.as_ptr(), PAGE_SIZE);
     }
+
+    std::pair<code_ptr, code_ptr> get_pages(code_ptr ptr, size_t size) noexcept
+    {
+        return {ptr & PAGE_MASK, (ptr + size - 1) & PAGE_MASK};
+    };
 }
 
 code_allocator::~code_allocator() noexcept
@@ -113,8 +113,7 @@ code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
     if(!res)
         return {};
 
-    auto first_page = get_page(res);
-    auto last_page = get_page(res + size - 1);
+    auto [first_page, last_page] = get_pages(res, size);
 
     for(auto i = first_page; i <= last_page; i += PAGE_SIZE)
     {
@@ -134,8 +133,7 @@ code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
 
 void code_allocator::free(code_ptr ptr, size_t size) noexcept
 {
-    auto first_page = get_page(ptr);
-    auto last_page = get_page(ptr + size - 1);
+    auto [first_page, last_page] = get_pages(ptr, size);
 
     add_free({ptr.as_int(), ptr.as_int() + size});
 

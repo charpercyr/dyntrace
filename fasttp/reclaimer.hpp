@@ -25,9 +25,9 @@ namespace dyntrace::fasttp
         reclaimer();
         ~reclaimer();
 
-        void reclaim(std::function<bool()> pred, std::function<void()> del, dyntrace::address_range invalid)
+        void reclaim(std::function<bool(uintptr_t)> pred, std::function<void()> del)
         {
-            _queue.put(reclaim_work{std::move(pred), std::move(del), invalid});
+            _queue.put(reclaim_work{std::move(pred), std::move(del)});
         }
 
         void add_invalid(dyntrace::address_range range) noexcept
@@ -42,9 +42,8 @@ namespace dyntrace::fasttp
         struct reclaim_stop {};
         struct reclaim_work
         {
-            std::function<bool()> predicate;
+            std::function<bool(uintptr_t)> predicate;
             std::function<void()> deleter;
-            dyntrace::address_range invalid;
         };
         struct reclaim_force
         {
@@ -55,9 +54,9 @@ namespace dyntrace::fasttp
         struct reclaim_data
         {
             reclaimer* self;
-            dyntrace::locked<std::set<dyntrace::address_range>> invalids;
+            dyntrace::locked<std::list<std::function<void()>>> to_delete;
             dyntrace::barrier barrier;
-            std::once_flag once_flag;
+            std::atomic<bool> cancel;
         };
 
         void run();

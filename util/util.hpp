@@ -92,6 +92,10 @@ namespace dyntrace
     }
 
     void hexdump(const void* addr, size_t size, FILE* stream = stdout) noexcept;
+
+    /// Alias to remember to delete the object (or to do something with it).
+    template<typename T, typename = std::enable_if_t<std::is_pointer_v<T>>>
+    using owner = T;
 }
 
 #endif

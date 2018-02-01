@@ -20,7 +20,7 @@ using namespace dyntrace::fasttp;
 
 struct __attribute__((packed)) tracepoint_inline_data
 {
-    arch_tracepoint* tracepoint;
+    arch_tracepoint_code* tracepoint;
     void(*common_code)();
 };
 
@@ -32,7 +32,10 @@ struct __attribute__((packed)) tracepoint_stack
 
 extern "C" void __attribute__((used)) tracepoint_handler(tracepoint_stack* st) noexcept
 {
-    st->inline_data->tracepoint->call_handler(st->regs);
+    if(auto tp = st->inline_data->tracepoint->tracepoint.load(std::memory_order_seq_cst))
+    {
+        tp->call_handler(st->regs);
+    }
     // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
     st->inline_data += 1;
 }
@@ -149,12 +152,13 @@ void arch_tracepoint::call_handler(const arch::regs &r) noexcept
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     : _location{location}, _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}
 {
+
     memcpy(&_old_code, _location.as_ptr(), 8);
 
     auto ool = out_of_line(_location);
     auto ool_size = ool.size();
 
-    _handler_size = tracepoint_handler_size(ool_size);
+    auto handler_size = tracepoint_handler_size(ool_size);
 
     // Create handler in memory.
     constraint cond;
@@ -162,30 +166,34 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     {
         cond = make_constraint(_location.as_int(), ool);
     }
-    _handler_location = context::instance().arch().allocator()->alloc(_location + jmp_size, _handler_size, cond);
-    if(!_handler_location)
+    auto handler_location = context::instance().arch().allocator()->alloc(_location + jmp_size, handler_size, cond);
+    if(!handler_location)
         throw fasttp_error{"Could not allocate tracepoint"};
 
-    buffer_writer writer{_handler_location};
+    _code = new arch_tracepoint_code{0, handler_location, handler_size, this};
 
+    buffer_writer writer{handler_location};
     writer.write(tracepoint_handler_enter_code);
-    writer.write(this);
+    writer.write(_code);
     writer.write(__tracepoint_handler);
     bool is_first = true;
-    ool.write(writer, [&is_first, this](code_ptr loc, code_ptr ool_loc)
+    ool.write(writer, [code = _code, &is_first, this](code_ptr loc, code_ptr ool_loc)
     {
         if(is_first)
             is_first = false;
         else
         {
             _redirects.push_back(context::instance().arch().add_redirect(
-                [this](const void* from, const arch::regs& regs)
+                [code](const void* from, const arch::regs& regs)
                 {
                     try
                     {
-                        ++_refcount;
-                        if(_trap_handler)
-                            _trap_handler(from, regs);
+                        ++code->refcount;
+                        if(auto tp = code->tracepoint.load(std::memory_order_relaxed))
+                        {
+                            if (tp->_trap_handler)
+                                tp->_trap_handler(from, regs);
+                        }
                     }
                     catch (const std::exception& e)
                     {
@@ -207,13 +215,25 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool_size).as_int(), jmp_size);
     writer.write(jmp_op);
     writer.write(jmp.value());
+
+    enable();
 }
 
 arch_tracepoint::~arch_tracepoint()
 {
     disable();
-    auto alloc = context::instance().arch().allocator();
-    alloc->free(_handler_location, _handler_size);
+    _code->tracepoint.store(nullptr, std::memory_order_seq_cst);
+    context::instance().get_reclaimer().reclaim(
+        [code = _code](uintptr_t rip) -> bool
+        {
+            return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
+        },
+        [code = _code]() -> void
+        {
+            context::instance().arch().allocator()->free(code->handler, code->handler_size);
+            delete code;
+        }
+    );
 }
 
 void arch_tracepoint::enable() noexcept
@@ -223,7 +243,7 @@ void arch_tracepoint::enable() noexcept
         // Atomically place tracepoint.
         auto [pages_loc, pages_size] = get_pages(_location, 8);
         mprotect(pages_loc.as_ptr(), pages_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-        set_jmp(_location, _handler_location);
+        set_jmp(_location, _code->handler);
         mprotect(pages_loc.as_ptr(), pages_size, PROT_EXEC | PROT_READ);
         _enabled = true;
     }
@@ -240,11 +260,4 @@ void arch_tracepoint::disable() noexcept
         mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
         _enabled = false;
     }
-}
-
-std::shared_ptr<arch_tracepoint> arch_tracepoint::make(void* location, handler h, const options& ops, deleter del)
-{
-    auto res = std::shared_ptr<arch_tracepoint>{new arch_tracepoint{location, std::move(h), ops}, std::move(del)};
-    res->enable();
-    return res;
 }

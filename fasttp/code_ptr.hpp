@@ -11,12 +11,13 @@ namespace dyntrace::fasttp
      */
     class code_ptr
     {
+        using value_type = uint8_t*;
     public:
         code_ptr() noexcept
             : _ptr{nullptr} {}
         template<typename T>
         explicit code_ptr(T ptr) noexcept
-            : _ptr{reinterpret_cast<uint8_t*>(ptr)} {}
+            : _ptr{reinterpret_cast<value_type>(ptr)} {}
         explicit code_ptr(std::nullptr_t) noexcept
             : _ptr{nullptr} {}
 
@@ -70,6 +71,19 @@ namespace dyntrace::fasttp
             return *this;
         }
 
+        template<typename T>
+        std::enable_if_t<std::is_integral_v<T>, code_ptr> operator&(T p) const noexcept
+        {
+            return code_ptr{as_int() & p};
+        };
+
+        template<typename T>
+        std::enable_if_t<std::is_integral_v<T>, code_ptr&> operator&=(T p) noexcept
+        {
+            _ptr = reinterpret_cast<value_type>(as_int() & p);
+            return *this;
+        };
+
         bool operator==(const code_ptr& ptr) const noexcept
         {
             return _ptr == ptr._ptr;
@@ -114,7 +128,7 @@ namespace dyntrace::fasttp
         };
 
     private:
-        uint8_t* _ptr;
+        value_type _ptr;
     };
 }
 

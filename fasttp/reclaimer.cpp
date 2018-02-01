@@ -91,7 +91,7 @@ void reclaimer::reclaim_batch()
         this,
         {},
         dyntrace::barrier{ths.size()},
-        {}
+        false
     };
 
     for(auto pid : ths)
@@ -101,20 +101,12 @@ void reclaimer::reclaim_batch()
             syscall(SYS_tgkill, getpid(), pid, SIGUSR1);
     }
     _reclaim_data->barrier.wait();
+    _reclaim_data->barrier.wait();
 
     {
-        auto inv = _reclaim_data->invalids.lock();
-        for (auto it = _reclaim_data->self->_batch.begin(); it != _reclaim_data->self->_batch.end();)
-        {
-            if (inv->find(it->invalid) == inv->end())
-            {
-                auto to_del = it++;
-                to_del->deleter();
-                _reclaim_data->self->_batch.erase(to_del);
-                continue;
-            }
-            ++it;
-        }
+        auto to_del = _reclaim_data->to_delete.lock();
+        for(const auto& d : *to_del)
+            d();
     }
 
     delete _reclaim_data;
@@ -127,39 +119,31 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_RIP]);
 
-        std::call_once(_reclaim_data->once_flag, [self = _reclaim_data->self, &invalids = _reclaim_data->invalids]()
-        {
-            for(auto& b : self->_batch)
-            {
-                if(!b.predicate())
-                {
-                    auto inv = invalids.lock();
-                    inv->insert(b.invalid);
-                }
-            }
-        });
-
         {
             auto ainv = _reclaim_data->self->_always_invalid.lock();
             for(auto& r : *ainv)
             {
                 if(r.contains(rip))
                 {
-                    auto inv = _reclaim_data->invalids.lock();
-                    for(auto& b : _reclaim_data->self->_batch)
-                        inv->insert(b.invalid);
+                    _reclaim_data->cancel = true;
                 }
             }
         }
-        for(auto& b : _reclaim_data->self->_batch)
-        {
-            if (b.invalid.contains(rip))
-            {
-                auto inv = _reclaim_data->invalids.lock();
-                inv->insert(b.invalid);
-            }
-        }
+        _reclaim_data->barrier.wait();
+        if(_reclaim_data->cancel)
+            return;
 
+        for(auto it = _reclaim_data->self->_batch.begin(); it != _reclaim_data->self->_batch.end();)
+        {
+            if(it->predicate(rip))
+            {
+                auto to_del = _reclaim_data->to_delete.lock();
+                to_del->push_back(std::move(it->deleter));
+                _reclaim_data->self->_batch.erase(it++);
+            }
+            else
+                ++it;
+        }
         _reclaim_data->barrier.wait();
     }
     else

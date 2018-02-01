@@ -4,13 +4,9 @@
 #ifndef DYNTRACE_FASTTP_FASTTP_HPP_
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
-#include <process/process.hpp>
-
 #include "arch/tracepoint.hpp"
 #include "location.hpp"
 #include "common.hpp"
-#include "util/locked.hpp"
-#include "util/flag.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -18,7 +14,6 @@ namespace dyntrace::fasttp
     {
     public:
         tracepoint(const location& loc, handler handler, const options& ops = {});
-        ~tracepoint();
 
         void enable(bool e = true) noexcept
         {
@@ -39,8 +34,7 @@ namespace dyntrace::fasttp
         }
 
     private:
-
-        std::shared_ptr<arch_tracepoint> _impl;
+        std::unique_ptr<arch_tracepoint> _impl;
     };
 }
 
