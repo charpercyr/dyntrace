@@ -39,7 +39,7 @@ private:
         addr = reinterpret_cast<void*>(reinterpret_cast<uintptr_t>(addr));
 
         fasttp::options ops;
-        ops.x86.trap_handler = fasttp::handler{trap};
+        ops.x86.trap_handler = trap;
         auto tp = fasttp::tracepoint{fasttp::addr_location{addr}, handler, ops};
         std::this_thread::sleep_for(3s);
         printf("Remove\n");

@@ -30,16 +30,6 @@ struct __attribute__((packed)) tracepoint_stack
     tracepoint_inline_data* inline_data;
 };
 
-extern "C" void __attribute__((used)) tracepoint_handler(tracepoint_stack* st) noexcept
-{
-    if(auto tp = st->inline_data->tracepoint->tracepoint.load(std::memory_order_seq_cst))
-    {
-        tp->call_handler(st->regs);
-    }
-    // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
-    st->inline_data += 1;
-}
-
 namespace
 {
     constexpr uint8_t tracepoint_handler_enter_code[] = {
@@ -131,28 +121,43 @@ namespace
         loc = code_ptr{loc.as_int() & PAGE_MASK};
         return {loc, mmap_size};
     };
+
+    template<typename F, typename...Args>
+    decltype(auto) call_handler_nothrow(F&& f, Args&&...args) noexcept
+    {
+        try
+        {
+            return f(std::forward<Args>(args)...);
+        }
+        catch (std::exception& e)
+        {
+            fprintf(stderr, "Caught exception during handler call: %s\n", e.what());
+        }
+        catch (...)
+        {
+            fprintf(stderr, "Caught unknown exception during handler call\n");
+        }
+    }
+}
+
+extern "C" void __attribute__((used)) tracepoint_handler(tracepoint_stack* st) noexcept
+{
+    if(auto tp = st->inline_data->tracepoint->tracepoint.load(std::memory_order_seq_cst))
+    {
+        tp->call_handler(st->regs);
+    }
+    // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
+    st->inline_data += 1;
 }
 
 void arch_tracepoint::call_handler(const arch::regs &r) noexcept
 {
-    try
-    {
-        _user_handler(location(), r);
-    }
-    catch (const std::exception& e)
-    {
-        fprintf(stderr, "Caught exception from handler: %s\n", e.what());
-    }
-    catch(...)
-    {
-        fprintf(stderr, "Caught unknown exception from handler\n");
-    }
+    call_handler_nothrow(_user_handler, location(), r);
 }
 
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     : _location{location}, _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}
 {
-
     memcpy(&_old_code, _location.as_ptr(), 8);
 
     auto ool = out_of_line(_location);
@@ -186,22 +191,11 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
             _redirects.push_back(context::instance().arch().add_redirect(
                 [code](const void* from, const arch::regs& regs)
                 {
-                    try
+                    ++code->refcount;
+                    if(auto tp = code->tracepoint.load(std::memory_order_relaxed))
                     {
-                        ++code->refcount;
-                        if(auto tp = code->tracepoint.load(std::memory_order_relaxed))
-                        {
-                            if (tp->_trap_handler)
-                                tp->_trap_handler(from, regs);
-                        }
-                    }
-                    catch (const std::exception& e)
-                    {
-                        fprintf(stderr, "Caught exception from trap_handler: %s\n", e.what());
-                    }
-                    catch(...)
-                    {
-                        fprintf(stderr, "Caught unknown exception from trap_handler\n");
+                        if (tp->_trap_handler)
+                            call_handler_nothrow(tp->_trap_handler, from, regs);
                     }
                 },
                 loc, ool_loc)

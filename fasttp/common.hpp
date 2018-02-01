@@ -18,7 +18,7 @@ namespace dyntrace
         namespace _detail
         {
             template<typename Tuple, typename Func, size_t...Ints>
-            handler unpack_regs(Func&& func, std::index_sequence<Ints...>)
+            handler unpack_regs(Func&& func, std::index_sequence<Ints...>) noexcept
             {
                 return handler{
                     [func = std::forward<Func>(func)](const void *caller, const arch::regs &regs) -> void
