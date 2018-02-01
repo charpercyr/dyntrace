@@ -2,6 +2,7 @@
 #define DYNTRACE_FASTTP_ARCH_X86_64_CODE_ALLOCATOR_HPP_
 
 #include <fasttp/code_ptr.hpp>
+
 #include <process/process.hpp>
 #include <util/integer_range.hpp>
 
@@ -10,8 +11,8 @@
 #include <memory>
 #include <optional>
 #include <unordered_map>
-
 #include <sys/user.h>
+
 
 namespace dyntrace::fasttp
 {

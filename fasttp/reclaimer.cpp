@@ -12,7 +12,7 @@ inline constexpr auto reclaim_count = 2000;
 reclaimer::reclaim_data* reclaimer::_reclaim_data{nullptr};
 std::mutex reclaimer::_reclaim_lock;
 
-reclaimer::reclaimer()
+reclaimer::reclaimer() noexcept
     : _thread{&reclaimer::run, this}
 {
     static std::once_flag once_flag;

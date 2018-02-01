@@ -4,6 +4,7 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 
+#include "buffer_writer.hpp"
 #include <fasttp/code_ptr.hpp>
 
 #include <capstone/capstone.h>
@@ -11,8 +12,6 @@
 #include <functional>
 #include <memory>
 #include <vector>
-
-#include "buffer_writer.hpp"
 
 namespace dyntrace::fasttp
 {

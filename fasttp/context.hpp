@@ -1,19 +1,22 @@
 #ifndef DYNTRACE_FASTTP_CONTEXT_HPP_
 #define DYNTRACE_FASTTP_CONTEXT_HPP_
 
-#include <process/process.hpp>
-#include <util/locked.hpp>
-
 #include "arch/tracepoint.hpp"
 #include "location.hpp"
 #include "reclaimer.hpp"
 
+#include <process/process.hpp>
+#include <util/locked.hpp>
+
 namespace dyntrace::fasttp
 {
+    /**
+     * Singleton that contains all the process-global data.
+     */
     class context
     {
     public:
-        static context& instance();
+        static context& instance() noexcept;
 
         arch_context& arch() noexcept
         {
@@ -31,10 +34,9 @@ namespace dyntrace::fasttp
         }
 
     private:
-        context();
+        context() noexcept;
 
         arch_context _impl;
-        dyntrace::locked<std::unordered_map<void*, std::unique_ptr<arch_tracepoint>>> _tracepoints;
         reclaimer _reclaimer;
     };
 }

@@ -4,18 +4,18 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_CONTEXT_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_CONTEXT_HPP_
 
+#include "code_allocator.hpp"
+#include <fasttp/code_ptr.hpp>
+#include <fasttp/common.hpp>
+
 #include <memory>
 #include <unordered_set>
 #include <vector>
 
 #include <arch/arch.hpp>
-#include <fasttp/code_ptr.hpp>
-#include <fasttp/common.hpp>
 #include <process/process.hpp>
 #include <util/integer_range.hpp>
 #include <util/locked.hpp>
-
-#include "code_allocator.hpp"
 
 namespace dyntrace::fasttp
 {
@@ -73,7 +73,7 @@ namespace dyntrace::fasttp
 
         using allocator_type = dyntrace::locked<code_allocator>;
     public:
-        explicit arch_context(context* ctx);
+        explicit arch_context(context* ctx) noexcept;
         ~arch_context();
 
         redirect_handle add_redirect(handler tp, code_ptr at, code_ptr redirect);

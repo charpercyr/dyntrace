@@ -5,15 +5,19 @@
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
 #include "arch/tracepoint.hpp"
-#include "location.hpp"
 #include "common.hpp"
+#include "location.hpp"
 
 namespace dyntrace::fasttp
 {
+    /**
+     * Moveable handle for an arch_tracepoint.
+     * This object controls the lifetime of the tracepoint.
+     */
     class tracepoint
     {
     public:
-        tracepoint(const location& loc, handler handler, const options& ops = {});
+        tracepoint(const fasttp::location& loc, handler handler, const options& ops = {});
 
         void enable(bool e = true) noexcept
         {
@@ -31,6 +35,11 @@ namespace dyntrace::fasttp
         bool enabled() const noexcept
         {
             return _impl->enabled();
+        }
+
+        const void* location() const noexcept
+        {
+            return _impl->location();
         }
 
     private:

@@ -135,7 +135,7 @@ void redirect_handle::remove()
     }
 }
 
-arch_context::arch_context(context* ctx)
+arch_context::arch_context(context* ctx) noexcept
 {
     ctx->get_reclaimer().add_invalid(
         {

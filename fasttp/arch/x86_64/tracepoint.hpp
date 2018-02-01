@@ -1,13 +1,12 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_TRACEPOINT_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_TRACEPOINT_HPP_
 
-#include <arch/arch.hpp>
-#include <process/process.hpp>
-
+#include "context.hpp"
 #include <fasttp/code_ptr.hpp>
 #include <fasttp/common.hpp>
 
-#include "context.hpp"
+#include <arch/arch.hpp>
+#include <process/process.hpp>
 
 #include <atomic>
 #include <vector>
@@ -16,6 +15,9 @@ namespace dyntrace::fasttp
 {
     class arch_tracepoint;
 
+    /**
+     * tracepoint data that will be delay-deleted (using the reclaimer)
+     */
     struct arch_tracepoint_code
     {
         std::atomic_uint64_t refcount; // Has to be first
@@ -47,14 +49,9 @@ namespace dyntrace::fasttp
             return _enabled;
         }
 
-        void* location() const noexcept
+        const void* location() const noexcept
         {
             return _location.as_ptr();
-        }
-
-        uintptr_t refcount() const noexcept
-        {
-            return _code->refcount.load(std::memory_order_relaxed);
         }
 
         address_range range() const noexcept

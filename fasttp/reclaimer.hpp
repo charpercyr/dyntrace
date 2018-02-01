@@ -1,31 +1,35 @@
 #ifndef DYNTRACE_FASTTP_RECLAIMER_HPP_
 #define DYNTRACE_FASTTP_RECLAIMER_HPP_
 
-#include <functional>
-#include <future>
-#include <list>
-#include <set>
-#include <thread>
-#include <variant>
-#include <vector>
-
 #include <process/process.hpp>
 #include <util/barrier.hpp>
 #include <util/integer_range.hpp>
 #include <util/locked.hpp>
 #include <util/safe_queue.hpp>
 
-#include <signal.h>
+#include <csignal>
+#include <functional>
+#include <future>
+#include <list>
+#include <thread>
+#include <variant>
+#include <vector>
 
 namespace dyntrace::fasttp
 {
+    /**
+     * Object that is in charge of deleting tracepoint code once we are sure it is not in use.
+     */
     class reclaimer
     {
     public:
-        reclaimer();
+        using predicate_type = std::function<bool(uintptr_t)>;
+        using deleter_type = std::function<void()>;
+
+        reclaimer() noexcept;
         ~reclaimer();
 
-        void reclaim(std::function<bool(uintptr_t)> pred, std::function<void()> del)
+        void reclaim(predicate_type pred, deleter_type del)
         {
             _queue.put(reclaim_work{std::move(pred), std::move(del)});
         }
@@ -42,8 +46,8 @@ namespace dyntrace::fasttp
         struct reclaim_stop {};
         struct reclaim_work
         {
-            std::function<bool(uintptr_t)> predicate;
-            std::function<void()> deleter;
+            predicate_type predicate;
+            deleter_type deleter;
         };
         struct reclaim_force
         {
