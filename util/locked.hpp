@@ -6,26 +6,52 @@
 #define DYNTRACE_UTIL_LOCKED_HPP_
 
 #include <mutex>
+#include <shared_mutex>
 
 namespace dyntrace
 {
     struct nolock
     {
-        void lock() noexcept {}
-        void unlock() noexcept {}
+        void lock() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_acquire);
+        }
+        bool try_lock() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_acquire);
+            return true;
+        }
+        void unlock() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_release);
+        }
+
+        void lock_shared() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_acquire);
+        }
+        bool try_lock_shared() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_acquire);
+            return true;
+        }
+        void unlock_shared() noexcept
+        {
+            std::atomic_thread_fence(std::memory_order_release);
+        }
     };
     /**
      * Proxy that represents a locked object. The lock is locked during the lifetime of this object.
      */
-    template<typename T, typename Lock>
+    template<typename T, typename Lock, typename Guard>
     class locked_proxy
     {
-        template<typename, typename>
+        template<typename, typename, typename>
         friend class locked_proxy;
     public:
         using value_type = T;
         using lock_type = Lock;
-        using guard_type = std::unique_lock<Lock>;
+        using guard_type = Guard;
 
         locked_proxy(value_type* val, lock_type& lock) noexcept
                 : _val{val}, _guard{val ? guard_type{lock} : guard_type{}} {}
@@ -57,16 +83,6 @@ namespace dyntrace
             return _val;
         }
 
-        /**
-         * Moves the lock to a subobject. The lock is going to be owned by the subobject's proxy.
-         */
-        template<typename U>
-        auto lock_for(U* u)
-        {
-            _val = nullptr;
-            return locked_proxy<U, lock_type>{u, std::move(_guard)};
-        }
-
         explicit operator bool() const noexcept
         {
             return _val != nullptr;
@@ -92,8 +108,9 @@ namespace dyntrace
         using value_type = T;
         using lock_type = Lock;
         using locked_type = locked<value_type, lock_type>;
-        using proxy_type = locked_proxy<value_type, lock_type>;
-        using const_proxy_type = locked_proxy<const value_type, lock_type>;
+        using proxy_type = locked_proxy<value_type, lock_type, std::unique_lock<lock_type>>;
+        using const_proxy_type = locked_proxy<const value_type, lock_type, std::unique_lock<lock_type>>;
+        using shared_proxy_type = locked_proxy<const value_type, lock_type, std::shared_lock<lock_type>>;
 
         template<typename...Args>
         locked(Args&&...args) noexcept(std::is_nothrow_constructible_v<T, Args...>)
@@ -108,7 +125,7 @@ namespace dyntrace
          * Obtains a locked proxy. The object can now be used safely.
          * @return
          */
-        proxy_type lock()
+        [[nodiscard]] proxy_type lock()
         {
             return proxy_type{&_val, _lock};
         };
@@ -116,10 +133,19 @@ namespace dyntrace
          * Obtains a const locked proxy. The object can now be used safely.
          * @return
          */
-        const_proxy_type lock() const
+        [[nodiscard]] const_proxy_type lock() const
         {
             return const_proxy_type{_val, _lock};
         };
+
+        /**
+         * Obtains a const shared locked proxy. Multiple readers are ok.
+         * @return
+         */
+        [[nodiscard]] shared_proxy_type lock_shared() const
+        {
+            return shared_proxy_type{&_val, _lock};
+        }
 
         /**
          * Const accessors for the object since const (should) be thread-safe.
@@ -140,6 +166,12 @@ namespace dyntrace
         value_type _val;
         mutable lock_type _lock;
     };
+    template<typename T>
+    using unique_locked = locked<T, std::mutex>;
+    template<typename T>
+    using shared_locked = locked<T, std::shared_mutex>;
+    template<typename T>
+    using nolock_locked = locked<T, nolock>;
 }
 
 #endif

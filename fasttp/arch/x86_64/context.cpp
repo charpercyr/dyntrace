@@ -14,7 +14,7 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
-    locked<std::unordered_map<code_ptr, std::tuple<handler, code_ptr>, code_ptr::hash>> redirects;
+    shared_locked<std::unordered_map<code_ptr, std::tuple<handler, code_ptr>, code_ptr::hash>> redirects;
 
     arch::regs make_regs(const greg_t* r)
     {
@@ -48,7 +48,7 @@ namespace
 
         // If we call the old handler, red may never unlock
         {
-            auto red = redirects.lock();
+            auto red = redirects.lock_shared();
             auto it = red->find(from);
             if(it != red->end())
             {

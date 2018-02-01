@@ -171,7 +171,12 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     {
         cond = make_constraint(_location.as_int(), ool);
     }
-    auto handler_location = context::instance().arch().allocator()->alloc(_location + jmp_size, handler_size, cond);
+
+    code_ptr handler_location;
+    {
+        auto alloc = context::instance().arch().allocator();
+        handler_location = alloc->alloc(_location + jmp_size, handler_size, cond);
+    }
     if(!handler_location)
         throw fasttp_error{"Could not allocate tracepoint"};
 
