@@ -5,7 +5,8 @@
 
 namespace dyntrace::comm::local
 {
-    using server = dyntrace::comm::server<boost::asio::local::stream_protocol>;
+    using protocol = boost::asio::local::stream_protocol;
+    using server = dyntrace::comm::server<protocol>;
     using acceptor = server::acceptor;
     using endpoint = server::endpoint;
     using iostream = server::iostream;

@@ -1,16 +1,16 @@
 
 #include <experimental/filesystem>
 #include <iostream>
+#include <sstream>
 #include <string_view>
 
 #include <boost/asio.hpp>
-#include <boost/program_options.hpp>
-#include <boost/range/irange.hpp>
-#include <boost/thread/thread_pool.hpp>
-
 #include <boost/log/trivial.hpp>
 #include <boost/log/sinks.hpp>
 #include <boost/log/sinks/text_ostream_backend.hpp>
+#include <boost/program_options.hpp>
+#include <boost/range/irange.hpp>
+#include <boost/thread/thread_pool.hpp>
 
 #include <fcntl.h>
 #include <grp.h>
@@ -19,6 +19,7 @@
 #include <config.hpp>
 
 #include <dyntrace/comm/local.hpp>
+#include <dyntrace/comm/process.hpp>
 
 namespace asio = boost::asio;
 namespace comm = dyntrace::comm;
@@ -161,11 +162,12 @@ int main(int argc, const char** argv)
     int ret = 0;
     try
     {
+        comm::connection_manager<comm::local::protocol> man;
         asio::io_context ctx;
-        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}};
+        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, man};
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
         chown(dyntrace::config::command_socket_name, geteuid(), grp);
-        comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}};
+        comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, man};
         chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG);
         chown(dyntrace::config::process_socket_name, geteuid(), grp);
 
