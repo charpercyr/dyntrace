@@ -1,129 +1,209 @@
 
+#include <experimental/filesystem>
+#include <iostream>
+#include <string_view>
+
 #include <boost/asio.hpp>
 #include <boost/program_options.hpp>
+#include <boost/range/irange.hpp>
 #include <boost/thread/thread_pool.hpp>
 
-#include <experimental/filesystem>
+#include <boost/log/trivial.hpp>
+#include <boost/log/sinks.hpp>
+#include <boost/log/sinks/text_ostream_backend.hpp>
+
+#include <fcntl.h>
+#include <grp.h>
+#include <sys/stat.h>
+
+#include <config.hpp>
 
 #include <dyntrace/comm/local.hpp>
-
-using namespace std;
-using namespace std::chrono_literals;
 
 namespace asio = boost::asio;
 namespace comm = dyntrace::comm;
 namespace fs = std::experimental::filesystem;
 namespace po = boost::program_options;
 
-class my_handler : public comm::local::connection_handler
-{
-public:
-    explicit my_handler(comm::local::handler& h, comm::local::socket&& sock) noexcept
-        : comm::local::connection_handler{h, std::move(sock)}
-    {
-        printf("New handler !\n");
-    }
+using namespace std::string_literals;
+using namespace std::string_view_literals;
 
-protected:
-    void on_receive(const comm::local::connection_handler::buffer_type& buf, size_t size) override
-    {
-        printf("Received: %s", reinterpret_cast<const char*>(buf.data()));
-    }
+[[noreturn]]
+void do_exit(std::string_view msg, int code = 1)
+{
+    std::cerr << msg << "\n";
+    exit(code);
+}
+
+struct cmdline
+{
+    bool daemonize;
+    size_t threads;
 };
 
-int main(int argc, const char** argv)
+gid_t get_dyntrace_group()
 {
-    po::options_description desc("Available options");
+    if(auto grp = getgrnam(dyntrace::config::group_name))
+    {
+        return grp->gr_gid;
+    }
+    else
+        do_exit("Could not find group '"s + dyntrace::config::group_name + "'"s);
+}
 
-    string working_directory;
-    string command_socket_path;
-    string process_socket_path;
-    size_t n_threads;
-    po::variables_map vm;
+cmdline parse_args(int argc, const char** argv)
+{
+    cmdline args{};
+    po::options_description desc(
+        std::string{argv[0]} + " [options...]\n"
+        "Available options:"
+    );
 
     desc.add_options()
-        ("help,h", "Shows help")
-        ("daemonize", "Run as a daemon")
-        ("dir", po::value(&working_directory)->default_value("/run/dyntraced"), "Working directory of dyntraced")
-        ("command-socket", po::value(&command_socket_path)->default_value("command.sock"), "Command socket file name")
-        ("process-socket", po::value(&process_socket_path)->default_value("process.sock"), "Process socket file name")
-        ("thread,t", po::value(&n_threads)->default_value(1), "Number of threads to use")
+        ("daemonize", po::bool_switch(&args.daemonize), "Run as a daemon\n")
+        ("thread,t", po::value(&args.threads)->default_value(1), "Number of threads\n")
     ;
+
     try
     {
+        po::variables_map vm;
         po::store(po::parse_command_line(argc, argv, desc), vm);
         po::notify(vm);
     }
-    catch(po::error& e)
+    catch(const po::error& e)
     {
-        cerr << e.what() << '\n';
-        cerr << desc;
-        return 1;
+        std::cerr << e.what() << "\n";
+        std::cerr << desc;
+        exit(1);
     }
-    catch (exception& e)
+    catch(const std::exception& e)
     {
-        cerr << "Error during argument parsing: " << e.what() << '\n';
-        return 1;
+        do_exit("Error while parsing arguments: "s + e.what());
     }
-
-    if(vm.count("help"))
+    catch(...)
     {
-        cout << desc;
-        return 0;
+        do_exit("Unknown error"sv);
     }
 
-    if(vm.count("daemonize"))
+    if(args.threads == 0)
+        do_exit("Invalid number of threads"sv);
+
+    return args;
+}
+
+void lock_daemon()
+{
+    auto lock_file_path = fs::path{dyntrace::config::working_directory} / fs::path{dyntrace::config::lock_file_name};
+    auto lock_file_fd = open(lock_file_path.c_str(), O_EXCL | O_WRONLY | O_CREAT);
+    if(lock_file_fd == -1)
     {
-        daemon(false, true);
+        if(errno == EEXIST)
+            do_exit("dyntraced is already running"sv);
+        else
+            do_exit("Could not create lock file: "s + strerror(errno));
     }
+    auto strpid = std::to_string(getpid());
+    write(lock_file_fd, strpid.data(), strpid.size());
+    close(lock_file_fd);
+    chmod(lock_file_path.c_str(), S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+}
 
-    if(n_threads == 0)
+void setup_daemon(bool daemonize)
+{
+    if(mkdir(dyntrace::config::working_directory, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH) != 0 && errno != EEXIST)
+        do_exit("Could not create '"s + dyntrace::config::working_directory + "': "s + strerror(errno));
+
+    if(chdir(dyntrace::config::working_directory) != 0)
+        do_exit("Could not change directory: "s + strerror(errno));
+
+    lock_daemon();
+
+    if(daemonize)
+        daemon(true, true);
+}
+
+void init_logging(bool daemon)
+{
+    using namespace boost::log;
+    auto core = core::get();
+    if(daemon)
     {
-        cerr << "Invalid number of threads\n";
-        return 1;
+        auto syslog = boost::make_shared<sinks::syslog_backend>(
+            keywords::facility = sinks::syslog::daemon,
+            keywords::use_impl = sinks::syslog::native
+        );
+        core->add_sink(boost::make_shared<sinks::synchronous_sink<sinks::syslog_backend>>(syslog));
     }
+    else
+    {
+        auto out = boost::make_shared<sinks::text_ostream_backend>();
+        out->add_stream(boost::shared_ptr<std::ostream>{&std::clog, [](auto) {}});
+        out->auto_flush(true);
+        core->add_sink(boost::make_shared<sinks::synchronous_sink<sinks::text_ostream_backend>>(out));
+    }
+}
 
-    fs::path command_socket = fs::path{working_directory} / fs::path{command_socket_path};
-    fs::path process_socket = fs::path{working_directory} / fs::path{process_socket_path};
+int main(int argc, const char** argv)
+{
+    if(geteuid() != 0)
+    {
+        do_exit("You must be root to run this"sv);
+    }
+    auto grp = get_dyntrace_group();
+    auto args = parse_args(argc, argv);
+    setup_daemon(args.daemonize);
 
+    init_logging(args.daemonize);
+
+    // From this point, we must not quit unless we clean up the files.
+    // We also may be a daemon.
+
+    int ret = 0;
     try
     {
         asio::io_context ctx;
-        using server = comm::local::server;
-        using handler = comm::local::simple_handler<my_handler>;
+        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}};
+        chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
+        chown(dyntrace::config::command_socket_name, geteuid(), grp);
+        comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}};
+        chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG);
+        chown(dyntrace::config::process_socket_name, geteuid(), grp);
 
-        handler h;
-        server command_server{ctx, h, server::endpoint{command_socket.string()}};
-        server process_server{ctx, h, server::endpoint{process_socket.string()}};
-
-        asio::signal_set sig_set{ctx, SIGINT, SIGTERM};
-        sig_set.async_wait(
-            [&ctx, &command_server, &process_server](const boost::system::error_code& err, int sig)
+        asio::signal_set sigs{ctx, SIGINT, SIGTERM};
+        sigs.async_wait(
+            [&ctx, &command_srv, &process_srv](const boost::system::error_code& err, int sig)
             {
-                command_server.stop();
-                process_server.stop();
+                command_srv.stop();
+                process_srv.stop();
                 ctx.stop();
             }
         );
 
+        command_srv.start();
+        process_srv.start();
+
         boost::thread_group tg;
-        for (size_t i = 0; i < n_threads - 1; ++i)
+        for (auto _ : boost::irange<size_t>(0, args.threads - 1))
+        {
             tg.create_thread(
                 [&ctx]()
                 {
                     ctx.run();
                 }
             );
+        }
+
         ctx.run();
         tg.join_all();
     }
-    catch(exception& e)
+    catch(const std::exception& e)
     {
-        cerr << "Error during execution: " << e.what() << endl;
+        std::cerr << "Error during execution: " << e.what() << "\n";
+        ret = 1;
     }
-
-    unlink(command_socket.c_str());
-    unlink(process_socket.c_str());
-
-    return 0;
+    unlink(dyntrace::config::command_socket_name);
+    unlink(dyntrace::config::process_socket_name);
+    unlink(dyntrace::config::lock_file_name);
+    rmdir(dyntrace::config::working_directory);
+    return ret;
 }

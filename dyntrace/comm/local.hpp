@@ -5,17 +5,11 @@
 
 namespace dyntrace::comm::local
 {
-    using protocol = boost::asio::local::stream_protocol;
-
-    using acceptor = protocol::acceptor;
-    using endpoint = protocol::endpoint;
-    using socket = protocol::socket;
-
-    using server = dyntrace::comm::server<protocol>;
-    using handler = dyntrace::comm::handler<protocol>;
-    using connection_handler = dyntrace::comm::connection_handler<protocol>;
-    template<typename ConnectionHandler>
-    using simple_handler = dyntrace::comm::simple_handler<protocol, ConnectionHandler>;
+    using server = dyntrace::comm::server<boost::asio::local::stream_protocol>;
+    using acceptor = server::acceptor;
+    using endpoint = server::endpoint;
+    using iostream = server::iostream;
+    using socket = server::socket;
 }
 
 #endif
