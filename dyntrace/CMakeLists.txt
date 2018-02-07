@@ -15,5 +15,4 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 add_subdirectory(comm)
 add_subdirectory(dyntraced)
-add_subdirectory(frontends)
 add_subdirectory(loader)

@@ -1,10 +1,10 @@
 #ifndef DYNTRACE_COMM_PROCESS_HPP_
 #define DYNTRACE_COMM_PROCESS_HPP_
 
+#include "message.hpp"
+
 #include <string>
 #include <variant>
-
-#include "message.hpp"
 
 namespace dyntrace::comm
 {
@@ -23,18 +23,78 @@ namespace dyntrace::comm
 
     void serialize(rapidjson::Document& doc, rapidjson::Value& root, const process_body& proc) noexcept;
     void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, process_body& proc);
-
     void serialize(rapidjson::Document& doc, rapidjson::Value& root, const hello_body& proc) noexcept;
     void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, hello_body& proc);
-
     void serialize(rapidjson::Document& doc, rapidjson::Value& root, const bye_body& proc) noexcept;
     void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, bye_body& proc);
 
+    inline void serialize(rapidjson::Document& doc, rapidjson::Value& root, const process_body& proc) noexcept
+    {
+        root.SetObject();
+        if(std::holds_alternative<hello_body>(proc))
+        {
+            root.GetObject().AddMember(rapidjson::StringRef("type"), rapidjson::StringRef("hello"), doc.GetAllocator());
+            serialize(doc, root, std::get<hello_body>(proc));
+        }
+        else if(std::holds_alternative<bye_body>(proc))
+        {
+            root.GetObject().AddMember(rapidjson::StringRef("type"), rapidjson::StringRef("bye"), doc.GetAllocator());
+            serialize(doc, root, std::get<bye_body>(proc));
+        }
+    }
+    inline void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, process_body& proc)
+    {
+        using namespace std::string_literals;
+        if(!root.IsObject())
+            throw bad_message_error{};
+        if(!root.GetObject().HasMember("type"))
+            throw bad_message_error{};
+        if(!root.GetObject()["type"].IsString())
+            throw bad_message_error{};
+
+        if(root.GetObject()["type"].GetString() == "hello"s)
+        {
+            proc = hello_body{};
+            unserialize(doc, root, std::get<hello_body>(proc));
+        }
+        else if(root.GetObject()["type"].GetString() == "bye"s)
+        {
+            proc = bye_body{};
+            unserialize(doc, root, std::get<bye_body>(proc));
+        }
+        else
+            throw bad_message_error{};
+    }
+
+    inline void serialize(rapidjson::Document& doc, rapidjson::Value& root, const hello_body& proc) noexcept
+    {
+        root.GetObject().AddMember(rapidjson::StringRef("pid"), proc.pid, doc.GetAllocator());
+    }
+    inline void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, hello_body& proc)
+    {
+        if(!root.GetObject().HasMember("pid"))
+            throw bad_message_error{};
+        if(!root.GetObject()["pid"].IsInt())
+            throw bad_message_error{};
+
+        proc.pid = root.GetObject()["pid"].GetInt();
+    }
+
+    inline void serialize(rapidjson::Document& doc, rapidjson::Value& root, const bye_body& proc) noexcept
+    {
+        // Nothing
+    }
+    inline void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, bye_body& proc)
+    {
+        // Nothing
+    }
+
     template<typename Protocol>
-    class process_handler : public message_handler<Protocol, process_body>
+    class process_connection : public message_connection<Protocol, process_body>
     {
     public:
-        using message_handler<Protocol, process_body>::message_handler;
+
+        using message_connection<Protocol, process_body>::message_connection;
 
     protected:
 

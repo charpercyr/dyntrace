@@ -5,10 +5,10 @@
 
 namespace dyntrace::d
 {
-    class process_handler : public dyntrace::comm::local::process_handler
+    class process_connection : public dyntrace::comm::local::process_connection
     {
     public:
-        using dyntrace::comm::local::process_handler::process_handler;
+        using dyntrace::comm::local::process_connection::process_connection;
 
     protected:
         void on_hello(size_t seq, const dyntrace::comm::hello_body& hello) override;

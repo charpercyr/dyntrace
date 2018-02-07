@@ -9,14 +9,15 @@ namespace dyntrace::comm::local
     using server = dyntrace::comm::server<protocol>;
     using acceptor = server::acceptor;
     using endpoint = server::endpoint;
-    using iostream = server::iostream;
     using socket = server::socket;
 
-    template<typename Handler>
-    using connection_manager = dyntrace::comm::connection_manager<protocol, Handler>;
-    template<typename Body>
-    using message_handler = dyntrace::comm::message_handler<protocol, Body>;
-    using process_handler = dyntrace::comm::process_handler<protocol>;
+    using process_connection = dyntrace::comm::process_connection<protocol>;
+
+    template<typename Conn>
+    auto connection_factory(server* srv, socket sock)
+    {
+        return dyntrace::comm::connection_factory<protocol, Conn>(srv, std::move(sock));
+    }
 }
 
 #endif

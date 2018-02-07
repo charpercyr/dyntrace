@@ -1,8 +1,9 @@
 
 add_library(comm STATIC
-    local.hpp
-    message.hpp
-    process.cpp process.hpp
-    server.hpp
+    ../comm/local.hpp
+    ../comm/message.hpp
+    ../comm/process.hpp
+    ../comm/server.hpp
 )
-target_link_libraries(comm PUBLIC boost_system)
+set_target_properties(comm PROPERTIES LINKER_LANGUAGE CXX)
+target_link_libraries(comm boost_system)

@@ -145,15 +145,16 @@ void init_logging(bool daemon)
 
 int main(int argc, const char** argv)
 {
+#ifndef _DEBUG
     if(geteuid() != 0)
     {
         do_exit("You must be root to run this"sv);
     }
+#endif
     auto grp = get_dyntrace_group();
     auto args = parse_args(argc, argv);
     setup_daemon(args.daemonize);
-
-    init_logging(args.daemonize);
+    //init_logging(args.daemonize);
 
     // From this point, we must not quit unless we clean up the files.
     // We also may be a daemon.
@@ -161,12 +162,14 @@ int main(int argc, const char** argv)
     int ret = 0;
     try
     {
-        comm::local::connection_manager<dyntrace::d::process_handler> man;
         asio::io_context ctx;
-        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, man};
+
+        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, nullptr};
+        auto process_factory = comm::local::connection_factory<dyntrace::d::process_connection>;
+        comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, process_factory};
+
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
         chown(dyntrace::config::command_socket_name, geteuid(), grp);
-        comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, man};
         chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG);
         chown(dyntrace::config::process_socket_name, geteuid(), grp);
 
@@ -199,7 +202,7 @@ int main(int argc, const char** argv)
     }
     catch(const std::exception& e)
     {
-        std::cerr << "Error during execution: " << e.what() << "\n";
+        std::cerr << "Error during execution: " << e.what() << "(" << typeid(e).name() << ")\n";
         ret = 1;
     }
     unlink(dyntrace::config::command_socket_name);

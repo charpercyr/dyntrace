@@ -4,6 +4,9 @@ add_executable(dyntraced
     main.cpp
     process.cpp process.hpp
 )
+if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
+    target_compile_definitions(dyntraced PRIVATE _DEBUG)
+endif()
 target_compile_definitions(dyntraced PRIVATE BOOST_LOG_DYN_LINK BOOST_LOG_USE_NATIVE_SYSLOG)
 target_link_libraries(dyntraced PRIVATE
     comm

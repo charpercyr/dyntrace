@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <exception>
+#include <iostream>
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -58,19 +59,20 @@ namespace dyntrace::comm
     }
 
     template<typename Protocol, typename Body>
-    class message_handler
+    class message_connection : public connection_base<Protocol>
     {
     public:
-        using this_type = message_handler<Protocol, Body>;
+        using base_type = connection_base<Protocol>;
+        using this_type = message_connection<Protocol, Body>;
         using protocol_type = Protocol;
-        using socket = typename protocol_type::socket;
+        using socket_type = typename protocol_type::socket;
         using message_type = message<Body>;
-        using connection_manager_type = connection_manager<protocol_type, this_type>;
+        using server_type = server<Protocol>;
 
-        message_handler(connection_manager_type*, socket sock)
-            : _sock{std::move(sock)}
+        message_connection(server_type* srv, socket_type sock)
+            : base_type{srv, std::move(sock)}
         {
-            handle();
+            start_receive();
         }
 
         void send(const message_type& msg)
@@ -80,46 +82,68 @@ namespace dyntrace::comm
             rapidjson::StringBuffer buf;
             rapidjson::Writer writer{buf};
             doc.Accept(writer);
-            _sock.send(boost::asio::buffer(buf.GetString(), buf.GetSize()));
+            base_type::get_socket().send(boost::asio::buffer(buf.GetString(), buf.GetSize()));
         }
 
     protected:
         virtual void on_message(const message_type& msg) = 0;
 
     private:
+        std::array<char, 4096> _buffer;
 
-        void handle()
+        void start_receive()
         {
-            _sock.async_wait(
-                socket::wait_read,
-                [this](boost::system::error_code& err)
+            this_type::get_socket().async_receive(
+                boost::asio::buffer(_buffer),
+                [this](const boost::system::error_code& err, size_t received)
                 {
-                    if(!err)
+                    if(err)
+                        this_type::close();
+                    else
                     {
-                        union
-                        {
-                            uint8_t buf[4];
-                            uint32_t val;
-                        } msg_size;
-                        _sock.receive(boost::asio::buffer(msg_size.buf));
-                        std::vector<char> data(msg_size.val);
-                        size_t received = 0;
-                        while(received < msg_size.val)
-                        {
-                            received += _sock.receive(boost::asio::buffer(data.data() + received, msg_size.val - received));
-                        }
-                        rapidjson::Document doc;
-                        doc.Parse(data.data(), data.size());
-                        message_type msg;
-                        unserialize(doc, doc, msg);
-                        on_message(msg);
-                        handle();
+                        auto msg_size = *reinterpret_cast<uint32_t*>(_buffer.data());
+                        received -= sizeof(uint32_t);
+                        std::vector<char> data(msg_size);
+                        std::copy(_buffer.begin() + sizeof(uint32_t), _buffer.begin() + received + sizeof(uint32_t), data.begin());
+
+                        if(received >= msg_size)
+                            finish_receive(std::move(data));
+                        else
+                            continue_receive(std::move(data), received);
                     }
                 }
             );
         }
 
-        socket _sock;
+        void continue_receive(std::vector<char> data, size_t total_received)
+        {
+            this_type::get_socket().async_receive(
+                boost::asio::buffer(_buffer),
+                [this, data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
+                {
+                    if(err)
+                        this_type::close();
+                    else
+                    {
+                        std::copy(_buffer.begin(), _buffer.begin() + received, data.begin() + total_received);
+                        if(received >= data.size())
+                            finish_receive(std::move(data));
+                        else
+                            continue_receive(std::move(data), total_received + received);
+                    }
+                }
+            );
+        }
+
+        void finish_receive(std::vector<char> data)
+        {
+            rapidjson::Document doc;
+            doc.Parse(data.data(), data.size());
+            message_type msg{};
+            unserialize(doc, doc, msg);
+            on_message(msg);
+            start_receive();
+        }
     };
 }
 

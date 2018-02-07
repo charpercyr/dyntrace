@@ -3,63 +3,67 @@
 
 #include <boost/asio.hpp>
 
+#include <iostream>
 #include <memory>
 #include <unordered_map>
 
 namespace dyntrace::comm
 {
     template<typename Protocol>
-    struct connection_manager_base
-    {
-        virtual ~connection_manager_base() = default;
-        virtual void new_connection(typename Protocol::socket sock) = 0;
-    };
-    template<typename Protocol, typename Handler>
-    class connection_manager : public connection_manager_base<Protocol>
+    class server;
+
+    template<typename Protocol>
+    class connection_base
     {
     public:
         using protocol_type = Protocol;
-        using iostream = typename protocol_type::iostream;
-        using socket = typename protocol_type::socket;
-        using handler_type = Handler;
+        using socket_type = typename protocol_type::socket;
+        using server_type = server<protocol_type>;
 
-        void new_connection(socket sock) override
+        connection_base(server_type* srv, socket_type sock)
+            : _srv{srv}, _sock{std::move(sock)} {}
+        virtual ~connection_base() = default;
+
+        void close();
+
+    protected:
+        socket_type& get_socket()
         {
-            auto h = std::make_unique<handler_type>(this, std::move(sock));
-            _handlers.insert(std::make_pair(h.get(), std::move(h)));
+            return _sock;
         }
-
-        void close(handler_type* h)
+        server_type& get_server()
         {
-            auto it = _handlers.find(h);
-            if(it != _handlers.end())
-                _handlers.erase(it);
+            return *_srv;
         }
-
     private:
-        std::unordered_map<handler_type*, std::unique_ptr<handler_type>> _handlers;
+        server_type* _srv;
+        socket_type _sock;
     };
 
     template<typename Protocol>
     class server
     {
     public:
+        using this_type = server<Protocol>;
         using protocol_type = Protocol;
         using acceptor = typename protocol_type::acceptor;
         using endpoint = typename protocol_type::endpoint;
-        using iostream = typename protocol_type::iostream;
         using socket = typename protocol_type::socket;
-        using connection_manager_type = connection_manager_base<protocol_type>;
+        using connection_type = connection_base<Protocol>;
+        using connection_factory = std::function<std::unique_ptr<connection_type>(this_type*, socket)>;
 
-        server(boost::asio::io_context& ctx, const endpoint& e, connection_manager_type& manager)
-            : _acc{ctx, e}, _manager{manager} {}
+        server(boost::asio::io_context& ctx, const endpoint& e, connection_factory factory)
+            : _acc{ctx, e}, _factory{std::move(factory)} {}
 
         void start()
         {
             _acc.async_accept(
                 [this](const boost::system::error_code& err, socket sock)
                 {
-                    _manager.new_connection(std::move(sock));
+                    std::cout << "New connection" << std::endl;
+                    auto c = _factory(this, std::move(sock));
+                    if(c)
+                        _conns.insert(std::make_pair(c.get(), std::move(c)));
                     start();
                 }
             );
@@ -70,9 +74,28 @@ namespace dyntrace::comm
             _acc.close();
         }
 
+        void close(connection_type* conn)
+        {
+            std::cout << "Close connection" << std::endl;
+            _conns.erase(conn);
+        }
+
     private:
+        std::unordered_map<connection_type*, std::unique_ptr<connection_type>> _conns;
+        connection_factory _factory;
         acceptor _acc;
-        connection_manager_type& _manager;
+    };
+
+    template<typename Protocol>
+    void connection_base<Protocol>::close()
+    {
+        _srv->close(this);
+    }
+
+    template<typename Protocol, typename Conn>
+    std::unique_ptr<connection_base<Protocol>> connection_factory(server<Protocol>* srv, typename server<Protocol>::socket sock)
+    {
+        return std::make_unique<Conn>(srv, std::move(sock));
     };
 }
 
