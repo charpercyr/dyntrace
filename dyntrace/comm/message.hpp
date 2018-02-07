@@ -5,6 +5,10 @@
 #include <exception>
 
 #include <rapidjson/document.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
+#include "server.hpp"
 
 namespace dyntrace::comm
 {
@@ -45,7 +49,6 @@ namespace dyntrace::comm
     template<typename Body>
     void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, message<Body>& msg)
     {
-
         if(!root.IsObject())
             throw bad_message_error{};
         if(!root.GetObject().HasMember("body"))
@@ -53,6 +56,71 @@ namespace dyntrace::comm
         msg.seq = root.GetObject()["seq"].GetUint64();
         unserialize(doc, root.GetObject()["body"], msg.body);
     }
+
+    template<typename Protocol, typename Body>
+    class message_handler
+    {
+    public:
+        using this_type = message_handler<Protocol, Body>;
+        using protocol_type = Protocol;
+        using socket = typename protocol_type::socket;
+        using message_type = message<Body>;
+        using connection_manager_type = connection_manager<protocol_type, this_type>;
+
+        message_handler(connection_manager_type*, socket sock)
+            : _sock{std::move(sock)}
+        {
+            handle();
+        }
+
+        void send(const message_type& msg)
+        {
+            rapidjson::Document doc;
+            serialize(doc, doc, msg);
+            rapidjson::StringBuffer buf;
+            rapidjson::Writer writer{buf};
+            doc.Accept(writer);
+            _sock.send(boost::asio::buffer(buf.GetString(), buf.GetSize()));
+        }
+
+    protected:
+        virtual void on_message(const message_type& msg) = 0;
+
+    private:
+
+        void handle()
+        {
+            _sock.async_wait(
+                socket::wait_read,
+                [this](boost::system::error_code& err)
+                {
+                    if(!err)
+                    {
+                        union
+                        {
+                            uint8_t buf[4];
+                            uint32_t val;
+                        } msg_size;
+                        _sock.receive(boost::asio::buffer(msg_size.buf));
+                        std::vector<char> data(msg_size.val);
+                        size_t received = 0;
+                        while(received < msg_size.val)
+                        {
+                            received += _sock.receive(boost::asio::buffer(data.data() + received, msg_size.val - received));
+                        }
+                        rapidjson::Document doc;
+                        doc.Parse(data.data(), data.size());
+                        message_type msg;
+                        unserialize(doc, doc, msg);
+                        on_message(msg);
+                        handle();
+                    }
+                }
+            );
+        }
+
+        socket _sock;
+    };
 }
 
 #endif

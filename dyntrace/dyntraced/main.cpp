@@ -18,8 +18,7 @@
 
 #include <config.hpp>
 
-#include <dyntrace/comm/local.hpp>
-#include <dyntrace/comm/process.hpp>
+#include "process.hpp"
 
 namespace asio = boost::asio;
 namespace comm = dyntrace::comm;
@@ -162,7 +161,7 @@ int main(int argc, const char** argv)
     int ret = 0;
     try
     {
-        comm::connection_manager<comm::local::protocol> man;
+        comm::local::connection_manager<dyntrace::d::process_handler> man;
         asio::io_context ctx;
         comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, man};
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);

@@ -3,36 +3,41 @@
 
 #include <boost/asio.hpp>
 
+#include <memory>
+#include <unordered_map>
+
 namespace dyntrace::comm
 {
-
     template<typename Protocol>
-    class handler
+    struct connection_manager_base
     {
-    public:
-
-        virtual ~handler() = default;
-
-    private:
+        virtual ~connection_manager_base() = default;
+        virtual void new_connection(typename Protocol::socket sock) = 0;
     };
-
-    template<typename Protocol>
-    class connection_manager
+    template<typename Protocol, typename Handler>
+    class connection_manager : public connection_manager_base<Protocol>
     {
     public:
         using protocol_type = Protocol;
         using iostream = typename protocol_type::iostream;
         using socket = typename protocol_type::socket;
-        using handler_type = handler<protocol_type>;
+        using handler_type = Handler;
 
-        virtual ~connection_manager() = default;
-
-        void new_connection(socket sock)
+        void new_connection(socket sock) override
         {
-
+            auto h = std::make_unique<handler_type>(this, std::move(sock));
+            _handlers.insert(std::make_pair(h.get(), std::move(h)));
         }
 
-    protected:
+        void close(handler_type* h)
+        {
+            auto it = _handlers.find(h);
+            if(it != _handlers.end())
+                _handlers.erase(it);
+        }
+
+    private:
+        std::unordered_map<handler_type*, std::unique_ptr<handler_type>> _handlers;
     };
 
     template<typename Protocol>
@@ -44,7 +49,7 @@ namespace dyntrace::comm
         using endpoint = typename protocol_type::endpoint;
         using iostream = typename protocol_type::iostream;
         using socket = typename protocol_type::socket;
-        using connection_manager_type = connection_manager<protocol_type>;
+        using connection_manager_type = connection_manager_base<protocol_type>;
 
         server(boost::asio::io_context& ctx, const endpoint& e, connection_manager_type& manager)
             : _acc{ctx, e}, _manager{manager} {}

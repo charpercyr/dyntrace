@@ -29,6 +29,27 @@ namespace dyntrace::comm
 
     void serialize(rapidjson::Document& doc, rapidjson::Value& root, const bye_body& proc) noexcept;
     void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, bye_body& proc);
+
+    template<typename Protocol>
+    class process_handler : public message_handler<Protocol, process_body>
+    {
+    public:
+        using message_handler<Protocol, process_body>::message_handler;
+
+    protected:
+
+        virtual void on_hello(size_t seq, const hello_body& hello) = 0;
+        virtual void on_bye(size_t seq, const bye_body& bye) = 0;
+
+        void on_message(const message<process_body>& msg) final
+        {
+            if(std::holds_alternative<hello_body>(msg.body))
+                on_hello(msg.seq, std::get<hello_body>(msg.body));
+            else if(std::holds_alternative<bye_body>(msg.body))
+                on_bye(msg.seq, std::get<bye_body>(msg.body));
+        }
+    private:
+    };
 }
 
 #endif
