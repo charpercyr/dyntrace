@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <exception>
-#include <iostream>
+#include <limits>
 
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
@@ -19,7 +19,7 @@ namespace dyntrace::comm
 
         bad_message_error()
             : _msg{"bad message"} {}
-        explicit bad_message_error(const std::string msg)
+        explicit bad_message_error(const std::string& msg)
             : _msg{"bad message: " + msg} {}
 
         const char* what() const noexcept override
@@ -34,7 +34,7 @@ namespace dyntrace::comm
     template<typename Body>
     struct message
     {
-        uint64_t seq;
+        uint64_t seq{std::numeric_limits<uint64_t>::max()};
         Body body;
     };
 
@@ -53,6 +53,10 @@ namespace dyntrace::comm
         if(!root.IsObject())
             throw bad_message_error{};
         if(!root.GetObject().HasMember("body"))
+            throw bad_message_error{};
+        if(!root.GetObject().HasMember("seq"))
+            throw bad_message_error{};
+        if(!root.GetObject()["seq"].IsUint64())
             throw bad_message_error{};
         msg.seq = root.GetObject()["seq"].GetUint64();
         unserialize(doc, root.GetObject()["body"], msg.body);
@@ -82,11 +86,22 @@ namespace dyntrace::comm
             rapidjson::StringBuffer buf;
             rapidjson::Writer writer{buf};
             doc.Accept(writer);
-            base_type::get_socket().send(boost::asio::buffer(buf.GetString(), buf.GetSize()));
+            std::vector<uint8_t> data(buf.GetSize() + 4);
+            auto size = static_cast<uint32_t>(buf.GetSize());
+            memcpy(data.data(), &size, 4);
+            memcpy(data.data() + 4, buf.GetString(), size);
+            base_type::get_socket().send(boost::asio::buffer(data));
         }
 
     protected:
         virtual void on_message(const message_type& msg) = 0;
+        virtual void on_error(uint64_t seq, const std::exception* e)
+        {
+            if(e)
+                throw e;
+            else
+                throw std::runtime_error{"unknown exception"};
+        }
 
     private:
         std::array<char, 4096> _buffer;
@@ -140,8 +155,19 @@ namespace dyntrace::comm
             rapidjson::Document doc;
             doc.Parse(data.data(), data.size());
             message_type msg{};
-            unserialize(doc, doc, msg);
-            on_message(msg);
+            try
+            {
+                unserialize(doc, doc, msg);
+                on_message(msg);
+            }
+            catch(const std::exception& e)
+            {
+                on_error(msg.seq, &e);
+            }
+            catch(...)
+            {
+                on_error(msg.seq, nullptr);
+            }
             start_receive();
         }
     };

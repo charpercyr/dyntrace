@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+import public "common.proto";
+
+package dyntrace.proto.process;
+
+message list_process
+{
+}
+message list_tracepoint
+{
+    int32 pid = 1;
+}
+message add_tracepoint
+{
+    int32 pid = 1;
+    tracepoint tp = 2;
+    string tracer = 3;
+}
+message remove_tracepoint
+{
+    int32 pid = 1;
+    string name = 2;
+}
+message request
+{
+    oneof req
+    {
+        list_process list_proc = 1;
+        list_tracepoint list_tp = 2;
+        add_tracepoint add_tp = 3;
+        remove_tracepoint remove_tp = 4;
+    }
+}
+
+message process_list
+{
+    repeated int32 pids = 1;
+}
+message tracepoint_list
+{
+    repeated tracepoint tp = 1;
+}
+message tracepoint_created
+{
+    string name = 1;
+}
+message status_ok
+{
+    oneof sub
+    {
+        process_list procs = 1;
+        tracepoint_list tps = 2;
+        tracepoint_created tp_created = 3;
+    }
+}
+message status_error
+{
+    string type = 1;
+    string msg = 2;
+}
+message response
+{
+    uint64 req_seq = 1;
+    oneof status
+    {
+        status_ok ok = 2;
+        status_error err = 3;
+    }
+}
+
+message hello
+{
+    int32 pid = 1;
+}
+
+message bye
+{
+
+}
+
+message message
+{
+    uint64 seq = 1;
+    oneof body
+    {
+        request req = 2;
+        response resp = 3;
+        hello h = 4;
+        bye b = 5;
+    }
+}
