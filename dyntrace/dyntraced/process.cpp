@@ -2,22 +2,23 @@
 
 #include <boost/log/trivial.hpp>
 
-#include <iostream>
-
 using namespace dyntrace::d;
+using namespace dyntrace::proto::process;
 
-void process_connection::on_hello(size_t seq, const dyntrace::comm::hello_body &hello)
+void process_connection::on_hello(uint64_t seq, const hello& h)
 {
-    std::cout << "hello " << hello.pid << "\n";
+   BOOST_LOG_TRIVIAL(info) << "hello: " << h.pid();
 }
 
-void process_connection::on_bye(size_t seq, const dyntrace::comm::bye_body &bye)
+void process_connection::on_bye(uint64_t seq, const bye& b)
 {
-    std::cout << "bye\n";
+    BOOST_LOG_TRIVIAL(info) << "bye";
 }
 
-dyntrace::comm::response_sub process_connection::on_request(size_t seq, const dyntrace::comm::request_body &req)
+response process_connection::on_request(uint64_t seq, const request& req)
 {
-    std::cout << "request\n";
-    return dyntrace::comm::response_ok{dyntrace::comm::tracepoint_created{"tp-1"}};
+    BOOST_LOG_TRIVIAL(info) << "request";
+    response resp;
+    resp.set_allocated_ok(new status_ok{});
+    return resp;
 }

@@ -11,9 +11,9 @@ namespace dyntrace::d
         using dyntrace::comm::local::process_connection::process_connection;
 
     protected:
-        void on_hello(size_t seq, const dyntrace::comm::hello_body& hello) override;
-        void on_bye(size_t seq, const dyntrace::comm::bye_body& bye) override;
-        dyntrace::comm::response_sub on_request(size_t seq, const dyntrace::comm::request_body& req) override;
+        void on_hello(uint64_t seq, const dyntrace::proto::process::hello& hello) override;
+        void on_bye(uint64_t seq, const dyntrace::proto::process::bye& bye) override;
+        dyntrace::proto::process::response on_request(uint64_t seq, const dyntrace::proto::process::request& req) override;
 
     private:
     };

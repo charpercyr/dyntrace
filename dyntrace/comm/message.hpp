@@ -2,65 +2,20 @@
 #define DYNTRACE_COMM_MESSAGE_HPP_
 
 #include <cstdint>
-#include <exception>
 #include <limits>
-
-#include <rapidjson/document.h>
-#include <rapidjson/stringbuffer.h>
-#include <rapidjson/writer.h>
+#include <stdexcept>
 
 #include "server.hpp"
 
 namespace dyntrace::comm
 {
-    class bad_message_error : public std::exception
+    struct bad_message_error : public std::runtime_error
     {
-    public:
-
-        bad_message_error()
-            : _msg{"bad message"} {}
-        explicit bad_message_error(const std::string& msg)
-            : _msg{"bad message: " + msg} {}
-
-        const char* what() const noexcept override
-        {
-            return _msg.c_str();
-        }
-
-    private:
-        std::string _msg;
+        bad_message_error() noexcept
+            : std::runtime_error{"bad_message"} {}
+        bad_message_error(const std::string& str) noexcept
+            : std::runtime_error{"bad_message: " + str} {}
     };
-
-    template<typename Body>
-    struct message
-    {
-        uint64_t seq{std::numeric_limits<uint64_t>::max()};
-        Body body;
-    };
-
-    template<typename Body>
-    void serialize(rapidjson::Document& doc, rapidjson::Value& root, const message<Body>& msg) noexcept
-    {
-        root.SetObject();
-        root.GetObject().AddMember(rapidjson::StringRef("seq"), msg.seq, doc.GetAllocator());
-        root.GetObject().AddMember(rapidjson::StringRef("body"), rapidjson::kNullType, doc.GetAllocator());
-        serialize(doc, root.GetObject()["body"], msg.body);
-    }
-
-    template<typename Body>
-    void unserialize(rapidjson::Document& doc, const rapidjson::Value& root, message<Body>& msg)
-    {
-        if(!root.IsObject())
-            throw bad_message_error{};
-        if(!root.GetObject().HasMember("body"))
-            throw bad_message_error{};
-        if(!root.GetObject().HasMember("seq"))
-            throw bad_message_error{};
-        if(!root.GetObject()["seq"].IsUint64())
-            throw bad_message_error{};
-        msg.seq = root.GetObject()["seq"].GetUint64();
-        unserialize(doc, root.GetObject()["body"], msg.body);
-    }
 
     template<typename Protocol, typename Body>
     class message_connection : public connection_base<Protocol>
@@ -70,8 +25,8 @@ namespace dyntrace::comm
         using this_type = message_connection<Protocol, Body>;
         using protocol_type = Protocol;
         using socket_type = typename protocol_type::socket;
-        using message_type = message<Body>;
         using server_type = server<Protocol>;
+        using message_type = Body;
 
         message_connection(server_type* srv, socket_type sock)
             : base_type{srv, std::move(sock)}
@@ -81,16 +36,12 @@ namespace dyntrace::comm
 
         void send(const message_type& msg)
         {
-            rapidjson::Document doc;
-            serialize(doc, doc, msg);
-            rapidjson::StringBuffer buf;
-            rapidjson::Writer writer{buf};
-            doc.Accept(writer);
-            std::vector<uint8_t> data(buf.GetSize() + 4);
-            auto size = static_cast<uint32_t>(buf.GetSize());
-            memcpy(data.data(), &size, 4);
-            memcpy(data.data() + 4, buf.GetString(), size);
-            base_type::get_socket().send(boost::asio::buffer(data));
+            std::string content;
+            msg.SerializeToString(&content);
+            std::vector<char> buf(content.size() + 4);
+            *reinterpret_cast<uint32_t*>(buf.data()) = static_cast<uint32_t>(content.size());
+            memcpy(buf.data() + 4, content.data(), content.size());
+            base_type::get_socket().send(boost::asio::buffer(buf));
         }
 
     protected:
@@ -98,7 +49,7 @@ namespace dyntrace::comm
         virtual void on_error(uint64_t seq, const std::exception* e)
         {
             if(e)
-                throw e;
+                throw *e;
             else
                 throw std::runtime_error{"unknown exception"};
         }
@@ -116,15 +67,27 @@ namespace dyntrace::comm
                         this_type::close();
                     else
                     {
-                        auto msg_size = *reinterpret_cast<uint32_t*>(_buffer.data());
-                        received -= sizeof(uint32_t);
-                        std::vector<char> data(msg_size);
-                        std::copy(_buffer.begin() + sizeof(uint32_t), _buffer.begin() + received + sizeof(uint32_t), data.begin());
+                        size_t received_count = 0;
+                        while(received)
+                        {
+                            ++received_count;
+                            auto msg_size = *reinterpret_cast<uint32_t*>(_buffer.data());
+                            received -= sizeof(uint32_t);
+                            std::vector<char> data(msg_size);
+                            std::copy(_buffer.begin() + sizeof(uint32_t), _buffer.begin() + msg_size + sizeof(uint32_t),
+                                      data.begin());
 
-                        if(received >= msg_size)
-                            finish_receive(std::move(data));
-                        else
-                            continue_receive(std::move(data), received);
+                            if (received >= msg_size)
+                            {
+                                finish_receive(std::move(data));
+                                if(received_count == 1)
+                                    start_receive();
+
+                            }
+                            else if(received)
+                                continue_receive(std::move(data), received);
+                            received -= msg_size;
+                        }
                     }
                 }
             );
@@ -142,7 +105,10 @@ namespace dyntrace::comm
                     {
                         std::copy(_buffer.begin(), _buffer.begin() + received, data.begin() + total_received);
                         if(received >= data.size())
+                        {
                             finish_receive(std::move(data));
+                            start_receive();
+                        }
                         else
                             continue_receive(std::move(data), total_received + received);
                     }
@@ -152,23 +118,20 @@ namespace dyntrace::comm
 
         void finish_receive(std::vector<char> data)
         {
-            rapidjson::Document doc;
-            doc.Parse(data.data(), data.size());
-            message_type msg{};
+            message_type msg;
+            msg.ParseFromArray(data.data(), data.size());
             try
             {
-                unserialize(doc, doc, msg);
                 on_message(msg);
             }
             catch(const std::exception& e)
             {
-                on_error(msg.seq, &e);
+                on_error(msg.seq(), &e);
             }
             catch(...)
             {
-                on_error(msg.seq, nullptr);
+                on_error(msg.seq(), nullptr);
             }
-            start_receive();
         }
     };
 }

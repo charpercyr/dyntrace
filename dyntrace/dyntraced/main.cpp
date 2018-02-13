@@ -137,7 +137,7 @@ void init_logging(bool daemon)
     else
     {
         auto out = boost::make_shared<sinks::text_ostream_backend>();
-        out->add_stream(boost::shared_ptr<std::ostream>{&std::clog, [](auto) {}});
+        out->add_stream(boost::shared_ptr<std::ostream>{&std::cout, [](auto) {}});
         out->auto_flush(true);
         core->add_sink(boost::make_shared<sinks::synchronous_sink<sinks::text_ostream_backend>>(out));
     }
@@ -154,7 +154,7 @@ int main(int argc, const char** argv)
     auto grp = get_dyntrace_group();
     auto args = parse_args(argc, argv);
     setup_daemon(args.daemonize);
-    //init_logging(args.daemonize);
+    init_logging(args.daemonize);
 
     // From this point, we must not quit unless we clean up the files.
     // We also may be a daemon.
@@ -189,6 +189,7 @@ int main(int argc, const char** argv)
         boost::thread_group tg;
         for (auto _ : boost::irange<size_t>(0, args.threads - 1))
         {
+            (void)_;
             tg.create_thread(
                 [&ctx]()
                 {

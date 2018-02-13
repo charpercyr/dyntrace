@@ -6,4 +6,4 @@ add_library(comm STATIC
     ../comm/server.hpp
 )
 set_target_properties(comm PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(comm PUBLIC boost_system proto)
+target_link_libraries(comm PUBLIC boost_system proto protobuf)

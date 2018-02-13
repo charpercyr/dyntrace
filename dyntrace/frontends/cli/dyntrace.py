@@ -5,27 +5,6 @@ import socket
 
 import process_pb2
 
-hello_msg = {
-    'seq': 0,
-    'body': {
-        'type': 'hello',
-        'pid': -1
-    }
-}
-bye_msg = {
-    'seq': 1,
-    'body': {
-        'type': 'bye'
-    }
-}
-request_msg = {
-    #'seq': 2,
-    'body': {
-        'type': 'request',
-        'request': 'invalid'
-    }
-}
-
 def main():
     parser = argparse.ArgumentParser()
 
@@ -34,22 +13,30 @@ def main():
     args = parser.parse_args()
     
     if args.command == 'hello':
-        data = hello_msg
+        msg = process_pb2.process_message()
+        msg.seq = 0
+        msg.hello.pid = -1
     elif args.command == 'bye':
-        data = bye_msg
+        msg = process_pb2.process_message()
+        msg.seq = 1
+        msg.bye.CopyFrom(process_pb2.bye())
     elif args.command == 'req':
-        data = request_msg
+        msg = process_pb2.process_message()
+        msg.seq = 2
+        msg.req.list_tp.CopyFrom(process_pb2.list_tracepoint())
     
-    data = bytes(json.dumps(data, separators=(',', ':')), 'utf-8')
+    data = msg.SerializeToString()
+    print(msg, f'({len(data)})')
     data = len(data).to_bytes(4, byteorder='little') + data
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
     sock.connect('/tmp/dyntrace/process.sock')
-    print(str(data[4:], 'utf-8'))
     for _ in range(10):
         sock.send(data)
         if args.command == 'req':
-            rep = sock.recv(4096)
-            print(str(rep[4:], 'utf-8'))
+            buf = sock.recv(4096)
+            rep = process_pb2.process_message()
+            rep.ParseFromString(buf[4:])
+            print(rep)
 
 if __name__ == '__main__':
     main()

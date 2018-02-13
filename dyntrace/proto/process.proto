@@ -4,9 +4,6 @@ import public "common.proto";
 
 package dyntrace.proto.process;
 
-message list_process
-{
-}
 message list_tracepoint
 {
     int32 pid = 1;
@@ -26,10 +23,9 @@ message request
 {
     oneof req
     {
-        list_process list_proc = 1;
-        list_tracepoint list_tp = 2;
-        add_tracepoint add_tp = 3;
-        remove_tracepoint remove_tp = 4;
+        list_tracepoint list_tp = 1;
+        add_tracepoint add_tp = 2;
+        remove_tracepoint remove_tp = 3;
     }
 }
 
@@ -79,14 +75,14 @@ message bye
 
 }
 
-message message
+message process_message
 {
     uint64 seq = 1;
     oneof body
     {
         request req = 2;
         response resp = 3;
-        hello h = 4;
-        bye b = 5;
+        hello hello = 4;
+        bye bye = 5;
     }
 }
