@@ -57,6 +57,7 @@ const binary::zone_list memmap::all_zones() const noexcept
     std::vector<zone> res;
     for(const auto& [_, bin] : _binaries)
     {
+        (void)_;
         for(const auto& z : bin.zones())
         {
             if(z.size() != 0)

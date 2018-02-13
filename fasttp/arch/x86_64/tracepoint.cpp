@@ -156,7 +156,7 @@ void arch_tracepoint::call_handler(const arch::regs &r) noexcept
 }
 
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
-    : _location{location}, _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}
+    : _user_handler{std::move(h)}, _trap_handler{ops.x86.trap_handler}, _location{location}
 {
     memcpy(&_old_code, _location.as_ptr(), 8);
 

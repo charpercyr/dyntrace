@@ -53,7 +53,7 @@ namespace dyntrace::comm
         using connection_factory = std::function<std::unique_ptr<connection_type>(this_type*, socket)>;
 
         server(boost::asio::io_context& ctx, const endpoint& e, connection_factory factory)
-            : _acc{ctx, e}, _factory{std::move(factory)} {}
+            : _factory{std::move(factory)}, _acc{ctx, e} {}
 
         void start()
         {
