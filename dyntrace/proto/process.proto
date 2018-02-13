@@ -1,23 +1,28 @@
 syntax = "proto3";
 
-import public "common.proto";
-
 package dyntrace.proto.process;
+
+message tracepoint
+{
+    oneof location
+    {
+        string name = 1;
+        uint64 address = 2;
+    }
+    string tracer = 3;
+}
 
 message list_tracepoint
 {
-    int32 pid = 1;
 }
 message add_tracepoint
 {
-    int32 pid = 1;
-    tracepoint tp = 2;
-    string tracer = 3;
+    tracepoint tp = 1;
+    string tracer = 2;
 }
 message remove_tracepoint
 {
-    int32 pid = 1;
-    string name = 2;
+    string name = 1;
 }
 message request
 {

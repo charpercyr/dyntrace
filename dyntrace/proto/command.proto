@@ -1,3 +1,31 @@
 syntax = "proto3";
 
-import public "common.proto";
+import public "process.proto";
+
+package dyntrace.proto.command;
+
+message command_process_request
+{
+    int32 pid = 1;
+    oneof request
+    {
+        dyntrace.proto.process.list_tracepoint list_tp = 2;
+        dyntrace.proto.process.add_tracepoint add_tp = 3;
+        dyntrace.proto.process.remove_tracepoint rm_tp = 4;
+    }
+}
+
+message list_process
+{
+
+}
+
+message command_request
+{
+    uint64 seq = 1;
+    oneof body
+    {
+        command_process_request to_proc = 2;
+        list_process list_proc = 3;
+    }
+}

@@ -20,7 +20,6 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 find_package(Protobuf REQUIRED)
 set(PROTO_DIR ${CMAKE_CURRENT_SOURCE_DIR}/proto)
 set(PROTO_FILES
-    ${PROTO_DIR}/common.proto
     ${PROTO_DIR}/command.proto
     ${PROTO_DIR}/process.proto)
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
