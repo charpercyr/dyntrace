@@ -4,7 +4,7 @@ import public "process.proto";
 
 package dyntrace.proto.command;
 
-message command_process_request
+message process_request
 {
     int32 pid = 1;
     oneof request
@@ -20,12 +20,21 @@ message list_process
 
 }
 
-message command_request
+message request
+{
+    oneof req
+    {
+        process_request to_proc = 1;
+        list_process list_proc = 2;
+    }
+}
+
+message command_message
 {
     uint64 seq = 1;
     oneof body
     {
-        command_process_request to_proc = 2;
-        list_process list_proc = 3;
+        request req = 2;
+        dyntrace.proto.response resp = 3;
     }
 }

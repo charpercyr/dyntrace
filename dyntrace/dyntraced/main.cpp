@@ -18,6 +18,7 @@
 
 #include <config.hpp>
 
+#include "command.hpp"
 #include "process.hpp"
 
 namespace asio = boost::asio;
@@ -93,7 +94,7 @@ cmdline parse_args(int argc, const char** argv)
 
 void lock_daemon()
 {
-    auto lock_file_path = fs::path{dyntrace::config::working_directory} / fs::path{dyntrace::config::lock_file_name};
+    auto lock_file_path = fs::path{dyntrace::config::lock_file_name};
     auto lock_file_fd = open(lock_file_path.c_str(), O_EXCL | O_WRONLY | O_CREAT);
     if(lock_file_fd == -1)
     {
@@ -164,8 +165,9 @@ int main(int argc, const char** argv)
     {
         asio::io_context ctx;
 
-        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, nullptr};
-        auto process_factory = comm::local::connection_factory<dyntrace::d::process_connection>;
+        auto command_factory = comm::local::make_connection_factory<dyntrace::d::command_connection>();
+        comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, command_factory};
+        auto process_factory = comm::local::make_connection_factory<dyntrace::d::process_connection>();
         comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, process_factory};
 
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);

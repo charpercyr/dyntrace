@@ -1,0 +1,6 @@
+#ifndef DYNTRACE_UTIL_REFCNT_HPP_
+#define DYNTRACE_UTIL_REFCNT_HPP_
+
+
+
+#endif

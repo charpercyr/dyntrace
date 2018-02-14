@@ -2,8 +2,8 @@
 #define DYNTRACE_COMM_SERVER_HPP_
 
 #include <boost/asio.hpp>
+#include <boost/log/trivial.hpp>
 
-#include <iostream>
 #include <memory>
 #include <unordered_map>
 
@@ -13,7 +13,7 @@ namespace dyntrace::comm
     class server;
 
     template<typename Protocol>
-    class connection_base
+    class connection_base : public std::enable_shared_from_this<connection_base<Protocol>>
     {
     public:
         using protocol_type = Protocol;
@@ -50,7 +50,7 @@ namespace dyntrace::comm
         using endpoint = typename protocol_type::endpoint;
         using socket = typename protocol_type::socket;
         using connection_type = connection_base<Protocol>;
-        using connection_factory = std::function<std::unique_ptr<connection_type>(this_type*, socket)>;
+        using connection_factory = std::function<std::shared_ptr<connection_type>(this_type*, socket)>;
 
         server(boost::asio::io_context& ctx, const endpoint& e, connection_factory factory)
             : _factory{std::move(factory)}, _acc{ctx, e} {}
@@ -60,7 +60,7 @@ namespace dyntrace::comm
             _acc.async_accept(
                 [this](const boost::system::error_code& err, socket sock)
                 {
-                    std::cout << "New connection" << std::endl;
+                    BOOST_LOG_TRIVIAL(info) << "[" << _acc.local_endpoint() << "] New connection";
                     auto c = _factory(this, std::move(sock));
                     if(c)
                         _conns.insert(std::make_pair(c.get(), std::move(c)));
@@ -76,12 +76,12 @@ namespace dyntrace::comm
 
         void close(connection_type* conn)
         {
-            std::cout << "Close connection" << std::endl;
+            BOOST_LOG_TRIVIAL(info) << "[" << _acc.local_endpoint() << "] Close connection";
             _conns.erase(conn);
         }
 
     private:
-        std::unordered_map<connection_type*, std::unique_ptr<connection_type>> _conns;
+        std::unordered_map<connection_type*, std::shared_ptr<connection_type>> _conns;
         connection_factory _factory;
         acceptor _acc;
     };
@@ -92,10 +92,17 @@ namespace dyntrace::comm
         _srv->close(this);
     }
 
-    template<typename Protocol, typename Conn>
-    std::unique_ptr<connection_base<Protocol>> connection_factory(server<Protocol>* srv, typename server<Protocol>::socket sock)
+    template<typename Protocol, typename Conn, typename...Args>
+    auto make_connection_factory(Args...args)
     {
-        return std::make_unique<Conn>(srv, std::move(sock));
+        return
+            [t = std::make_tuple(std::move(args)...)]
+            (server<Protocol>* srv, typename server<Protocol>::socket sock)
+            -> std::shared_ptr<connection_base<Protocol>>
+        {
+            static constexpr auto make_shared = std::make_shared<Conn, server<Protocol>*, typename server<Protocol>::socket, Args...>;
+            return std::apply(make_shared, std::tuple_cat(std::make_tuple(srv, std::move(sock)), std::move(t)));
+        };
     };
 }
 

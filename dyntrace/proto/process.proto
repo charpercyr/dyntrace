@@ -1,16 +1,8 @@
 syntax = "proto3";
 
-package dyntrace.proto.process;
+import public "common.proto";
 
-message tracepoint
-{
-    oneof location
-    {
-        string name = 1;
-        uint64 address = 2;
-    }
-    string tracer = 3;
-}
+package dyntrace.proto.process;
 
 message list_tracepoint
 {
@@ -31,42 +23,6 @@ message request
         list_tracepoint list_tp = 1;
         add_tracepoint add_tp = 2;
         remove_tracepoint remove_tp = 3;
-    }
-}
-
-message process_list
-{
-    repeated int32 pids = 1;
-}
-message tracepoint_list
-{
-    repeated tracepoint tp = 1;
-}
-message tracepoint_created
-{
-    string name = 1;
-}
-message status_ok
-{
-    oneof sub
-    {
-        process_list procs = 1;
-        tracepoint_list tps = 2;
-        tracepoint_created tp_created = 3;
-    }
-}
-message status_error
-{
-    string type = 1;
-    string msg = 2;
-}
-message response
-{
-    uint64 req_seq = 1;
-    oneof status
-    {
-        status_ok ok = 2;
-        status_error err = 3;
     }
 }
 

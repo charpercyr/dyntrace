@@ -1,0 +1,104 @@
+#!/usr/bin/python3
+
+import argparse
+import socket
+
+import command_pb2
+import process_pb2
+
+'''
+dyntrace args: --socket [socket file] ...
+dyntrace ... add-tracepoint <pid|name>:<addr|symbol> <tracer>
+dyntrace ... remove-tracepoint <pid|name>:<name>
+dyntrace ... list-tracepoint <pid|name>
+dyntrace ... list-process
+'''
+
+def do_request(args, req):
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    sock.connect(args.socket)
+
+
+def parse_location(location, *, sym_as_number=True):
+    location = location.split(':')
+    if len(location) != 2:
+        raise ValueError('Invalid location')
+    name, sym = location
+    try:
+        name = int(name)
+    except ValueError:
+        pass
+    if sym_as_number:
+        if sym.startswith('0x'):
+            try:
+                sym = int(sym[2:], 16)
+            except ValueError:
+                raise ValueError('Invalid location')
+        else:
+            try:
+                sym = int(sym, 16)
+            except ValueError:
+                pass
+    return name, sym
+
+def add_tracepoint(args):
+    proc, sym = parse_location(args.location)
+
+def remove_tracepoint(args):
+    proc, name = parse_location(args.location, sym_as_number=False)
+
+def list_tracepoint(args):
+    proc = args.process
+    try:
+        proc = int(proc)
+    except ValueError:
+        pass
+
+def list_process(args):
+    do_request(args, None)
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.set_defaults(func=None, parser=None)
+    parser.add_argument('-s', '--socket', help='Socket file to connect to', default='/run/dyntrace/command.sock')
+
+    sps = parser.add_subparsers()
+
+    add_tp = sps.add_parser('add-tracepoint')
+    add_tp.add_argument('location', help='Where to add the tracepoint', metavar='<pid|name>:<addr|symbol>')
+    add_tp.add_argument('tracer', help='The tracer to use')
+    add_tp.add_argument('-n', '--name', help='The unique name to give to the tracepoint (else it is auto-generated)')
+    add_tp.set_defaults(func=add_tracepoint, parser=add_tp)
+
+    rm_tp = sps.add_parser('remove-tracepoint')
+    rm_tp.add_argument('location', help='The tracepoint to remove', metavar='<pid|name>:<tp_name>')
+    rm_tp.set_defaults(func=remove_tracepoint, parser=rm_tp)
+
+    list_tp = sps.add_parser('list-tracepoint')
+    list_tp.add_argument('process', help='The process to list the traceponts from', metavar='<pid|name>')
+    list_tp.set_defaults(func=list_tracepoint, parser=list_tp)
+
+    list_proc = sps.add_parser('list-process')
+    list_proc.set_defaults(func=list_process, parser=list_proc)
+
+    args = parser.parse_args()
+    try:
+        if not args.func:
+            raise ValueError()
+        args.func(args)
+    except ValueError as e:
+        if e.args:
+            print('error: ', *e.args)
+        if args.parser:
+            args.parser.print_help()
+        else:
+            parser.print_help()
+        exit(1)
+    except RuntimeError:
+        raise
+    except Exception as e:
+        print(f'error ({e.__class__.__name__}):', *e.args)
+        exit(1)
+
+if __name__ == '__main__':
+    main()

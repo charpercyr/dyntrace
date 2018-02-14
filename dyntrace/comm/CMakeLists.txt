@@ -1,9 +1,10 @@
 
-add_library(comm STATIC
-    ../comm/local.hpp
-    ../comm/message.hpp
-    ../comm/process.hpp
-    ../comm/server.hpp
+add_library(comm INTERFACE)
+target_sources(comm INTERFACE
+    ${CMAKE_CURRENT_SOURCE_DIR}/command.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/local.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/message.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/process.hpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/server.hpp
 )
-set_target_properties(comm PROPERTIES LINKER_LANGUAGE CXX)
-target_link_libraries(comm PUBLIC boost_system proto protobuf)
+target_link_libraries(comm INTERFACE boost_system proto protobuf)

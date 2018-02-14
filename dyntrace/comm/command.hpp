@@ -1,45 +1,28 @@
-#ifndef DYNTRACE_COMM_PROCESS_HPP_
-#define DYNTRACE_COMM_PROCESS_HPP_
+#ifndef DYNTRACE_COMM_COMMAND_HPP_
+#define DYNTRACE_COMM_COMMAND_HPP_
 
 #include "message.hpp"
 
-#include <string>
-#include <variant>
-
-#include <common.pb.h>
-#include <process.pb.h>
+#include <command.pb.h>
 
 namespace dyntrace::comm
 {
     template<typename Protocol>
-    class process_connection : public message_connection<Protocol, dyntrace::proto::process::process_message>
+    class command_connection : public message_connection<Protocol, dyntrace::proto::command::command_message>
     {
-        using message_type = dyntrace::proto::process::process_message;
-        using hello_type = dyntrace::proto::process::hello;
-        using bye_type = dyntrace::proto::process::bye;
-        using request_type = dyntrace::proto::process::request;
+        using message_type = dyntrace::proto::command::command_message;
+        using request_type = dyntrace::proto::command::request;
         using response_type = dyntrace::proto::response;
         using base_type = message_connection<Protocol, message_type>;
     public:
         using base_type::base_type;
 
     protected:
-
-        virtual void on_hello(uint64_t seq, const hello_type& hello) = 0;
-        virtual void on_bye(uint64_t seq, const bye_type& bye) = 0;
-        virtual std::optional<response_type> on_request(uint64_t seq, const request_type& request) = 0;
+        virtual std::optional<response_type> on_request(uint64_t seq, const request_type& req) = 0;
 
         void on_message(const message_type& msg) final
         {
-            if(msg.has_hello())
-            {
-                on_hello(msg.seq(), msg.hello());
-            }
-            else if(msg.has_bye())
-            {
-                on_bye(msg.seq(), msg.bye());
-            }
-            else if(msg.has_req())
+            if(msg.has_req())
             {
                 auto oresp = on_request(msg.seq(), msg.req());
                 if(oresp)
@@ -58,7 +41,6 @@ namespace dyntrace::comm
                 on_error(msg.seq(), &err);
             }
         }
-
         void on_error(uint64_t seq, const std::exception* e) override
         {
             message_type msg{};

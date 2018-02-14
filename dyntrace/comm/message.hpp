@@ -44,6 +44,16 @@ namespace dyntrace::comm
             base_type::get_socket().send(boost::asio::buffer(buf));
         }
 
+        std::shared_ptr<this_type> shared_from_this()
+        {
+            return std::dynamic_pointer_cast<this_type>(base_type::shared_from_this());
+        }
+
+        std::shared_ptr<const this_type> shared_from_this() const
+        {
+            return std::dynamic_pointer_cast<this_type>(base_type::shared_from_this());
+        }
+
     protected:
         virtual void on_message(const message_type& msg) = 0;
         virtual void on_error(uint64_t seq, const std::exception* e)
@@ -54,6 +64,12 @@ namespace dyntrace::comm
                 throw std::runtime_error{"unknown exception"};
         }
 
+        void send_bad_message(uint64_t seq)
+        {
+            bad_message_error err;
+            on_error(seq, &err);
+        }
+
     private:
         std::array<char, 4096> _buffer;
 
@@ -61,31 +77,31 @@ namespace dyntrace::comm
         {
             this_type::get_socket().async_receive(
                 boost::asio::buffer(_buffer),
-                [this](const boost::system::error_code& err, size_t received)
+                [self = this_type::shared_from_this()](const boost::system::error_code& err, size_t received)
                 {
                     if(err)
-                        this_type::close();
+                        self->close();
                     else
                     {
                         size_t received_count = 0;
                         while(received)
                         {
                             ++received_count;
-                            auto msg_size = *reinterpret_cast<uint32_t*>(_buffer.data());
+                            auto msg_size = *reinterpret_cast<uint32_t*>(self->_buffer.data());
                             received -= sizeof(uint32_t);
                             std::vector<char> data(msg_size);
-                            std::copy(_buffer.begin() + sizeof(uint32_t), _buffer.begin() + msg_size + sizeof(uint32_t),
+                            std::copy(self->_buffer.begin() + sizeof(uint32_t), self->_buffer.begin() + msg_size + sizeof(uint32_t),
                                       data.begin());
 
                             if (received >= msg_size)
                             {
-                                finish_receive(std::move(data));
+                                self->finish_receive(std::move(data));
                                 if(received_count == 1)
-                                    start_receive();
+                                    self->start_receive();
 
                             }
                             else if(received)
-                                continue_receive(std::move(data), received);
+                                self->continue_receive(std::move(data), received);
                             received -= msg_size;
                         }
                     }
@@ -97,20 +113,20 @@ namespace dyntrace::comm
         {
             this_type::get_socket().async_receive(
                 boost::asio::buffer(_buffer),
-                [this, data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
+                [self = this_type::shared_from_this(), data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
                 {
                     if(err)
-                        this_type::close();
+                        self->close();
                     else
                     {
-                        std::copy(_buffer.begin(), _buffer.begin() + received, data.begin() + total_received);
+                        std::copy(self->_buffer.begin(), self->_buffer.begin() + received, data.begin() + total_received);
                         if(received >= data.size())
                         {
-                            finish_receive(std::move(data));
-                            start_receive();
+                            self->finish_receive(std::move(data));
+                            self->start_receive();
                         }
                         else
-                            continue_receive(std::move(data), total_received + received);
+                            self->continue_receive(std::move(data), total_received + received);
                     }
                 }
             );
