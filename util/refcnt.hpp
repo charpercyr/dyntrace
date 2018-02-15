@@ -1,6 +1,7 @@
 #ifndef DYNTRACE_UTIL_REFCNT_HPP_
 #define DYNTRACE_UTIL_REFCNT_HPP_
 
+#include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
@@ -171,6 +172,8 @@ namespace dyntrace
     private:
         mutable Cnt _cnt{0};
     };
+    template<typename T, typename Cnt = uintptr_t>
+    using safe_refcnt_base = refcnt_base<T, std::atomic<Cnt>>;
 }
 
 #endif
