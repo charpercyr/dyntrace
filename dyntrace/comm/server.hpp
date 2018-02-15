@@ -100,9 +100,11 @@ namespace dyntrace::comm
         return
             [t = std::make_tuple(std::forward<Args>(args)...)]
             (server<Protocol>* srv, typename server<Protocol>::socket sock)
-            -> dyntrace::refcnt_ptr<connection_base<Protocol>>
         {
-            static constexpr auto make_refcnt = dyntrace::make_refcnt<Conn, server<Protocol>*, typename server<Protocol>::socket, Args...>;
+            static constexpr auto make_refcnt = [](auto&&...a) -> dyntrace::refcnt_ptr<connection_base<Protocol>>
+            {
+                return dyntrace::make_refcnt<Conn>(std::forward<decltype(a)>(a)...);
+            };
             return std::apply(make_refcnt, std::tuple_cat(std::make_tuple(srv, std::move(sock)), t));
         };
     };
