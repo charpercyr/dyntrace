@@ -6,12 +6,16 @@ package dyntrace.proto.command;
 
 message process_request
 {
-    int32 pid = 1;
+    oneof process
+    {
+        int32 pid = 1;
+        string name = 2;
+    }
     oneof request
     {
-        dyntrace.proto.process.list_tracepoint list_tp = 2;
-        dyntrace.proto.process.add_tracepoint add_tp = 3;
-        dyntrace.proto.process.remove_tracepoint rm_tp = 4;
+        dyntrace.proto.process.list_tracepoint list_tp = 3;
+        dyntrace.proto.process.add_tracepoint add_tp = 4;
+        dyntrace.proto.process.remove_tracepoint remove_tp = 5;
     }
 }
 

@@ -10,9 +10,9 @@ namespace dyntrace::d
     public:
         using dyntrace::comm::local::command_connection::command_connection;
     protected:
-        std::optional<dyntrace::proto::response> on_request(uint64_t seq, const dyntrace::proto::command::request& req) override;
+        dyntrace::proto::response on_request(uint64_t seq, const dyntrace::proto::command::request& req) override;
     private:
-        std::optional<dyntrace::proto::response> on_request_to_process(uint64_t seq, const dyntrace::proto::command::process_request& req);
+        dyntrace::proto::response on_request_to_process(uint64_t seq, const dyntrace::proto::command::process_request& req);
     };
 }
 

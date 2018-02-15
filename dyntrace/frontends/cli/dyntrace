@@ -1,11 +1,5 @@
 #!/usr/bin/python3
 
-import argparse
-import socket
-
-import command_pb2
-import process_pb2
-
 '''
 dyntrace args: --socket [socket file] ...
 dyntrace ... add-tracepoint <pid|name>:<addr|symbol> <tracer>
@@ -14,9 +8,53 @@ dyntrace ... list-tracepoint <pid|name>
 dyntrace ... list-process
 '''
 
+import argparse
+import re
+import socket
+
+import command_pb2
+import process_pb2
+
+
+debug_mode = False
+def debugfunc(func):
+    def inner(*args, **kwargs):
+        if debug_mode:
+            return func(*args, **kwargs)
+    return inner
+
+
+@debugfunc
+def debug_print(*args, **kwargs):
+    print(*args, **kwargs)
+
+
+def make_to_proc(proc):
+    msg = command_pb2.command_message()
+    if isinstance(proc, int):
+        msg.req.to_proc.pid = proc
+    else:
+        msg.req.to_proc.name = proc
+    return msg
+
+
 def do_request(args, req):
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     sock.connect(args.socket)
+    debug_print('=== Send ===')
+    debug_print(req)
+    data = bytes(req.SerializeToString())
+    data = len(data).to_bytes(4, byteorder='little') + data
+    sock.send(data)
+    resp_size = int.from_bytes(sock.recv(4), byteorder='little')
+    resp = bytes()
+    while len(resp) < resp_size:
+        resp += sock.recv(resp_size - len(resp))
+    msg = command_pb2.command_message()
+    msg.ParseFromString(resp)
+    debug_print('=== Recv ===')
+    debug_print(msg)
+    return msg
 
 
 def parse_location(location, *, sym_as_number=True):
@@ -41,11 +79,26 @@ def parse_location(location, *, sym_as_number=True):
                 pass
     return name, sym
 
+
 def add_tracepoint(args):
     proc, sym = parse_location(args.location)
+    msg = make_to_proc(proc)
+    if isinstance(sym, int):
+        msg.req.to_proc.add_tp.tp.address = sym
+    else:
+        msg.req.to_proc.add_tp.tp.symbol = sym
+    if args.name:
+        msg.req.to_proc.add_tp.tp.name = args.name
+    msg.req.to_proc.add_tp.tracer = args.tracer
+    do_request(args, msg)
+
 
 def remove_tracepoint(args):
     proc, name = parse_location(args.location, sym_as_number=False)
+    msg = make_to_proc(proc)
+    msg.req.to_proc.remove_tp.name = name
+    do_request(args, msg)
+
 
 def list_tracepoint(args):
     proc = args.process
@@ -53,14 +106,22 @@ def list_tracepoint(args):
         proc = int(proc)
     except ValueError:
         pass
+    msg = make_to_proc(proc)
+    msg.req.to_proc.list_tp.CopyFrom(process_pb2.list_tracepoint())
+    do_request(args, msg)
+
 
 def list_process(args):
-    do_request(args, None)
+    msg = command_pb2.command_message()
+    msg.req.list_proc.CopyFrom(command_pb2.list_process())
+    do_request(args, msg)
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.set_defaults(func=None, parser=None)
     parser.add_argument('-s', '--socket', help='Socket file to connect to', default='/run/dyntrace/command.sock')
+    parser.add_argument('--debug', help='Print debug information for the client', action='store_true')
 
     sps = parser.add_subparsers()
 
@@ -82,6 +143,10 @@ def main():
     list_proc.set_defaults(func=list_process, parser=list_proc)
 
     args = parser.parse_args()
+
+    if args.debug:
+        global debug_mode
+        debug_mode = True
     try:
         if not args.func:
             raise ValueError()
@@ -94,11 +159,8 @@ def main():
         else:
             parser.print_help()
         exit(1)
-    except RuntimeError:
-        raise
-    except Exception as e:
-        print(f'error ({e.__class__.__name__}):', *e.args)
-        exit(1)
+
+
 
 if __name__ == '__main__':
     main()

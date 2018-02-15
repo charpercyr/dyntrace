@@ -27,35 +27,39 @@ namespace dyntrace::comm
 
         virtual void on_hello(uint64_t seq, const hello_type& hello) = 0;
         virtual void on_bye(uint64_t seq, const bye_type& bye) = 0;
-        virtual std::optional<response_type> on_request(uint64_t seq, const request_type& request) = 0;
+        virtual response_type on_request(uint64_t seq, const request_type& request) = 0;
 
         void on_message(const message_type& msg) final
         {
-            if(msg.has_hello())
+            try
             {
-                on_hello(msg.seq(), msg.hello());
-            }
-            else if(msg.has_bye())
-            {
-                on_bye(msg.seq(), msg.bye());
-            }
-            else if(msg.has_req())
-            {
-                auto oresp = on_request(msg.seq(), msg.req());
-                if(oresp)
+                if (msg.has_hello())
                 {
-                    auto resp = oresp.value();
+                    on_hello(msg.seq(), msg.hello());
+                }
+                else if (msg.has_bye())
+                {
+                    on_bye(msg.seq(), msg.bye());
+                }
+                else if (msg.has_req())
+                {
+                    auto resp = on_request(msg.seq(), msg.req());
                     resp.set_req_seq(msg.seq());
                     message_type resp_msg{};
                     resp_msg.set_seq(_next_seq++);
                     resp_msg.set_allocated_resp(new response_type{std::move(resp)});
                     base_type::send(resp_msg);
                 }
+                else
+                    throw bad_message_error{};
             }
-            else
+            catch(const std::exception& e)
             {
-                bad_message_error err{};
-                on_error(msg.seq(), &err);
+                on_error(msg.seq(), &e);
+            }
+            catch(...)
+            {
+                on_error(msg.seq(), nullptr);
             }
         }
 

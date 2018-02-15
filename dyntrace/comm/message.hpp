@@ -44,16 +44,6 @@ namespace dyntrace::comm
             base_type::get_socket().send(boost::asio::buffer(buf));
         }
 
-        std::shared_ptr<this_type> shared_from_this()
-        {
-            return std::dynamic_pointer_cast<this_type>(base_type::shared_from_this());
-        }
-
-        std::shared_ptr<const this_type> shared_from_this() const
-        {
-            return std::dynamic_pointer_cast<this_type>(base_type::shared_from_this());
-        }
-
     protected:
         virtual void on_message(const message_type& msg) = 0;
         virtual void on_error(uint64_t seq, const std::exception* e)
@@ -77,7 +67,7 @@ namespace dyntrace::comm
         {
             this_type::get_socket().async_receive(
                 boost::asio::buffer(_buffer),
-                [self = this_type::shared_from_this()](const boost::system::error_code& err, size_t received)
+                [self = this_type::template refcnt_from_this<this_type>()](const boost::system::error_code& err, size_t received)
                 {
                     if(err)
                         self->close();
@@ -113,7 +103,7 @@ namespace dyntrace::comm
         {
             this_type::get_socket().async_receive(
                 boost::asio::buffer(_buffer),
-                [self = this_type::shared_from_this(), data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
+                [self = this_type::template refcnt_from_this<this_type>(), data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
                 {
                     if(err)
                         self->close();

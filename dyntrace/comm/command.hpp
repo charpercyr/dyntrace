@@ -18,33 +18,36 @@ namespace dyntrace::comm
         using base_type::base_type;
 
     protected:
-        virtual std::optional<response_type> on_request(uint64_t seq, const request_type& req) = 0;
+        virtual response_type on_request(uint64_t seq, const request_type& req) = 0;
 
         void on_message(const message_type& msg) final
         {
-            if(msg.has_req())
+            try
             {
-                auto oresp = on_request(msg.seq(), msg.req());
-                if(oresp)
+                if (msg.has_req())
                 {
-                    auto resp = oresp.value();
+                    auto resp = on_request(msg.seq(), msg.req());
                     resp.set_req_seq(msg.seq());
                     message_type resp_msg{};
                     resp_msg.set_seq(_next_seq++);
                     resp_msg.set_allocated_resp(new response_type{std::move(resp)});
                     base_type::send(resp_msg);
                 }
+                else
+                    throw bad_message_error{};
             }
-            else
+            catch(const std::exception& e)
             {
-                bad_message_error err{};
-                on_error(msg.seq(), &err);
+                on_error(msg.seq(), &e);
+            }
+            catch(...)
+            {
+                on_error(msg.seq(), nullptr);
             }
         }
         void on_error(uint64_t seq, const std::exception* e) override
         {
             message_type msg{};
-            msg.set_allocated_resp(new response_type);
             msg.mutable_resp()->set_req_seq(seq);
             msg.mutable_resp()->set_allocated_err(new dyntrace::proto::status_error);
             if(dynamic_cast<const bad_message_error*>(e))

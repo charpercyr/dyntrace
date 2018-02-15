@@ -4,8 +4,9 @@
 #include <boost/asio.hpp>
 #include <boost/log/trivial.hpp>
 
-#include <memory>
 #include <unordered_map>
+
+#include <util/refcnt.hpp>
 
 namespace dyntrace::comm
 {
@@ -13,7 +14,7 @@ namespace dyntrace::comm
     class server;
 
     template<typename Protocol>
-    class connection_base : public std::enable_shared_from_this<connection_base<Protocol>>
+    class connection_base : public dyntrace::refcnt_base<connection_base<Protocol>>
     {
     public:
         using protocol_type = Protocol;
@@ -50,7 +51,7 @@ namespace dyntrace::comm
         using endpoint = typename protocol_type::endpoint;
         using socket = typename protocol_type::socket;
         using connection_type = connection_base<Protocol>;
-        using connection_factory = std::function<std::shared_ptr<connection_type>(this_type*, socket)>;
+        using connection_factory = std::function<dyntrace::refcnt_ptr<connection_type>(this_type*, socket)>;
 
         server(boost::asio::io_context& ctx, const endpoint& e, connection_factory factory)
             : _factory{std::move(factory)}, _acc{ctx, e} {}
@@ -81,7 +82,7 @@ namespace dyntrace::comm
         }
 
     private:
-        std::unordered_map<connection_type*, std::shared_ptr<connection_type>> _conns;
+        std::unordered_map<connection_type*, dyntrace::refcnt_ptr<connection_type>> _conns;
         connection_factory _factory;
         acceptor _acc;
     };
@@ -89,19 +90,20 @@ namespace dyntrace::comm
     template<typename Protocol>
     void connection_base<Protocol>::close()
     {
+        _sock.close();
         _srv->close(this);
     }
 
     template<typename Protocol, typename Conn, typename...Args>
-    auto make_connection_factory(Args...args)
+    auto make_connection_factory(Args&&...args)
     {
         return
-            [t = std::make_tuple(std::move(args)...)]
+            [t = std::make_tuple(std::forward<Args>(args)...)]
             (server<Protocol>* srv, typename server<Protocol>::socket sock)
-            -> std::shared_ptr<connection_base<Protocol>>
+            -> dyntrace::refcnt_ptr<connection_base<Protocol>>
         {
-            static constexpr auto make_shared = std::make_shared<Conn, server<Protocol>*, typename server<Protocol>::socket, Args...>;
-            return std::apply(make_shared, std::tuple_cat(std::make_tuple(srv, std::move(sock)), std::move(t)));
+            static constexpr auto make_refcnt = dyntrace::make_refcnt<Conn, server<Protocol>*, typename server<Protocol>::socket, Args...>;
+            return std::apply(make_refcnt, std::tuple_cat(std::make_tuple(srv, std::move(sock)), t));
         };
     };
 }

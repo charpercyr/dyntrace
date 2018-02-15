@@ -16,10 +16,10 @@ void process_connection::on_bye(uint64_t seq, const bye& b)
     BOOST_LOG_TRIVIAL(info) << "bye";
 }
 
-std::optional<response> process_connection::on_request(uint64_t seq, const request& req)
+response process_connection::on_request(uint64_t seq, const request& req)
 {
     BOOST_LOG_TRIVIAL(info) << "request";
     response resp;
-    resp.set_allocated_ok(new status_ok{});
+    resp.mutable_ok();
     return resp;
 }

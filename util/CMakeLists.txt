@@ -7,5 +7,6 @@ add_library(util STATIC
     integer_range.hpp
     locked.hpp
     path.hpp path.cpp
+    refcnt.hpp
     safe_queue.hpp
     util.cpp util.hpp)

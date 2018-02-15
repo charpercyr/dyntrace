@@ -6,10 +6,10 @@ message tracepoint
 {
     oneof location
     {
-        string name = 1;
+        string symbol = 1;
         uint64 address = 2;
     }
-    string tracer = 3;
+    string name = 3;
 }
 message tracepoint_list
 {
