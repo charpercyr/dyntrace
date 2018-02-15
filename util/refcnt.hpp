@@ -21,8 +21,8 @@ namespace dyntrace
         template<typename U, typename R = void>
         using enable_if_compatible = std::enable_if_t<is_compatible<U>, R>;
 
-        static constexpr bool is_nothrow_acquire = noexcept(std::declval<T>().acquire());
-        static constexpr bool is_nothrow_release = noexcept(std::declval<T>().release());
+        static constexpr bool is_nothrow_acquire = noexcept(std::declval<T*>()->acquire());
+        static constexpr bool is_nothrow_release = noexcept(std::declval<T*>()->release());
     public:
         ~refcnt_ptr() noexcept(is_nothrow_release)
         {

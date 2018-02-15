@@ -9,6 +9,8 @@
 #include <common.pb.h>
 #include <process.pb.h>
 
+#include <util/locked.hpp>
+
 namespace dyntrace::comm
 {
     template<typename Protocol>
@@ -22,12 +24,25 @@ namespace dyntrace::comm
         using base_type = message_connection<Protocol, message_type>;
     public:
         using base_type::base_type;
+        using request_done_callback = std::function<void(const response_type&)>;
+
+        void send(const request_type& req, request_done_callback on_done)
+        {
+            uint64_t seq = _next_seq++;
+            {
+                auto pending = _pending.lock();
+                pending->insert(std::make_pair(seq, std::move(on_done)));
+            }
+            message_type msg;
+            msg.set_seq(seq);
+            msg.mutable_req()->CopyFrom(req);
+            base_type::send(msg);
+        }
 
     protected:
 
         virtual void on_hello(uint64_t seq, const hello_type& hello) = 0;
         virtual void on_bye(uint64_t seq, const bye_type& bye) = 0;
-        virtual response_type on_request(uint64_t seq, const request_type& request) = 0;
 
         void on_message(const message_type& msg) final
         {
@@ -41,14 +56,17 @@ namespace dyntrace::comm
                 {
                     on_bye(msg.seq(), msg.bye());
                 }
-                else if (msg.has_req())
+                else if (msg.has_resp())
                 {
-                    auto resp = on_request(msg.seq(), msg.req());
-                    resp.set_req_seq(msg.seq());
-                    message_type resp_msg{};
-                    resp_msg.set_seq(_next_seq++);
-                    resp_msg.set_allocated_resp(new response_type{std::move(resp)});
-                    base_type::send(resp_msg);
+                    auto pending = _pending.lock();
+                    auto it = pending->find(msg.resp().req_seq());
+                    if(it != pending->end())
+                    {
+                        it->second(msg.resp());
+                        pending->erase(it);
+                    }
+                    else
+                        throw bad_message_error{};
                 }
                 else
                     throw bad_message_error{};
@@ -87,6 +105,7 @@ namespace dyntrace::comm
         }
     private:
         uint64_t _next_seq{0};
+        dyntrace::locked<std::unordered_map<uint64_t, request_done_callback>> _pending;
     };
 }
 
