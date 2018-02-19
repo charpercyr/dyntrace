@@ -66,10 +66,13 @@ namespace dyntrace::comm
                         pending->erase(it);
                     }
                     else
-                        throw bad_message_error{};
+                        BOOST_LOG_TRIVIAL(error) << "Response without request (seq=" << msg.seq() << ")";
                 }
                 else
-                    throw bad_message_error{};
+                {
+                    bad_message_error err;
+                    on_error(msg.seq(), &err);
+                }
             }
             catch(const std::exception& e)
             {

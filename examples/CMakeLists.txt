@@ -33,7 +33,7 @@ function(add_traceable_executable name)
 endfunction()
 
 add_executable(loop loop.c loop.S)
-target_link_libraries(loop loader)
+target_link_libraries(loop agent)
 
 add_executable(foo foo.cpp)
 target_link_libraries(foo fasttp)

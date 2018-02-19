@@ -1,5 +1,6 @@
 
 function(create_to_string_cc cwd)
+    execute_process(COMMAND rm to_string.cc WORKING_DIRECTORY ${cwd})
     execute_process(COMMAND make to_string.cc WORKING_DIRECTORY ${cwd})
 endfunction()
 

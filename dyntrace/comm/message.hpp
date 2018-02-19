@@ -54,12 +54,6 @@ namespace dyntrace::comm
                 throw std::runtime_error{"unknown exception"};
         }
 
-        void send_bad_message(uint64_t seq)
-        {
-            bad_message_error err;
-            on_error(seq, &err);
-        }
-
     private:
         std::array<char, 4096> _buffer;
 

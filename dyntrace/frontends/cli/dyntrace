@@ -1,12 +1,12 @@
 #!/usr/bin/python3
 
-'''
+"""
 dyntrace args: --socket [socket file] ...
 dyntrace ... add-tracepoint <pid|name>:<addr|symbol> <tracer>
 dyntrace ... remove-tracepoint <pid|name>:<name>
 dyntrace ... list-tracepoint <pid|name>
 dyntrace ... list-process
-'''
+"""
 
 import argparse
 import re
@@ -159,7 +159,6 @@ def main():
         else:
             parser.print_help()
         exit(1)
-
 
 
 if __name__ == '__main__':
