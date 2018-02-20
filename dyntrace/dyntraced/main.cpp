@@ -165,9 +165,31 @@ int main(int argc, const char** argv)
     {
         asio::io_context ctx;
 
-        auto command_factory = comm::local::make_connection_factory<dyntrace::d::command_connection>();
+        dyntrace::d::process_registry reg;
+
+        auto command_factory = comm::local::make_connection_factory<dyntrace::d::command_connection>(&reg);
         comm::local::server command_srv{ctx, comm::local::endpoint{dyntrace::config::command_socket_name}, command_factory};
-        auto process_factory = comm::local::make_connection_factory<dyntrace::d::process_connection>();
+        auto process_factory = [&reg](comm::local::server* srv, comm::local::socket sock)
+        {
+            auto conn = dyntrace::make_refcnt<dyntrace::d::process_connection>(srv, std::move(sock), &reg);
+            dyntrace::proto::process::request req;
+            req.mutable_hello();
+            conn->send(req, [&reg, conn](const dyntrace::proto::response& resp)
+            {
+                if(resp.has_ok())
+                {
+                    if(resp.ok().has_pid())
+                    {
+                        conn->set_pid(resp.ok().pid().pid());
+                        reg.add(resp.ok().pid().pid(), conn.get());
+                        return;
+                    }
+                }
+                conn->close();
+                BOOST_LOG_TRIVIAL(error) << "Invalid response for hello" << resp.DebugString();
+            });
+            return conn;
+        };
         comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, process_factory};
 
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);

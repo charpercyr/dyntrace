@@ -3,16 +3,29 @@
 
 #include <dyntrace/comm/local.hpp>
 
+#include "process.hpp"
+
 namespace dyntrace::d
 {
-    class command_connection : public dyntrace::comm::local::command_connection
+    class command_connection final : public dyntrace::comm::local::command_connection
     {
     public:
-        using dyntrace::comm::local::command_connection::command_connection;
-    protected:
-        dyntrace::proto::response on_request(uint64_t seq, const dyntrace::proto::command::request& req) override;
+        using message_type = proto::command::command_message;
+        using request_type = proto::command::request;
+        using response_type = proto::response;
+        using base_type = dyntrace::comm::local::command_connection;
+
+        using request_done_callback = std::function<void(const response_type&)>;
+        command_connection(comm::local::server* srv, comm::local::socket sock, process_registry* reg)
+            : dyntrace::comm::local::command_connection{srv, std::move(sock)}, _reg{reg} {}
+
     private:
-        dyntrace::proto::response on_request_to_process(uint64_t seq, const dyntrace::proto::command::process_request& req);
+        void on_message(const message_type& msg) override;
+        void on_error(uint64_t seq, const std::exception* e) override;
+
+        void on_process_message(uint64_t seq, const proto::command::process_request& msg);
+
+        process_registry* _reg;
     };
 }
 

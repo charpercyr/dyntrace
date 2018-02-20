@@ -1,30 +1,90 @@
 #include "command.hpp"
 
+#include <util/path.hpp>
+#include <util/error.hpp>
+#include <cmake-build-debug/dyntrace/process.pb.h>
+
 using namespace dyntrace::d;
 
-dyntrace::proto::response command_connection::on_request(uint64_t seq, const dyntrace::proto::command::request& req)
+void command_connection::on_message(const message_type& msg)
 {
-    if(req.has_to_proc())
+    if(msg.has_req())
     {
-        return on_request_to_process(seq, req.to_proc());
+        if(msg.req().has_list_proc())
+        {
+            message_type resp;
+            resp.set_seq(next_seq());
+            resp.mutable_resp()->set_req_seq(msg.seq());
+            resp.mutable_resp()->mutable_ok()->mutable_procs();
+            for(auto pid : _reg->all_processes())
+                resp.mutable_resp()->mutable_ok()->mutable_procs()->add_pids(pid);
+            send(resp);
+        }
+        else
+            on_process_message(msg.seq(), msg.req().to_proc());
     }
-    else if(req.has_list_proc())
+    else
+        on_bad_message(msg.seq());
+}
+
+void command_connection::on_error(uint64_t seq, const std::exception* e)
+{
+    message_type msg{};
+    msg.set_seq(next_seq());
+    msg.mutable_resp()->set_req_seq(seq);
+    if(dynamic_cast<const comm::bad_message_error*>(e))
     {
-        BOOST_LOG_TRIVIAL(info) << "Request: List proc";
-        dyntrace::proto::response resp;
-        resp.mutable_ok();
-        return resp;
+        msg.mutable_resp()->mutable_err()->set_type("bad_message");
+        msg.mutable_resp()->mutable_err()->set_msg(e->what());
+    }
+    else if(e)
+    {
+        msg.mutable_resp()->mutable_err()->set_type("internal_error");
+        msg.mutable_resp()->mutable_err()->set_msg(e->what());
     }
     else
     {
-        throw dyntrace::comm::bad_message_error{};
+        msg.mutable_resp()->mutable_err()->set_type("internal_error");
     }
+    base_type::send(msg);
 }
 
-dyntrace::proto::response command_connection::on_request_to_process(uint64_t seq, const dyntrace::proto::command::process_request& req)
+void command_connection::on_process_message(uint64_t seq, const proto::command::process_request& msg)
 {
-    BOOST_LOG_TRIVIAL(info) << "Request: to process " << req.pid();
-    dyntrace::proto::response resp;
-    resp.mutable_ok();
-    return resp;
+    message_type resp;
+    resp.set_seq(next_seq());
+
+    pid_t pid = -1;
+    if(msg.pid() != 0)
+    {
+        pid = msg.pid();
+    }
+    else
+    {
+        try
+        {
+            pid = dyntrace::find_process(msg.name());
+        }
+        catch(dyntrace::dyntrace_error&)
+        {
+            // Nothing, next 'if' will do the error check
+        }
+    }
+
+    if(auto proc = _reg->get(pid))
+    {
+        proc->send(msg.req(), [this, resp = std::move(resp), seq](const proto::response& proc_resp) mutable
+        {
+            resp.mutable_resp()->CopyFrom(proc_resp);
+            resp.mutable_resp()->set_req_seq(seq);
+            send(resp);
+        });
+    }
+    else
+    {
+        resp.mutable_resp()->set_req_seq(seq);
+        resp.mutable_resp()->mutable_err()->set_type("invalid_process");
+        resp.mutable_resp()->mutable_err()->set_msg("process " + (msg.pid() ? std::to_string(msg.pid()) : msg.name()) + " does not exist");
+        send(resp);
+    }
 }

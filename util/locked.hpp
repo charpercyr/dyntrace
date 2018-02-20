@@ -44,7 +44,7 @@ namespace dyntrace
      * Proxy that represents a locked object. The lock is locked during the lifetime of this object.
      */
     template<typename T, typename Lock, typename Guard>
-    class locked_proxy
+    class [[nodiscard]] locked_proxy
     {
         template<typename, typename, typename>
         friend class locked_proxy;
@@ -125,7 +125,7 @@ namespace dyntrace
          * Obtains a locked proxy. The object can now be used safely.
          * @return
          */
-        [[nodiscard]] proxy_type lock()
+        proxy_type lock()
         {
             return proxy_type{&_val, _lock};
         };
@@ -133,16 +133,16 @@ namespace dyntrace
          * Obtains a const locked proxy. The object can now be used safely.
          * @return
          */
-        [[nodiscard]] const_proxy_type lock() const
+        const_proxy_type lock() const
         {
-            return const_proxy_type{_val, _lock};
+            return const_proxy_type{&_val, _lock};
         };
 
         /**
          * Obtains a const shared locked proxy. Multiple readers are ok.
          * @return
          */
-        [[nodiscard]] shared_proxy_type lock_shared() const
+        shared_proxy_type lock_shared() const
         {
             return shared_proxy_type{&_val, _lock};
         }

@@ -20,6 +20,10 @@ message tracepoint_created
     string name = 1;
 }
 
+message my_pid
+{
+    int32 pid = 1;
+}
 
 message process_list
 {
@@ -33,6 +37,7 @@ message status_ok
         process_list procs = 1;
         tracepoint_list tps = 2;
         tracepoint_created tp_created = 3;
+        my_pid pid = 4;
     }
 }
 message status_error

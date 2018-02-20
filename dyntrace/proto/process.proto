@@ -23,17 +23,13 @@ message request
         list_tracepoint list_tp = 1;
         add_tracepoint add_tp = 2;
         remove_tracepoint remove_tp = 3;
+        hello hello = 4;
     }
 }
 
 message hello
 {
     int32 pid = 1;
-}
-
-message bye
-{
-
 }
 
 message process_message
@@ -43,7 +39,5 @@ message process_message
     {
         request req = 2;
         response resp = 3;
-        hello hello = 4;
-        bye bye = 5;
     }
 }

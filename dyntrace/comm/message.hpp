@@ -46,15 +46,22 @@ namespace dyntrace::comm
 
     protected:
         virtual void on_message(const message_type& msg) = 0;
-        virtual void on_error(uint64_t seq, const std::exception* e)
+        virtual void on_error(uint64_t seq, const std::exception* e) = 0;
+
+        void on_bad_message(uint64_t seq)
         {
-            if(e)
-                throw *e;
-            else
-                throw std::runtime_error{"unknown exception"};
+            bad_message_error err;
+            on_error(seq, &err);
+        }
+
+        uint64_t next_seq() const noexcept
+        {
+            return _next_seq.fetch_add(1, std::memory_order_relaxed);
         }
 
     private:
+        mutable std::atomic<uint64_t> _next_seq{1};
+
         void do_receive()
         {
             using namespace boost::asio;

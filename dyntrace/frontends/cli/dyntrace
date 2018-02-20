@@ -15,6 +15,7 @@ import socket
 import command_pb2
 import process_pb2
 
+next_seq = 1
 
 debug_mode = False
 def debugfunc(func):
@@ -29,8 +30,16 @@ def debug_print(*args, **kwargs):
     print(*args, **kwargs)
 
 
-def make_to_proc(proc):
+def make_msg():
+    global next_seq
     msg = command_pb2.command_message()
+    msg.seq = next_seq
+    next_seq += 1
+    return msg
+
+
+def make_to_proc(proc):
+    msg = make_msg()
     if isinstance(proc, int):
         msg.req.to_proc.pid = proc
     else:
@@ -84,19 +93,19 @@ def add_tracepoint(args):
     proc, sym = parse_location(args.location)
     msg = make_to_proc(proc)
     if isinstance(sym, int):
-        msg.req.to_proc.add_tp.tp.address = sym
+        msg.req.to_proc.req.add_tp.tp.address = sym
     else:
-        msg.req.to_proc.add_tp.tp.symbol = sym
+        msg.req.to_proc.req.add_tp.tp.symbol = sym
     if args.name:
-        msg.req.to_proc.add_tp.tp.name = args.name
-    msg.req.to_proc.add_tp.tracer = args.tracer
+        msg.req.to_proc.req.add_tp.tp.name = args.name
+    msg.req.to_proc.req.add_tp.tracer = args.tracer
     do_request(args, msg)
 
 
 def remove_tracepoint(args):
     proc, name = parse_location(args.location, sym_as_number=False)
     msg = make_to_proc(proc)
-    msg.req.to_proc.remove_tp.name = name
+    msg.req.to_proc.req.remove_tp.name = name
     do_request(args, msg)
 
 
@@ -107,12 +116,12 @@ def list_tracepoint(args):
     except ValueError:
         pass
     msg = make_to_proc(proc)
-    msg.req.to_proc.list_tp.CopyFrom(process_pb2.list_tracepoint())
+    msg.req.to_proc.req.list_tp.CopyFrom(process_pb2.list_tracepoint())
     do_request(args, msg)
 
 
 def list_process(args):
-    msg = command_pb2.command_message()
+    msg = make_msg()
     msg.req.list_proc.CopyFrom(command_pb2.list_process())
     do_request(args, msg)
 
