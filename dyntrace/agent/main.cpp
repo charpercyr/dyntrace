@@ -92,9 +92,9 @@ private:
                 while (!_done.load(std::memory_order_relaxed))
                 {
                     uint32_t to_recv;
-                    read(_sock, buffer(&to_recv, sizeof(to_recv)));
+                    do_read(buffer(&to_recv, sizeof(to_recv)));
                     std::string data(to_recv, 0);
-                    read(_sock, buffer(data));
+                    do_read(buffer(data));
                     proto::process::process_message msg;
                     msg.ParseFromString(data);
                     proto::process::process_message resp;
@@ -121,6 +121,23 @@ private:
                 BOOST_LOG_TRIVIAL(error) << "Error during agent execution: unknown";
             }
             _sock.close();
+        }
+    }
+
+    void do_read(boost::asio::mutable_buffer buf)
+    {
+        while(true)
+        {
+            try
+            {
+                read(_sock, buf);
+                break;
+            }
+            catch(boost::system::system_error& e)
+            {
+                if(e.code() != boost::asio::error::interrupted)
+                    throw;
+            }
         }
     }
 
