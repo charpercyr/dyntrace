@@ -31,7 +31,7 @@ namespace dyntrace::comm
         message_connection(server_type* srv, socket_type sock)
             : base_type{srv, std::move(sock)}
         {
-            start_receive();
+            do_receive();
         }
 
         void send(const message_type& msg)
@@ -55,83 +55,58 @@ namespace dyntrace::comm
         }
 
     private:
-        std::array<char, 4096> _buffer;
-
-        void start_receive()
+        void do_receive()
         {
-            this_type::get_socket().async_receive(
-                boost::asio::buffer(_buffer),
-                [self = this_type::template refcnt_from_this<this_type>()](const boost::system::error_code& err, size_t received)
+            using namespace boost::asio;
+            auto to_recv = std::make_unique<uint32_t>();
+            auto to_recv_addr = to_recv.get();
+            async_read(
+                this_type::get_socket(), buffer(to_recv_addr, sizeof(uint32_t)),
+                [
+                    to_recv = std::move(to_recv),
+                    self = this_type::template refcnt_from_this<this_type>()
+                ](const boost::system::error_code& err, size_t received)
                 {
-                    if(err)
-                        self->close();
-                    else
+                    if(err || received != sizeof(uint32_t))
                     {
-                        size_t received_count = 0;
-                        while(received)
+                        if(err != boost::asio::error::eof)
+                            BOOST_LOG_TRIVIAL(error) << "error during size recv: " << err.message();
+                        self->close();
+                        return;
+                    }
+                    std::unique_ptr<uint8_t[]> data{new uint8_t[*to_recv]};
+                    auto data_addr = data.get();
+                    async_read(
+                        self->get_socket(),
+                        buffer(data_addr, *to_recv),
+                        [data = std::move(data), self, to_recv = *to_recv](const boost::system::error_code& err, size_t received)
                         {
-                            ++received_count;
-                            auto msg_size = *reinterpret_cast<uint32_t*>(self->_buffer.data());
-                            received -= sizeof(uint32_t);
-                            std::vector<char> data(msg_size);
-                            std::copy(self->_buffer.begin() + sizeof(uint32_t), self->_buffer.begin() + msg_size + sizeof(uint32_t),
-                                      data.begin());
-
-                            if (received >= msg_size)
+                            if(err || received != to_recv)
                             {
-                                self->finish_receive(std::move(data));
-                                if(received_count == 1)
-                                    self->start_receive();
-
+                                if(err != boost::asio::error::eof)
+                                    BOOST_LOG_TRIVIAL(error) << "error during message recv: " << err.message();
+                                self->close();
+                                return;
                             }
-                            else if(received)
-                                self->continue_receive(std::move(data), received);
-                            received -= msg_size;
+                            message_type msg;
+                            msg.ParseFromArray(data.get(), to_recv);
+                            try
+                            {
+                                self->on_message(msg);
+                            }
+                            catch(const std::exception& e)
+                            {
+                                self->on_error(msg.seq(), &e);
+                            }
+                            catch(...)
+                            {
+                                self->on_error(msg.seq(), nullptr);
+                            }
+                            self->do_receive();
                         }
-                    }
+                    );
                 }
             );
-        }
-
-        void continue_receive(std::vector<char> data, size_t total_received)
-        {
-            this_type::get_socket().async_receive(
-                boost::asio::buffer(_buffer),
-                [self = this_type::template refcnt_from_this<this_type>(), data = std::move(data), total_received](const boost::system::error_code& err, size_t received) mutable
-                {
-                    if(err)
-                        self->close();
-                    else
-                    {
-                        std::copy(self->_buffer.begin(), self->_buffer.begin() + received, data.begin() + total_received);
-                        if(received >= data.size())
-                        {
-                            self->finish_receive(std::move(data));
-                            self->start_receive();
-                        }
-                        else
-                            self->continue_receive(std::move(data), total_received + received);
-                    }
-                }
-            );
-        }
-
-        void finish_receive(std::vector<char> data)
-        {
-            message_type msg;
-            msg.ParseFromArray(data.data(), data.size());
-            try
-            {
-                on_message(msg);
-            }
-            catch(const std::exception& e)
-            {
-                on_error(msg.seq(), &e);
-            }
-            catch(...)
-            {
-                on_error(msg.seq(), nullptr);
-            }
         }
     };
 }

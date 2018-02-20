@@ -44,30 +44,31 @@ private:
                 std::this_thread::sleep_for(std::chrono::seconds{5});
         }
 
-        while(_done.load(std::memory_order_relaxed))
+        try
         {
-            std::array<uint8_t, 4096> buf;
-            try
+            while (_done.load(std::memory_order_relaxed))
             {
-                auto received = _sock.receive(buffer(buf));
-                size_t idx = 0;
-                while(received)
-                {
-                    auto to_recv = *reinterpret_cast<uint32_t*>(buf.data() + idx);
-                    idx += sizeof(uint32_t);
-                }
+                uint32_t to_recv;
+                read(_sock, buffer(&to_recv, sizeof(to_recv)));
+                std::string data(to_recv, 0);
+                read(_sock, buffer(data));
+                proto::process::process_message msg;
+                msg.ParseFromString(data);
+                auto resp = on_request(msg);
+                resp.SerializeToString(&data);
+                write(_sock, buffer(data));
             }
-            catch(const boost::system::system_error& err)
-            {
-                if(err.code() == error::eof)
-                    break;
-            }
+        }
+        catch(const boost::system::system_error& err)
+        {
+//            if(err.code() != boost::asio::error::eof)
+//                BOOST_LOG_TRIVIAL(error) << "Error during send: " << err.what();
         }
     }
 
-    proto::response on_request(uint64_t seq, const proto::process::process_message msg)
+    proto::response on_request(const proto::process::process_message& msg)
     {
-
+        return {};
     }
 
     boost::asio::io_context _ctx;

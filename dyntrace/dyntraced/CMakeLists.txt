@@ -13,6 +13,7 @@ target_link_libraries(dyntraced PRIVATE
     boost_program_options
     boost_system
     boost_thread
-    stdc++fs pthread
+    stdc++fs
+    pthread
 )
 target_include_directories(dyntraced PRIVATE ${CMAKE_CURRENT_BINARY_DIR})

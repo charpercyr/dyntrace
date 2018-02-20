@@ -14,46 +14,60 @@ namespace dyntrace
     class refcnt_ptr
     {
         template<typename>
-        friend class refcnt_ptr;
+        friend
+        class refcnt_ptr;
 
         template<typename U>
-        static constexpr bool is_compatible = std::is_convertible_v<U*, T*>;
+        static constexpr bool is_compatible = std::is_convertible_v<U *, T *>;
         template<typename U, typename R = void>
         using enable_if_compatible = std::enable_if_t<is_compatible<U>, R>;
 
-        static constexpr bool is_nothrow_acquire = noexcept(std::declval<T*>()->acquire());
-        static constexpr bool is_nothrow_release = noexcept(std::declval<T*>()->release());
+        static constexpr bool is_nothrow_acquire = noexcept(std::declval<T *>()->acquire());
+        static constexpr bool is_nothrow_release = noexcept(std::declval<T *>()->release());
     public:
+
         ~refcnt_ptr() noexcept(is_nothrow_release)
         {
             release();
         }
 
         refcnt_ptr() noexcept
-            : _ptr{nullptr} {}
+            : _ptr{nullptr}
+        {}
 
         explicit refcnt_ptr(std::nullptr_t) noexcept
-            : _ptr{nullptr} {}
+            : _ptr{nullptr}
+        {}
 
         template<typename U, typename = enable_if_compatible<U>>
-        explicit refcnt_ptr(U* p) noexcept(is_nothrow_acquire)
+        explicit refcnt_ptr(U *p) noexcept(is_nothrow_acquire)
             : _ptr{p}
         {
             acquire();
         }
 
+        refcnt_ptr(const refcnt_ptr &ptr) noexcept(is_nothrow_acquire)
+            : _ptr{ptr._ptr}
+        {
+            acquire();
+        }
         template<typename U, typename = enable_if_compatible<U>>
         refcnt_ptr(const refcnt_ptr<U>& ptr) noexcept(is_nothrow_acquire)
             : _ptr{ptr._ptr}
         {
             acquire();
-        };
+        }
+        refcnt_ptr(refcnt_ptr&& ptr) noexcept
+            : _ptr{ptr._ptr}
+        {
+            ptr._ptr = nullptr;
+        }
         template<typename U, typename = enable_if_compatible<U>>
         refcnt_ptr(refcnt_ptr<U>&& ptr) noexcept
             : _ptr{ptr._ptr}
         {
             ptr._ptr = nullptr;
-        };
+        }
 
         refcnt_ptr& operator=(nullptr_t) noexcept(is_nothrow_release)
         {
@@ -69,16 +83,28 @@ namespace dyntrace
             acquire();
             return *this;
         }
+        refcnt_ptr& operator=(const refcnt_ptr& ptr) noexcept(is_nothrow_acquire && is_nothrow_release)
+        {
+            release();
+            _ptr = ptr._ptr;
+            acquire();
+            return *this;
+        }
         template<typename U, typename = enable_if_compatible<U>>
         refcnt_ptr& operator=(const refcnt_ptr<U>& ptr) noexcept(is_nothrow_acquire && is_nothrow_release)
         {
             release();
             _ptr = ptr._ptr;
             acquire();
-
-#include <boost/log/trivial.hpp>
             return *this;
-        };
+        }
+        refcnt_ptr& operator=(refcnt_ptr&& ptr) noexcept(is_nothrow_release)
+        {
+            release();
+            _ptr = ptr._ptr;
+            ptr._ptr = nullptr;
+            return *this;
+        }
         template<typename U, typename = enable_if_compatible<U>>
         refcnt_ptr& operator=(refcnt_ptr<U>&& ptr) noexcept(is_nothrow_release)
         {
@@ -86,7 +112,7 @@ namespace dyntrace
             _ptr = ptr._ptr;
             ptr._ptr = nullptr;
             return *this;
-        };
+        }
 
         T* operator->() const noexcept
         {
@@ -149,12 +175,14 @@ namespace dyntrace
         refcnt_base() noexcept = default;
 
         template<typename U = T>
-        auto refcnt_from_this() noexcept(std::is_nothrow_constructible_v<refcnt_ptr<U>, U*>)
+        std::enable_if_t<std::is_base_of_v<T, U>, refcnt_ptr<U>>
+        refcnt_from_this() noexcept(std::is_nothrow_constructible_v<refcnt_ptr<U>, U*>)
         {
             return refcnt_ptr<U>{static_cast<U*>(this)};
         }
         template<typename U = T>
-        auto refcnt_from_this() const noexcept(std::is_nothrow_constructible_v<refcnt_ptr<const U>, const U*>)
+        std::enable_if_t<std::is_base_of_v<T, U>, refcnt_ptr<U>>
+        refcnt_from_this() const noexcept(std::is_nothrow_constructible_v<refcnt_ptr<const U>, const U*>)
         {
             return refcnt_ptr<const U>{static_cast<const T*>(this)};
         }
@@ -166,7 +194,7 @@ namespace dyntrace
         void release() const noexcept(noexcept(std::declval<T>().~T()))
         {
             if(!--_cnt)
-                delete static_cast<T*>(const_cast<refcnt_base*>(this));
+                delete static_cast<T *>(const_cast<refcnt_base *>(this));
         }
 
     private:

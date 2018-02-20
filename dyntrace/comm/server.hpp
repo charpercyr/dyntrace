@@ -14,7 +14,7 @@ namespace dyntrace::comm
     class server;
 
     template<typename Protocol>
-    class connection_base : public dyntrace::refcnt_base<connection_base<Protocol>>
+    class connection_base : public dyntrace::safe_refcnt_base<connection_base<Protocol>>
     {
     public:
         using protocol_type = Protocol;
