@@ -181,7 +181,7 @@ namespace dyntrace
             return refcnt_ptr<U>{static_cast<U*>(this)};
         }
         template<typename U = T>
-        std::enable_if_t<std::is_base_of_v<T, U>, refcnt_ptr<U>>
+        std::enable_if_t<std::is_base_of_v<T, U>, refcnt_ptr<const U>>
         refcnt_from_this() const noexcept(std::is_nothrow_constructible_v<refcnt_ptr<const U>, const U*>)
         {
             return refcnt_ptr<const U>{static_cast<const T*>(this)};
