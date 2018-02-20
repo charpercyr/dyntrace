@@ -23,7 +23,7 @@ int main()
     for(;;)
     {
         do_inc(&a);
-        printf("%lld\n", a);
+        //printf("%lld\n", a);
         sleep(1);
     }
     return 0;

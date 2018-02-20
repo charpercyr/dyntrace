@@ -3,6 +3,7 @@
 .type do_inc, @function
 // This function will trap on every loop if there is a tracepoint at do_inc
 do_inc:
+    nopl (%eax, %eax, 1)
     xor %rcx, %rcx
 .L0:
     xchg %ax, %ax

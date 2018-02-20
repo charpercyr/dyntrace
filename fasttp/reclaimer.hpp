@@ -71,7 +71,7 @@ namespace dyntrace::fasttp
         static std::mutex _reclaim_lock;
 
         dyntrace::safe_queue<queue_element> _queue;
-        std::list<reclaim_work> _batch;
+        dyntrace::locked<std::list<reclaim_work>> _batch;
         dyntrace::locked<std::vector<dyntrace::address_range>> _always_invalid;
         std::thread _thread;
     };

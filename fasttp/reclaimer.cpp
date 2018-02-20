@@ -57,8 +57,9 @@ void reclaimer::run()
             }
             else if(std::holds_alternative<reclaim_work>(next))
             {
-                _batch.push_back(std::move(std::get<reclaim_work>(next)));
-                if(_batch.size() >= reclaim_count)
+                auto batch = _batch.lock();
+                batch->push_back(std::move(std::get<reclaim_work>(next)));
+                if(batch->size() >= reclaim_count)
                 {
                     reclaim_batch();
                     end = std::chrono::steady_clock::now() + reclaim_period;
@@ -80,7 +81,7 @@ void reclaimer::run()
 
 void reclaimer::reclaim_batch()
 {
-    if(_batch.empty())
+    if(_batch->empty())
         return;
 
     std::unique_lock lock{_reclaim_lock};
@@ -133,16 +134,19 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
         if(_reclaim_data->cancel)
             return;
 
-        for(auto it = _reclaim_data->self->_batch.begin(); it != _reclaim_data->self->_batch.end();)
         {
-            if(it->predicate(rip))
+            auto batch = _reclaim_data->self->_batch.lock();
+            for (auto it = batch->begin(); it != batch->end();)
             {
-                auto to_del = _reclaim_data->to_delete.lock();
-                to_del->push_back(std::move(it->deleter));
-                _reclaim_data->self->_batch.erase(it++);
+                if (it->predicate(rip))
+                {
+                    auto to_del = _reclaim_data->to_delete.lock();
+                    to_del->push_back(std::move(it->deleter));
+                    batch->erase(it++);
+                }
+                else
+                    ++it;
             }
-            else
-                ++it;
         }
         _reclaim_data->barrier.wait();
     }
