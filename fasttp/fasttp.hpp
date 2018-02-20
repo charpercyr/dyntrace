@@ -17,6 +17,8 @@ namespace dyntrace::fasttp
     class tracepoint
     {
     public:
+        tracepoint()
+            : _impl{nullptr} {}
         tracepoint(const fasttp::location& loc, handler handler, const options& ops = {});
 
         void enable(bool e = true) noexcept
@@ -40,6 +42,11 @@ namespace dyntrace::fasttp
         const void* location() const noexcept
         {
             return _impl->location();
+        }
+
+        explicit operator bool() const noexcept
+        {
+            return static_cast<bool>(_impl);
         }
 
     private:
