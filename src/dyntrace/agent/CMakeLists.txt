@@ -6,4 +6,6 @@ target_link_libraries(agent
     config
     fasttp
     proto
+    stdc++fs
 )
+target_compile_definitions(agent PRIVATE BOOST_LOG_DYN_LINK BOOST_LOG_USE_NATIVE_SYSLOG)
