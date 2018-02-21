@@ -10,9 +10,3 @@ function(dyntrace_shared_library target)
         LIBRARY DESTINATION lib
     )
 endfunction()
-
-macro(dyntrace_option name default)
-    if (NOT ${name})
-        set(${name} ${default})
-    endif()
-endmacro()

@@ -99,6 +99,7 @@ def add_tracepoint(args):
     if args.name:
         msg.req.to_proc.req.add_tp.tp.name = args.name
     msg.req.to_proc.req.add_tp.tracer = args.tracer
+    msg.req.to_proc.req.add_tp.tracer_args[:] = args.tracer_args
     do_request(args, msg)
 
 
@@ -137,6 +138,7 @@ def main():
     add_tp = sps.add_parser('add-tracepoint')
     add_tp.add_argument('location', help='Where to add the tracepoint', metavar='<pid|name>:<addr|symbol>')
     add_tp.add_argument('tracer', help='The tracer to use')
+    add_tp.add_argument('tracer_args', nargs='*', help='Arguments to pass to the tracer')
     add_tp.add_argument('-n', '--name', help='The unique name to give to the tracepoint (else it is auto-generated)')
     add_tp.set_defaults(func=add_tracepoint, parser=add_tp)
 
