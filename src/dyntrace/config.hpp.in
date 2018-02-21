@@ -1,0 +1,17 @@
+#ifndef DYNTRACE_DYNTRACED_CONFIG_HPP_
+#define DYNTRACE_DYNTRACED_CONFIG_HPP_
+
+namespace dyntrace
+{
+    namespace config
+    {
+        constexpr const char* group_name{"${DYNTRACE_GROUP_NAME}"};
+        constexpr const char* working_directory{"${DYNTRACE_WORKING_DIRECTORY}"};
+        constexpr const char* command_socket_name{"${DYNTRACE_COMMAND_SOCKET_NAME}"};
+        constexpr const char* process_socket_name{"${DYNTRACE_PROCESS_SOCKET_NAME}"};
+        constexpr const char* lock_file_name{"${DYNTRACE_LOCK_FILE_NAME}"};
+        constexpr const char* tracer_directory{"${DYNTRACE_TRACER_DIRECTORY}"};
+    }
+}
+
+#endif

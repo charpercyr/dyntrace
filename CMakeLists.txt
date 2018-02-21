@@ -1,30 +1,21 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.10)
 
-include(FindPkgConfig)
+enable_language(CXX ASM)
 
-enable_language(ASM)
+include(dyntrace.cmake)
+include(private.cmake)
 
+set(ARCH x86_64)
+set(CMAKE_VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")
+set(CMAKE_EXE_LINKER_FLAGS "-L/usr/local/lib ${CMAKE_EXE_LINKER_FLAGS}")
+set(CMAKE_CXX_FLAGS_DEBUG  "-D_DEBUG ${CMAKE_CXX_FLAGS_DEBUG}")
 
-if(${CMAKE_BUILD_TYPE} STREQUAL "Debug")
-    set(CMAKE_CXX_FLAGS "-D_DEBUG ${CMAKE_CXX_FLAGS}")
-endif()
+include_directories(include)
 
-execute_process(COMMAND uname -m OUTPUT_VARIABLE arch OUTPUT_STRIP_TRAILING_WHITESPACE)
+install(DIRECTORY include/dyntrace DESTINATION include)
+install(FILES dyntrace.cmake DESTINATION share/cmake)
 
-pkg_check_modules(CAPSTONE capstone)
-
-include_directories(${CMAKE_SOURCE_DIR})
-
-add_subdirectory(arch)
-add_subdirectory(dyntrace)
 add_subdirectory(examples)
-add_subdirectory(fasttp)
-add_subdirectory(process)
-add_subdirectory(inject)
-add_subdirectory(tracers)
-add_subdirectory(util)
-
-add_subdirectory(ext)
+add_subdirectory(src)
