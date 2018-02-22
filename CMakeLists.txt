@@ -4,6 +4,7 @@ enable_language(CXX ASM)
 
 include(dyntrace.cmake)
 include(private.cmake)
+include(options.cmake)
 
 set(ARCH x86_64)
 set(CMAKE_VERSION 0.1)

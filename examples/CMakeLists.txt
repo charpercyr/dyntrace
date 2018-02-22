@@ -7,3 +7,5 @@ target_link_libraries(foo fasttp)
 
 add_executable(loop loop.S loop.c)
 target_link_libraries(loop agent)
+
+configure_file(dyntrace-start.in ${CMAKE_BINARY_DIR}/dyntrace-start @ONLY)

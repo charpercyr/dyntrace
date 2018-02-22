@@ -46,11 +46,13 @@ class agent_main
 {
 public:
     agent_main()
-        : _sock{_ctx}, _th{&agent_main::run, this}
+        : _sock{_ctx}
     {
-        _th.detach();
+        std::thread th{&agent_main::run, this};
+        th.detach();
     }
-    ~agent_main()
+
+    void stop()
     {
         _done = true;
         _sock.close();
@@ -112,6 +114,7 @@ private:
             }
             _sock.close();
         }
+        delete this;
     }
 
     void do_read(boost::asio::mutable_buffer buf)
@@ -190,6 +193,15 @@ private:
                         resp_tp->set_address(std::get<uintptr_t>(tp.loc));
                 }
             }
+            else if(msg.req().has_list_sym())
+            {
+                resp.mutable_ok()->mutable_sym_list();
+                for(const auto& sym : process::process::this_process().elf().get_section(".symtab").as_symtab())
+                {
+                    if(sym.get_data().type() == elf::stt::func)
+                        resp.mutable_ok()->mutable_sym_list()->add_sym(sym.get_name());
+                }
+            }
         }
         catch(const agent_error& e)
         {
@@ -262,7 +274,6 @@ private:
     boost::asio::io_context _ctx;
     boost::asio::local::stream_protocol::socket _sock;
     std::atomic<bool> _done{false};
-    std::thread _th;
 };
 
 namespace
@@ -277,5 +288,5 @@ void __attribute__((constructor)) init()
 
 void __attribute__((destructor)) fini()
 {
-    delete _agent;
+    _agent->stop();
 }

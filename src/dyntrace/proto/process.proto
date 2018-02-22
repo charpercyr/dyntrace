@@ -17,6 +17,9 @@ message remove_tracepoint
 {
     string name = 1;
 }
+message list_symbol
+{
+}
 message request
 {
     oneof req
@@ -25,6 +28,7 @@ message request
         add_tracepoint add_tp = 2;
         remove_tracepoint remove_tp = 3;
         hello hello = 4;
+        list_symbol list_sym = 5;
     }
 }
 

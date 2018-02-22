@@ -13,12 +13,6 @@ add_custom_target(proto_py ALL DEPENDS ${PROTO_PY_SRCS})
 
 set(DYNTRACE_DYNTRACE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-dyntrace_option(DYNTRACE_GROUP_NAME dyntrace)
-dyntrace_option(DYNTRACE_WORKING_DIRECTORY /run/dyntrace)
-dyntrace_option(DYNTRACE_COMMAND_SOCKET_NAME command.sock)
-dyntrace_option(DYNTRACE_PROCESS_SOCKET_NAME process.sock)
-dyntrace_option(DYNTRACE_LOCK_FILE_NAME dyntrace.lock)
-
 configure_file(config.hpp.in config.hpp)
 add_library(config INTERFACE)
 target_include_directories(config INTERFACE ${CMAKE_CURRENT_BINARY_DIR})

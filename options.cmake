@@ -1,0 +1,5 @@
+dyntrace_option(DYNTRACE_GROUP_NAME dyntrace)
+dyntrace_option(DYNTRACE_WORKING_DIRECTORY /run/dyntrace)
+dyntrace_option(DYNTRACE_COMMAND_SOCKET_NAME command.sock)
+dyntrace_option(DYNTRACE_PROCESS_SOCKET_NAME process.sock)
+dyntrace_option(DYNTRACE_LOCK_FILE_NAME dyntrace.lock)

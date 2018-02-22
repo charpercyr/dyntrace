@@ -15,6 +15,10 @@ message tracepoint_list
 {
     repeated tracepoint tp = 1;
 }
+message symbol_list
+{
+    repeated string sym = 1;
+}
 message tracepoint_created
 {
     string name = 1;
@@ -38,6 +42,7 @@ message status_ok
         tracepoint_list tps = 2;
         tracepoint_created tp_created = 3;
         my_pid pid = 4;
+        symbol_list sym_list = 5;
     }
 }
 message status_error

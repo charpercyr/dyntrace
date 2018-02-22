@@ -127,10 +127,21 @@ def list_process(args):
     do_request(args, msg)
 
 
+def list_symbol(args):
+    proc = args.process
+    try:
+        proc = int(proc)
+    except ValueError:
+        pass
+    msg = make_to_proc(proc)
+    msg.req.to_proc.req.list_sym.CopyFrom(process_pb2.list_symbol())
+    do_request(args, msg)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.set_defaults(func=None, parser=None)
-    parser.add_argument('-s', '--socket', help='Socket file to connect to', default='/run/dyntrace/command.sock')
+    parser.add_argument('-s', '--socket', help='Socket file to connect to', default='@DYNTRACE_WORKING_DIRECTORY@/@DYNTRACE_COMMAND_SOCKET_NAME@')
     parser.add_argument('--debug', help='Print debug information for the client', action='store_true')
 
     sps = parser.add_subparsers()
@@ -149,6 +160,10 @@ def main():
     list_tp = sps.add_parser('list-tracepoint')
     list_tp.add_argument('process', help='The process to list the traceponts from', metavar='<pid|name>')
     list_tp.set_defaults(func=list_tracepoint, parser=list_tp)
+
+    list_sym = sps.add_parser('list-symbol')
+    list_sym.add_argument('process', help='The process to list the tracepoint from', metavar='<pid|name>')
+    list_sym.set_defaults(func=list_symbol, parser=list_sym)
 
     list_proc = sps.add_parser('list-process')
     list_proc.set_defaults(func=list_process, parser=list_proc)
