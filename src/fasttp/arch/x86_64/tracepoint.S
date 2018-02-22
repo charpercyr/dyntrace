@@ -1,8 +1,5 @@
 
-.section .text
-.global __tracepoint_handler
-.type __tracepoint_handler, @function
-__tracepoint_handler:
+.macro save_state
     push %rsp
     pushf
     push %rbp
@@ -20,11 +17,9 @@ __tracepoint_handler:
     push %rsi
     push %rdi
     push %rax
-    mov 0x88(%rsp), %rbp
-    mov (%rbp), %rbp
-    lock incq (%rbp)
-    mov %rsp, %rdi
-    call tracepoint_handler@plt
+.endm
+
+.macro restore_state
     pop %rax
     pop %rdi
     pop %rsi
@@ -42,6 +37,19 @@ __tracepoint_handler:
     pop %rbp
     popf
     pop %rsp
+.endm
+
+.section .text
+.global __tracepoint_handler
+.type __tracepoint_handler, @function
+__tracepoint_handler:
+    save_state
+    mov 0x88(%rsp), %rbp
+    mov (%rbp), %rbp
+    lock incq (%rbp)
+    mov %rsp, %rdi
+    call tracepoint_handler@plt
+    restore_state
     ret
 .__tracepoint_handler_end:
 .size __tracepoint_handler, . - __tracepoint_handler

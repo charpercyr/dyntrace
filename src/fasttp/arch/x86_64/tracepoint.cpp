@@ -35,15 +35,15 @@ namespace
     };
         /* 06: arch_tracepoint_data            */
         /* 0e: __tracepoint_handler            */
-        /* 16: ool                             */
     constexpr uint8_t tracepoint_handler_exit_code[] = {
-        /* 16+ool: push %rbp                   */ 0x55,
-        /* 17+ool: pushf                       */ 0x9c,
-        /* 18+ool: mov (-19 - ool)(%rip), %rbp */ 0x48, 0x8b, 0x2d, 0xef, 0xbe, 0xad, 0xde,
-        /* 1f+ool: lock decq 0x10(%rbp)        */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
-        /* 24+ool: popf                        */ 0x9d,
-        /* 25+ool: pop %rbp                    */ 0x5d
+        /* 16: push %rbp                   */ 0x55,
+        /* 17: pushf                       */ 0x9c,
+        /* 18: mov -0x19(%rip), %rbp       */ 0x48, 0x8b, 0x2d, 0xe7, 0xff, 0xff, 0xff,
+        /* 1f: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
+        /* 24: popf                        */ 0x9d,
+        /* 25: pop %rbp                    */ 0x5d
     };
+        /* 26: ool                             */
         /* 26+ool: jmp back                    */
 
     /// Opcode for a 5-byte jmp
@@ -52,9 +52,6 @@ namespace
     constexpr size_t jmp_size = 5;
     /// Opcode for a 1-byte trap
     constexpr uint8_t trap_op = 0xcc;
-
-    constexpr size_t tracepoint_handler_exit_code_offset_idx = 5;
-    constexpr int32_t tracepoint_handler_exit_code_offset_base = -0x19;
 
     size_t tracepoint_handler_size(size_t ool_size) noexcept
     {
@@ -184,6 +181,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     writer.write(tracepoint_handler_enter_code);
     writer.write(_code);
     writer.write(__tracepoint_handler);
+    writer.write(tracepoint_handler_exit_code);
     bool is_first = true;
     ool.write(writer, [code = _code, &is_first, this](code_ptr loc, code_ptr ool_loc)
     {
@@ -205,9 +203,6 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
             );
         }
     });
-    auto cur = writer.ptr();
-    writer.write(tracepoint_handler_exit_code);
-    *(cur + tracepoint_handler_exit_code_offset_idx).as<int32_t*>() = tracepoint_handler_exit_code_offset_base - ool_size;
 
     auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool_size).as_int(), jmp_size);
     writer.write(jmp_op);
