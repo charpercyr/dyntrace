@@ -8,19 +8,22 @@
 
 #include <functional>
 #include <tuple>
+#include <variant>
 
 namespace dyntrace
 {
     namespace fasttp
     {
-        using handler = std::function<void(const void*, const arch::regs&)>;
+        using point_handler = std::function<void(const void*, const arch::regs&)>;
+        using enter_exit_handler = std::tuple<point_handler, point_handler>;
+        using handler = std::variant<point_handler, enter_exit_handler>;
 
         namespace _detail
         {
             template<typename Tuple, typename Func, size_t...Ints>
-            handler unpack_regs(Func&& func, std::index_sequence<Ints...>) noexcept
+            point_handler unpack_regs(Func&& func, std::index_sequence<Ints...>) noexcept
             {
-                return handler{
+                return point_handler{
                     [func = std::forward<Func>(func)](const void *caller, const arch::regs &regs) -> void
                     {
                         func(caller, arch::arg<std::tuple_element_t<Ints, Tuple>>(regs, Ints)...);
@@ -33,7 +36,7 @@ namespace dyntrace
          * Creates a handler from some function. It will map the arguments of the traced function to the handler.
          */
         template<typename...Args>
-        handler make_handler(std::function<void(const void*, Args...)> func)
+        point_handler make_point_handler(std::function<void(const void *, Args...)> func)
         {
             return _detail::unpack_regs<std::tuple<Args...>>(std::move(func), std::index_sequence_for<Args...>{});
         }
@@ -47,7 +50,7 @@ namespace dyntrace
             struct
             {
                 bool disable_thread_safe{false};
-                handler trap_handler{nullptr};
+                point_handler trap_handler{nullptr};
             } x86;
         };
     }

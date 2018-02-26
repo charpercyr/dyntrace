@@ -5,9 +5,10 @@
 
 using namespace dyntrace;
 
-extern "C" void __attribute__((noinline)) foo(int a, const std::string& b)
+extern "C" int __attribute__((noinline)) foo(int a, const std::string& b)
 {
     printf("Foo a=%d b=%s\n", a, b.c_str());
+    return a*a;
 }
 
 void do_run()
@@ -24,15 +25,20 @@ void do_run()
 int main()
 {
     {
-        auto handler = [](const void *caller, int a, const std::string &b)
+        auto enter_handler = [](const void *caller, const arch::regs& r)
         {
             using arch::arg;
-            printf("Handler for %p a=%d b=%s\n", caller, a, b.c_str());
+            printf("Enter %p a=%d b=%s\n", caller, arg<int>(r, 0), arg<const std::string&>(r, 1).c_str());
+        };
+        auto exit_handler = [](const void* caller, const arch::regs& r)
+        {
+            using arch::ret;
+            printf("Exit  %p r=%lu\n", caller, ret(r));
         };
 
         fasttp::options ops{};
         ops.x86.disable_thread_safe = true;
-        auto tp = fasttp::tracepoint{fasttp::addr_location{foo}, fasttp::make_handler(std::function{handler}), ops};
+        auto tp = fasttp::tracepoint{fasttp::addr_location{foo}, fasttp::enter_exit_handler{enter_handler, exit_handler}, ops};
         printf("===========\n");
         do_run();
     }

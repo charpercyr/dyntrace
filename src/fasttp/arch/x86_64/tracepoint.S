@@ -39,23 +39,53 @@
     pop %rsp
 .endm
 
-.section .text
-.global __tracepoint_handler
-.type __tracepoint_handler, @function
-__tracepoint_handler:
+.macro enter_handler name, handler, disp=0
+.global \name
+.type \name, @function
+\name\():
     save_state
     mov 0x88(%rsp), %rbp
-    mov (%rbp), %rbp
+    mov \disp(%rbp), %rbp
     lock incq (%rbp)
     mov %rsp, %rdi
-    call tracepoint_handler@plt
+    call \handler\()@plt
     restore_state
     ret
-.__tracepoint_handler_end:
-.size __tracepoint_handler, . - __tracepoint_handler
+.\name\()_end:
+.size \name, . - \name
+.endm
 
+.macro symbol_size symbol
+.global \symbol\()_size
+.type \symbol\()_size, @object
+\symbol\()_size: .quad .\symbol\()_end - \symbol
+.size \symbol\()_size, . - \symbol\()_size
+.endm
+
+/////////////////////////////////////////////////////////////////////
+.section .text
+/////////////////////////////////////////////////////////////////////
+
+enter_handler __tracepoint_handler, tracepoint_handler
+enter_handler __tracepoint_return_enter_handler, tracepoint_return_enter_handler, 6
+
+.global __tracepoint_return_exit_handler
+.type __tracepoint_return_exit_handler, @function
+__tracepoint_return_exit_handler:
+    save_state
+    mov 0x88 (%rsp), %rbp
+    mov (%rbp), %rbp
+    mov %rsp, %rdi
+    call tracepoint_return_exit_handler@plt
+    lock decq (%rbp)
+    restore_state
+    ret
+.__tracepoint_return_exit_handler_end:
+.size __tracepoint_return_exit_handler, . - __tracepoint_return_exit_handler
+
+/////////////////////////////////////////////////////////////////////
 .section .rodata
-.global __tracepoint_handler_size
-.type __tracepoint_handler_size, @object
-__tracepoint_handler_size: .quad .__tracepoint_handler_end - __tracepoint_handler
-.size __tracepoint_handler_size, . - __tracepoint_handler_size
+/////////////////////////////////////////////////////////////////////
+symbol_size __tracepoint_handler
+symbol_size __tracepoint_return_enter_handler
+symbol_size __tracepoint_return_exit_handler

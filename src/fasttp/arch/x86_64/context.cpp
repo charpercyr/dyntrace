@@ -14,7 +14,7 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
-    shared_locked<std::unordered_map<code_ptr, std::tuple<handler, code_ptr>, code_ptr::hash>> redirects;
+    shared_locked<std::unordered_map<code_ptr, std::tuple<point_handler, code_ptr>, code_ptr::hash>> redirects;
 
     arch::regs make_regs(const greg_t* r)
     {
@@ -52,7 +52,7 @@ namespace
             auto it = red->find(from);
             if(it != red->end())
             {
-                const auto& h = std::get<handler>(it->second);
+                const auto& h = std::get<point_handler>(it->second);
                 if(h)
                     h(from.as_ptr(), make_regs(ctx->uc_mcontext.gregs));
                 target = std::get<code_ptr>(it->second);
@@ -93,7 +93,7 @@ namespace
         sigaction(SIGTRAP, &old_handler, nullptr);
     }
 
-    void do_add_redirect(handler&& h, code_ptr at, code_ptr redirect) noexcept
+    void do_add_redirect(point_handler&& h, code_ptr at, code_ptr redirect) noexcept
     {
         auto red = redirects.lock();
         if(red->empty())
@@ -143,6 +143,18 @@ arch_context::arch_context(context* ctx) noexcept
             reinterpret_cast<uintptr_t>(__tracepoint_handler) + __tracepoint_handler_size,
         }
     );
+    ctx->get_reclaimer().add_invalid(
+        {
+            reinterpret_cast<uintptr_t>(__tracepoint_return_enter_handler),
+            reinterpret_cast<uintptr_t>(__tracepoint_return_enter_handler) + __tracepoint_return_enter_handler_size,
+        }
+    );
+    ctx->get_reclaimer().add_invalid(
+        {
+            reinterpret_cast<uintptr_t>(__tracepoint_return_exit_handler),
+            reinterpret_cast<uintptr_t>(__tracepoint_return_exit_handler) + __tracepoint_return_exit_handler_size,
+        }
+    );
 }
 
 arch_context::~arch_context()
@@ -150,7 +162,7 @@ arch_context::~arch_context()
     do_remove_redirects(_redirects);
 }
 
-redirect_handle arch_context::add_redirect(handler h, code_ptr at, code_ptr redirect)
+redirect_handle arch_context::add_redirect(point_handler h, code_ptr at, code_ptr redirect)
 {
     do_add_redirect(std::move(h), at, redirect);
     _redirects.insert(at);

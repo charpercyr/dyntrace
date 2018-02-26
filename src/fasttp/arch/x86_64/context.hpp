@@ -77,7 +77,7 @@ namespace dyntrace::fasttp
         explicit arch_context(context* ctx) noexcept;
         ~arch_context();
 
-        redirect_handle add_redirect(handler tp, code_ptr at, code_ptr redirect);
+        redirect_handle add_redirect(point_handler tp, code_ptr at, code_ptr redirect);
 
         allocator_type::proxy_type allocator() noexcept
         {
@@ -94,6 +94,10 @@ namespace dyntrace::fasttp
 }
 
 extern "C" void __tracepoint_handler() noexcept;
+extern "C" void __tracepoint_return_enter_handler() noexcept;
+extern "C" void __tracepoint_return_exit_handler() noexcept;
 extern const uintptr_t __tracepoint_handler_size;
+extern const uintptr_t __tracepoint_return_enter_handler_size;
+extern const uintptr_t __tracepoint_return_exit_handler_size;
 
 #endif

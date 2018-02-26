@@ -39,7 +39,6 @@ namespace dyntrace::fasttp
         arch_tracepoint& operator=(arch_tracepoint&&) = delete;
 
         arch_tracepoint(void* location, handler h, const options& ops);
-
         ~arch_tracepoint();
 
         void enable() noexcept;
@@ -61,14 +60,17 @@ namespace dyntrace::fasttp
         }
 
         void call_handler(const arch::regs& r) noexcept;
+        void call_enter_handler(const arch::regs& r) noexcept;
+        void call_exit_handler(const arch::regs& r) noexcept;
 
     private:
 
         owner<arch_tracepoint_code*> _code;
         handler _user_handler;
-        handler _trap_handler;
+        point_handler _trap_handler;
         code_ptr _location;
         uint64_t _old_code{0};
+        size_t _ool_size;
         std::vector<redirect_handle> _redirects;
         bool _enabled{false};
     };
