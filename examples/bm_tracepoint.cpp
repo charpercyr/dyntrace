@@ -118,8 +118,7 @@ static void bm_place_tracepoints_with_name(benchmark::State& state)
 {
     do_place_tracepoint(state, fasttp::symbol_location{"test_func_no_trap"});
 }
-// DOES NOT WORK RIGHT NOW
-// BENCHMARK(bm_place_tracepoints_with_name);
+BENCHMARK(bm_place_tracepoints_with_name);
 
 static void bm_enable_disable_tracepoints(benchmark::State& state)
 {
@@ -131,7 +130,6 @@ static void bm_enable_disable_tracepoints(benchmark::State& state)
         tp.disable();
     }
 }
-// DOES NOT WORK RIGHT NOW
-// BENCHMARK(bm_enable_disable_tracepoints);
+BENCHMARK(bm_enable_disable_tracepoints);
 
 BENCHMARK_MAIN();

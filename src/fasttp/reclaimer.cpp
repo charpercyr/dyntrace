@@ -61,6 +61,7 @@ void reclaimer::run()
                 batch->push_back(std::move(std::get<reclaim_work>(next)));
                 if(batch->size() >= reclaim_count)
                 {
+                    batch.unlock();
                     reclaim_batch();
                     end = std::chrono::steady_clock::now() + reclaim_period;
                 }
@@ -99,7 +100,9 @@ void reclaimer::reclaim_batch()
     {
         // DO NOT SEND SIGNAL TO SELF, IT WILL PROBABLY DEADLOCK
         if(pid != syscall(SYS_gettid))
+        {
             syscall(SYS_tgkill, getpid(), pid, SIGUSR1);
+        }
     }
     _reclaim_data->barrier.wait();
     _reclaim_data->barrier.wait();
@@ -111,6 +114,7 @@ void reclaimer::reclaim_batch()
     }
 
     delete _reclaim_data;
+
 }
 
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
@@ -119,7 +123,6 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
     {
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_RIP]);
-
         {
             auto ainv = _reclaim_data->self->_always_invalid.lock();
             for(auto& r : *ainv)
@@ -131,8 +134,12 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
             }
         }
         _reclaim_data->barrier.wait();
+
         if(_reclaim_data->cancel)
+        {
+            fprintf(stderr, "Cancel\n");
             return;
+        }
 
         {
             auto batch = _reclaim_data->self->_batch.lock();

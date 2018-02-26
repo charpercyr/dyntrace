@@ -89,6 +89,12 @@ namespace dyntrace
             return _val != nullptr;
         }
 
+        void unlock() noexcept
+        {
+            _guard.unlock();
+            _val = nullptr;
+        }
+
     private:
         locked_proxy(T* val, guard_type&& guard)
             : _val{val}, _guard{std::move(guard)} {}
