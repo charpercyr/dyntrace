@@ -242,14 +242,16 @@ private:
         }
         for(const auto& tp : _tps)
         {
-            if(info.name == tp.name || addr == tp.tp.location())
-                throw invalid_tracepoint_error{"tracepoint already exists"};
+            if(info.name == tp.name)
+                throw invalid_tracepoint_error{"tracepoint named" + info.name + " already exists"};
+            if(tp.tp.location() == addr)
+                throw invalid_tracepoint_error{"tracepoint at " + dyntrace::to_hex_string(addr) + " already exists"};
         }
         dyntrace::tracer::handler h;
         if(info.entry_exit)
             h = _registry.get_factory(info.tracer).create_entry_exit_handler(info.tracer_args);
         else
-            _registry.get_factory(info.tracer).create_point_handler(info.tracer_args);
+            h = _registry.get_factory(info.tracer).create_point_handler(info.tracer_args);
         info.tp = fasttp::tracepoint{*loc, std::move(h)};
         _tps.push_back(std::move(info));
     }
@@ -264,6 +266,7 @@ private:
                 return;
             }
         }
+        throw invalid_tracepoint_error{"tracepoint named " + name + " does not exist"};
     }
 
     std::string next_tp() noexcept

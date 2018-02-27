@@ -147,7 +147,7 @@ def main():
 
     sps = parser.add_subparsers()
 
-    add_tp = sps.add_parser('add-tracepoint')
+    add_tp = sps.add_parser('add')
     add_tp.add_argument('location', help='Where to add the tracepoint', metavar='<pid|name>:<addr|symbol>')
     add_tp.add_argument('tracer', help='The tracer to use')
     add_tp.add_argument('tracer_args', nargs='*', help='Arguments to pass to the tracer')
@@ -155,15 +155,15 @@ def main():
     add_tp.add_argument('-e', '--entry-exit', help='Creates an entry/exit handler, must be placed at the beginning of a function or the program will crash', action='store_true')
     add_tp.set_defaults(func=add_tracepoint, parser=add_tp)
 
-    rm_tp = sps.add_parser('remove-tracepoint')
+    rm_tp = sps.add_parser('rm')
     rm_tp.add_argument('location', help='The tracepoint to remove', metavar='<pid|name>:<tp_name>')
     rm_tp.set_defaults(func=remove_tracepoint, parser=rm_tp)
 
-    list_tp = sps.add_parser('list-tracepoint')
+    list_tp = sps.add_parser('list')
     list_tp.add_argument('process', help='The process to list the traceponts from', metavar='<pid|name>')
     list_tp.set_defaults(func=list_tracepoint, parser=list_tp)
 
-    list_sym = sps.add_parser('list-symbol')
+    list_sym = sps.add_parser('list-symbols')
     list_sym.add_argument('process', help='The process to list the tracepoint from', metavar='<pid|name>')
     list_sym.set_defaults(func=list_symbol, parser=list_sym)
 

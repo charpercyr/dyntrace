@@ -65,7 +65,7 @@ namespace dyntrace::fasttp
 
     private:
 
-        owner<arch_tracepoint_code*> _code;
+        arch_tracepoint_code* _code;
         handler _user_handler;
         point_handler _trap_handler;
         code_ptr _location;
