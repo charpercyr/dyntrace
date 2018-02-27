@@ -48,14 +48,6 @@ namespace
     };
 }
 
-
-std::string dyntrace::realpath(const std::string &path)
-{
-    char res[PATH_MAX];
-    ::realpath(path.c_str(), res);
-    return res;
-}
-
 std::string dyntrace::get_executable(pid_t pid)
 {
     std::string path = "/proc/" + std::to_string(pid) + "/exe";

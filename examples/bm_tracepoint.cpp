@@ -88,7 +88,7 @@ static void bm_run_tracepoints_enter_exit(benchmark::State& state)
         ++exit_count;
     };
 
-    auto tp = fasttp::tracepoint{fasttp::addr_location{test_func_no_trap}, fasttp::enter_exit_handler{enter, exit}};
+    auto tp = fasttp::tracepoint{fasttp::addr_location{test_func_no_trap}, fasttp::entry_exit_handler{enter, exit}};
     for(auto _ : state)
     {
         test_func_no_trap();

@@ -39,6 +39,7 @@ struct tracepoint_info
     std::variant<std::string, uintptr_t> loc;
     std::string name;
     std::string tracer;
+    bool entry_exit;
     std::vector<std::string> tracer_args;
 };
 
@@ -159,18 +160,17 @@ private:
                 tp_info.name = msg.req().add_tp().tp().name();
                 if(tp_info.name.empty())
                     tp_info.name = next_tp();
-
                 if(msg.req().add_tp().tp().symbol().empty())
                     tp_info.loc = msg.req().add_tp().tp().address();
                 else
                     tp_info.loc = msg.req().add_tp().tp().symbol();
                 tp_info.tracer = msg.req().add_tp().tracer();
-
                 tp_info.tracer_args.insert(
                     tp_info.tracer_args.begin(),
                     msg.req().add_tp().tracer_args().begin(),
                     msg.req().add_tp().tracer_args().end()
                 );
+                tp_info.entry_exit = msg.req().add_tp().entry_exit();
 
                 resp.mutable_ok()->mutable_tp_created()->set_name(tp_info.name);
                 create_tp(std::move(tp_info));
@@ -245,7 +245,12 @@ private:
             if(info.name == tp.name || addr == tp.tp.location())
                 throw invalid_tracepoint_error{"tracepoint already exists"};
         }
-        info.tp = fasttp::tracepoint{*loc, _registry.create_handler(info.tracer, info.tracer_args)};
+        dyntrace::tracer::handler h;
+        if(info.entry_exit)
+            h = _registry.get_factory(info.tracer).create_entry_exit_handler(info.tracer_args);
+        else
+            _registry.get_factory(info.tracer).create_point_handler(info.tracer_args);
+        info.tp = fasttp::tracepoint{*loc, std::move(h)};
         _tps.push_back(std::move(info));
     }
 

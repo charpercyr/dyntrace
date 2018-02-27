@@ -9,14 +9,41 @@
 
 #include <lttng/tracepoint.h>
 
-TRACEPOINT_EVENT(
+TRACEPOINT_EVENT_CLASS(
     dyntrace_lttng,
-    func_entry ,
+    dyntrace_tracepoint,
     TP_ARGS(
-        const void*, address_arg
+        const void*, address
     ),
-    TP_FIELDS (
-        ctf_integer_hex(const void*, address_field, address_arg)
+    TP_FIELDS(
+        ctf_integer_hex(const void*, address, address)
+    )
+)
+
+TRACEPOINT_EVENT_INSTANCE(
+    dyntrace_lttng,
+    dyntrace_tracepoint,
+    function_entry,
+    TP_ARGS(
+        const void*, address
+    )
+)
+
+TRACEPOINT_EVENT_INSTANCE(
+    dyntrace_lttng,
+    dyntrace_tracepoint,
+    function_exit,
+    TP_ARGS(
+        const void*, address
+    )
+)
+
+TRACEPOINT_EVENT_INSTANCE(
+    dyntrace_lttng,
+    dyntrace_tracepoint,
+    tracepoint_hit,
+    TP_ARGS(
+        const void*, address
     )
 )
 

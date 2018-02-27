@@ -98,6 +98,7 @@ def add_tracepoint(args):
         msg.req.to_proc.req.add_tp.tp.symbol = sym
     if args.name:
         msg.req.to_proc.req.add_tp.tp.name = args.name
+    msg.req.to_proc.req.add_tp.entry_exit = args.entry_exit
     msg.req.to_proc.req.add_tp.tracer = args.tracer
     msg.req.to_proc.req.add_tp.tracer_args[:] = args.tracer_args
     do_request(args, msg)
@@ -151,6 +152,7 @@ def main():
     add_tp.add_argument('tracer', help='The tracer to use')
     add_tp.add_argument('tracer_args', nargs='*', help='Arguments to pass to the tracer')
     add_tp.add_argument('-n', '--name', help='The unique name to give to the tracepoint (else it is auto-generated)')
+    add_tp.add_argument('-e', '--entry-exit', help='Creates an entry/exit handler, must be placed at the beginning of a function or the program will crash', action='store_true')
     add_tp.set_defaults(func=add_tracepoint, parser=add_tp)
 
     rm_tp = sps.add_parser('remove-tracepoint')

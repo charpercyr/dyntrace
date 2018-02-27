@@ -1,7 +1,7 @@
 #ifndef DYNTRACE_AGENT_TRACER_HPP_
 #define DYNTRACE_AGENT_TRACER_HPP_
 
-#include "dyntrace/arch/arch.hpp"
+#include "dyntrace/tracer.hpp"
 
 #include <functional>
 #include <string>
@@ -10,8 +10,8 @@
 
 namespace dyntrace::agent
 {
-    using tracepoint_handler = std::function<void(const void*, const dyntrace::arch::regs&)>;
-    using handler_factory = tracepoint_handler(*)(const std::vector<std::string>&);
+    using point_handler_factory = dyntrace::tracer::point_handler(*)(const std::vector<std::string>&);
+    using entry_exit_handler_factory = dyntrace::tracer::entry_exit_handler(*)(const std::vector<std::string>&);
 
     struct agent_error : public std::runtime_error
     {
@@ -45,23 +45,25 @@ namespace dyntrace::agent
         ~tracer();
 
         tracer(tracer&& t) noexcept
-            : _handle{t._handle}, _factory{t._factory}
+            : _handle{t._handle}, _point_factory{t._point_factory}, _entry_exit_factory{t._entry_exit_factory}
         {
             t._handle = nullptr;
         }
         tracer& operator=(tracer&& t) noexcept;
 
-        tracepoint_handler create_handler(const std::vector<std::string>& args);
+        dyntrace::tracer::point_handler create_point_handler(const std::vector<std::string>& args);
+        dyntrace::tracer::entry_exit_handler create_entry_exit_handler(const std::vector<std::string>& args);
 
     private:
         void* _handle;
-        handler_factory _factory;
+        point_handler_factory _point_factory;
+        entry_exit_handler_factory _entry_exit_factory;
     };
 
     class tracer_registry
     {
     public:
-        tracepoint_handler create_handler(const std::string& tracer, const std::vector<std::string>& args);
+        tracer& get_factory(const std::string& tracer);
 
     private:
         std::unordered_map<std::string, tracer> _tracers;

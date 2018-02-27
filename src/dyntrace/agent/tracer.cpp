@@ -20,11 +20,12 @@ tracer::tracer(const std::string &name)
     _handle = dlopen(tracer_path.c_str(), RTLD_LAZY);
     if(!_handle)
         throw tracer_error{"Could not open tracer "s + name};
-    _factory = reinterpret_cast<handler_factory>(dlsym(_handle, "create_handler"));
-    if(!_factory)
+    _point_factory = reinterpret_cast<point_handler_factory>(dlsym(_handle, "create_point_handler"));
+    _entry_exit_factory = reinterpret_cast<entry_exit_handler_factory>(dlsym(_handle, "create_entry_exit_handler"));
+    if(!_point_factory && !_entry_exit_factory)
     {
         dlclose(_handle);
-        throw tracer_error{"Could not find create_handler in tracer "s + name};
+        throw tracer_error{"Invalid tracer "s + name};
     }
 }
 
@@ -39,18 +40,28 @@ tracer& tracer::operator=(tracer &&t) noexcept
     if(_handle)
         dlclose(_handle);
     _handle = t._handle;
-    _factory = t._factory;
+    _point_factory = t._point_factory;
     t._handle = nullptr;
     return *this;
 }
 
-tracepoint_handler tracer::create_handler(const std::vector<std::string>& args)
+dyntrace::tracer::point_handler tracer::create_point_handler(const std::vector<std::string>& args)
 {
-    return _factory(args);
+    if(_point_factory)
+        return _point_factory(args);
+    else
+        throw std::runtime_error{"Point handler not supported"};
 }
 
-tracepoint_handler tracer_registry::create_handler(const std::string &tracer, const std::vector<std::string> &args)
+dyntrace::tracer::entry_exit_handler tracer::create_entry_exit_handler(const std::vector<std::string>& args)
 {
+    if(_entry_exit_factory)
+        return _entry_exit_factory(args);
+    else
+        throw std::runtime_error{"Entry/Exit handler not supported"};
+}
+
+tracer& tracer_registry::get_factory(const std::string& tracer){
     auto it = _tracers.find(tracer);
     if(it == _tracers.end())
     {
@@ -60,5 +71,5 @@ tracepoint_handler tracer_registry::create_handler(const std::string &tracer, co
             std::make_tuple(tracer)
         ).first;
     }
-    return it->second.create_handler(args);
+    return it->second;
 }

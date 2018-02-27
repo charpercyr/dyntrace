@@ -236,12 +236,12 @@ void arch_tracepoint::call_handler(const arch::regs &r) noexcept
 
 void arch_tracepoint::call_enter_handler(const arch::regs &r) noexcept
 {
-    call_handler_nothrow(std::get<0>(std::get<enter_exit_handler>(_user_handler)), location(), r);
+    call_handler_nothrow(std::get<0>(std::get<entry_exit_handler>(_user_handler)), location(), r);
 }
 
 void arch_tracepoint::call_exit_handler(const arch::regs &r) noexcept
 {
-    call_handler_nothrow(std::get<1>(std::get<enter_exit_handler>(_user_handler)), location(), r);
+    call_handler_nothrow(std::get<1>(std::get<entry_exit_handler>(_user_handler)), location(), r);
 }
 
 arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
