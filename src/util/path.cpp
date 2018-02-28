@@ -8,6 +8,7 @@
 
 #include <fstream>
 #include <regex>
+#include <string>
 
 using namespace std::string_literals;
 
@@ -89,4 +90,22 @@ std::vector<std::string> dyntrace::read_dir(const std::string &path)
         return res;
     }
     throw dyntrace_error{"Could not open dir " + path};
+}
+
+std::vector<std::string> dyntrace::read_cmdline(pid_t pid)
+{
+    std::ifstream file{"/proc/" + std::to_string(pid) + "/cmdline", std::ios::in};
+    if(!file)
+        throw dyntrace_error{"Could not read cmdline"};
+    std::string line;
+    std::string data;
+    std::vector<std::string> res;
+    while(std::getline(file, line))
+        data += line;
+    for(size_t i = 0; i < data.size(); ++i)
+    {
+        res.emplace_back(data.data() + i);
+        for(; data[i]; ++i);
+    }
+    return res;
 }

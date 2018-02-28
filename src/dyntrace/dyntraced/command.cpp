@@ -16,7 +16,12 @@ void command_connection::on_message(const message_type& msg)
             resp.mutable_resp()->set_req_seq(msg.seq());
             resp.mutable_resp()->mutable_ok()->mutable_procs();
             for(auto pid : _reg->all_processes())
-                resp.mutable_resp()->mutable_ok()->mutable_procs()->add_pids(pid);
+            {
+                auto proc = resp.mutable_resp()->mutable_ok()->mutable_procs()->add_procs();
+                proc->set_pid(pid);
+                for(auto&& a : dyntrace::read_cmdline(pid))
+                    proc->add_command_line(std::forward<decltype(a)>(a));
+            }
             send(resp);
         }
         else

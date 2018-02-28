@@ -27,6 +27,8 @@ namespace dyntrace
      * Gets the list of files in a directory
      */
     std::vector<std::string> read_dir(const std::string& path);
+
+    std::vector<std::string> read_cmdline(pid_t pid);
 }
 
 #endif

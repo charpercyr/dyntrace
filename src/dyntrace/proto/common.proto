@@ -4,20 +4,25 @@ package dyntrace.proto;
 
 message tracepoint
 {
-    oneof location
-    {
-        string symbol = 1;
-        uint64 address = 2;
-    }
+    string symbol = 1;
+    uint64 address = 2;
     string name = 3;
+    string tracer = 4;
+    bool entry_exit = 5;
+    repeated string tracer_args = 6;
 }
 message tracepoint_list
 {
     repeated tracepoint tp = 1;
 }
+message symbol
+{
+    string name = 1;
+    uint64 address = 2;
+}
 message symbol_list
 {
-    repeated string sym = 1;
+    repeated symbol sym = 1;
 }
 message tracepoint_created
 {
@@ -29,9 +34,14 @@ message my_pid
     int32 pid = 1;
 }
 
+message process_desc
+{
+    int32 pid = 1;
+    repeated string command_line = 2;
+}
 message process_list
 {
-    repeated int32 pids = 1;
+    repeated process_desc procs = 1;
 }
 
 message status_ok
@@ -42,7 +52,7 @@ message status_ok
         tracepoint_list tps = 2;
         tracepoint_created tp_created = 3;
         my_pid pid = 4;
-        symbol_list sym_list = 5;
+        symbol_list syms = 5;
     }
 }
 message status_error

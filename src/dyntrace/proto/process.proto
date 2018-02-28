@@ -10,9 +10,6 @@ message list_tracepoint
 message add_tracepoint
 {
     tracepoint tp = 1;
-    string tracer = 2;
-    bool entry_exit = 3;
-    repeated string tracer_args = 4;
 }
 message remove_tracepoint
 {

@@ -164,13 +164,13 @@ private:
                     tp_info.loc = msg.req().add_tp().tp().address();
                 else
                     tp_info.loc = msg.req().add_tp().tp().symbol();
-                tp_info.tracer = msg.req().add_tp().tracer();
+                tp_info.tracer = msg.req().add_tp().tp().tracer();
                 tp_info.tracer_args.insert(
                     tp_info.tracer_args.begin(),
-                    msg.req().add_tp().tracer_args().begin(),
-                    msg.req().add_tp().tracer_args().end()
+                    msg.req().add_tp().tp().tracer_args().begin(),
+                    msg.req().add_tp().tp().tracer_args().end()
                 );
-                tp_info.entry_exit = msg.req().add_tp().entry_exit();
+                tp_info.entry_exit = msg.req().add_tp().tp().entry_exit();
 
                 resp.mutable_ok()->mutable_tp_created()->set_name(tp_info.name);
                 create_tp(std::move(tp_info));
@@ -183,23 +183,31 @@ private:
             {
                 resp.mutable_ok()->mutable_tps();
                 resp.mutable_ok()->mutable_tps();
-                for(const auto& tp : _tps)
+                for(auto&& tp : _tps)
                 {
                     proto::tracepoint* resp_tp = resp.mutable_ok()->mutable_tps()->add_tp();
                     resp_tp->set_name(tp.name);
                     if(std::holds_alternative<std::string>(tp.loc))
                         resp_tp->set_symbol(std::get<std::string>(tp.loc));
-                    else
-                        resp_tp->set_address(std::get<uintptr_t>(tp.loc));
+                    resp_tp->set_address(reinterpret_cast<uintptr_t>(tp.tp.location()));
+                    resp_tp->set_tracer(tp.tracer);
+                    resp_tp->set_entry_exit(tp.entry_exit);
+                    for(auto&& a : tp.tracer_args)
+                        resp_tp->add_tracer_args(a);
                 }
             }
             else if(msg.req().has_list_sym())
             {
-                resp.mutable_ok()->mutable_sym_list();
+                resp.mutable_ok()->mutable_syms();
                 for(const auto& sym : process::process::this_process().elf().get_section(".symtab").as_symtab())
                 {
                     if(sym.get_data().type() == elf::stt::func)
-                        resp.mutable_ok()->mutable_sym_list()->add_sym(sym.get_name());
+                    {
+                        auto rsym = resp.mutable_ok()->mutable_syms()->add_sym();
+                        rsym->set_name(sym.get_name());
+                        if(sym.get_name().find("@@") == std::string::npos)
+                            rsym->set_address(sym.get_data().value + process::process::this_process().base());
+                    }
                 }
             }
         }
@@ -266,7 +274,7 @@ private:
                 return;
             }
         }
-        throw invalid_tracepoint_error{"tracepoint named " + name + " does not exist"};
+        throw invalid_tracepoint_error{"tracepoint " + name + " does not exist"};
     }
 
     std::string next_tp() noexcept

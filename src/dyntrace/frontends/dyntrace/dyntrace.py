@@ -1,4 +1,6 @@
 
+from collections import namedtuple
+
 from dyntrace.connection import Connection
 from dyntrace.debug import debug_print
 from dyntrace.process import Process
@@ -6,6 +8,9 @@ import command_pb2
 
 class DyntraceError(Exception):
     pass
+
+
+ProcessDesc = namedtuple('ProcessDesc', ['pid', 'cmdline'])
 
 class Dyntrace:
     def __init__(self, socket_file):
@@ -23,12 +28,14 @@ class Dyntrace:
         debug_print(resp)
         resp = resp.resp
         self.__check_error(resp)
-        return [pid for pid in resp.ok.procs.pids]
+        return [ProcessDesc(proc.pid, proc.command_line) for proc in resp.ok.procs.procs]
 
     def _request_to_process(self, to_proc):
         req = self.__create_message()
         req.req.to_proc.CopyFrom(to_proc)
-        resp = self.conn.request(req)
+        debug_print(req)
+        resp = self.conn.request(req).resp
+        debug_print(resp)
         self.__check_error(resp)
         return resp.ok
 
