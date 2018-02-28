@@ -15,16 +15,18 @@ extern "C" void test_func_no_trap();
 extern "C" void test_func_with_trap();
 asm(
 ".type test_func_no_trap, @function\n"
+".type test_func_with_trap, @function\n"
 "test_func_no_trap:\n"
 "   nopl (%eax, %eax, 1)\n"
 "test_func_with_trap:\n"
 "   xor %rcx, %rcx\n"
-".test_func_no_trap.L0:\n"
+".test_func.L0:\n"
 "   inc %rcx\n"
 "   cmp $2, %rcx\n"
-"   jne .test_func_no_trap.L0\n"
+"   jne .test_func.L0\n"
 "   ret\n"
-".size test_func_no_trap, . - test_func_no_trap"
+".size test_func_no_trap, . - test_func_no_trap\n"
+".size test_func_with_trap, . -test_func_with_trap\n"
 );
 
 static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
