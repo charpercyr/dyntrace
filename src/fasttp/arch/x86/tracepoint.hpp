@@ -21,14 +21,14 @@ namespace dyntrace::fasttp
      */
     struct arch_tracepoint_code
     {
-        std::atomic_uint64_t refcount; // Has to be first
+        std::atomic<uintptr_t> refcount; // Has to be first
         code_ptr handler;
         size_t handler_size;
         std::atomic<arch_tracepoint*> tracepoint;
     };
 
     /**
-     * x86_64 tracepoint implementation.
+     * x86 tracepoint implementation.
      */
     class arch_tracepoint
     {

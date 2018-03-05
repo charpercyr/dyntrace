@@ -1,12 +1,44 @@
 /**
- * x86_64 registers and accessors.
+ * x86 registers and accessors.
  */
-#ifndef DYNTRACE_ARCH_X86_64_HPP_
-#define DYNTRACE_ARCH_X86_64_HPP_
+#ifndef DYNTRACE_ARCH_X86_HPP_
+#define DYNTRACE_ARCH_X86_HPP_
 
 #include <cstdint>
 #include <cstddef>
 #include <type_traits>
+
+/*
+ * i386:
+ * 00: eax
+ * 04: edi
+ * 08: esi
+ * 0c: edx
+ * 10: ecx
+ * 14: ebx
+ * 18: ebp
+ * 1c: eflags
+ * 20: esp
+ *
+ * x86_64:
+ * 00: rax
+ * 08: rdi
+ * 10: rsi
+ * 18: rdx
+ * 20: rcx
+ * 28: r8
+ * 30: r9
+ * 38: rbx
+ * 40: r10
+ * 48: r11
+ * 50: r12
+ * 58: r13
+ * 60: r14
+ * 68: r15
+ * 70: rbp
+ * 78: rflags
+ * 80: rsp
+ */
 
 namespace dyntrace::arch
 {
