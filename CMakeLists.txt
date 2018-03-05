@@ -2,11 +2,11 @@ cmake_minimum_required(VERSION 3.10)
 
 enable_language(CXX ASM)
 
+include(arch.cmake)
 include(dyntrace.cmake)
 include(private.cmake)
 include(options.cmake)
 
-set(ARCH x86_64)
 set(CMAKE_VERSION 0.1)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "-Wall ${CMAKE_CXX_FLAGS}")

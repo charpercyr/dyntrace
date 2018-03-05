@@ -1,0 +1,10 @@
+
+
+if(NOT ARCH)
+    execute_process(COMMAND uname -m OUTPUT_VARIABLE ARCH OUTPUT_STRIP_TRAILING_WHITESPACE)
+endif()
+
+if(ARCH STREQUAL i386 OR ARCH STREQUAL x86_64)
+    set(SUBARCH ${ARCH})
+    set(ARCH x86)
+endif()

@@ -4,8 +4,8 @@
 #ifndef DYNTRACE_FASTTP_TRACEPOINT_ASM_HPP_
 #define DYNTRACE_FASTTP_TRACEPOINT_ASM_HPP_
 
-#ifdef __x86_64__
-#include "x86_64/tracepoint.hpp"
+#if defined(__i386__) || defined(__x86_64__)
+#include "x86/tracepoint.hpp"
 #else
 #error "Architecture not supported"
 #endif

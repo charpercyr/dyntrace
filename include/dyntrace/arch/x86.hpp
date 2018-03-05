@@ -10,32 +10,33 @@
 
 namespace dyntrace::arch
 {
-    class __attribute__((packed)) regs
+    struct __attribute__((packed)) regs
     {
-    public:
         using uint = uintptr_t;
 
-        uint rax;
-        uint rdi;
-        uint rsi;
-        uint rdx;
-        uint rcx;
+        uint ax;
+        uint di;
+        uint si;
+        uint dx;
+        uint cx;
+#ifdef __x86_64__
         uint r8;
         uint r9;
-        uint rbx;
+#endif // __x86_64__
+        uint bx;
+#ifdef __x86_64__
         uint r10;
         uint r11;
         uint r12;
         uint r13;
         uint r14;
         uint r15;
-        uint rbp;
-        uint rflags;
-        uint rsp;
+#endif // __x86_64__
+        uint bp;
+        uint flags;
+        uint sp;
 
-    private:
-    public:
-
+#ifdef __x86_64__
         uint arg(size_t i) const noexcept
         {
             /*
@@ -51,25 +52,31 @@ namespace dyntrace::arch
             switch(i)
             {
             case 0:
-                return rdi;
+                return di;
             case 1:
-                return rsi;
+                return si;
             case 2:
-                return rdx;
+                return dx;
             case 3:
-                return rcx;
+                return cx;
             case 4:
                 return r8;
             case 5:
                 return r9;
             default:
-                return *(reinterpret_cast<uint*>(rsp) + i - 4);
+                return *(reinterpret_cast<uint*>(sp) + i - 4);
             }
         }
+#else // __x86_64__
+        uint arg(size_t i) const noexcept
+        {
+            return *(reinterpret_cast<uint*>(sp) + i);
+        }
+#endif // __x86_64__
 
         uint ret() const noexcept
         {
-            return rax;
+            return ax;
         }
 
         uint return_address() const noexcept
@@ -80,7 +87,7 @@ namespace dyntrace::arch
 
         uint stack() const noexcept
         {
-            return rsp;
+            return sp;
         }
     };
 }

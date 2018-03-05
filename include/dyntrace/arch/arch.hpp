@@ -4,8 +4,8 @@
 #ifndef DYNTRACE_ARCH_ARCH_HPP_
 #define DYNTRACE_ARCH_ARCH_HPP_
 
-#ifdef __x86_64__
-#include "x86_64.hpp"
+#if defined(__i386__) || defined(__x86_64__)
+#include "x86.hpp"
 #else
 #error "Architecture not supported"
 #endif

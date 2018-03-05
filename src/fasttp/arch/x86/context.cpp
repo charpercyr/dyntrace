@@ -19,23 +19,23 @@ namespace
     arch::regs make_regs(const greg_t* r)
     {
         return arch::regs {
-            .rax = static_cast<uintptr_t>(r[REG_RAX]),
-            .rdi = static_cast<uintptr_t>(r[REG_RDI]),
-            .rsi = static_cast<uintptr_t>(r[REG_RSI]),
-            .rdx = static_cast<uintptr_t>(r[REG_RDX]),
-            .rcx = static_cast<uintptr_t>(r[REG_RCX]),
+            .ax = static_cast<uintptr_t>(r[REG_RAX]),
+            .di = static_cast<uintptr_t>(r[REG_RDI]),
+            .si = static_cast<uintptr_t>(r[REG_RSI]),
+            .dx = static_cast<uintptr_t>(r[REG_RDX]),
+            .cx = static_cast<uintptr_t>(r[REG_RCX]),
             .r8 = static_cast<uintptr_t>(r[REG_R8]),
             .r9 = static_cast<uintptr_t>(r[REG_R9]),
-            .rbx = static_cast<uintptr_t>(r[REG_RBX]),
+            .bx = static_cast<uintptr_t>(r[REG_RBX]),
             .r10 = static_cast<uintptr_t>(r[REG_R10]),
             .r11 = static_cast<uintptr_t>(r[REG_R11]),
             .r12 = static_cast<uintptr_t>(r[REG_R12]),
             .r13 = static_cast<uintptr_t>(r[REG_R13]),
             .r14 = static_cast<uintptr_t>(r[REG_R14]),
             .r15 = static_cast<uintptr_t>(r[REG_R15]),
-            .rbp = static_cast<uintptr_t>(r[REG_RBP]),
-            .rflags = static_cast<uintptr_t>(r[REG_EFL]),
-            .rsp = static_cast<uintptr_t>(r[REG_RSP]),
+            .bp = static_cast<uintptr_t>(r[REG_RBP]),
+            .flags = static_cast<uintptr_t>(r[REG_EFL]),
+            .sp = static_cast<uintptr_t>(r[REG_RSP]),
         };
     }
 
