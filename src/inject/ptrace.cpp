@@ -58,27 +58,32 @@ void ptrace::set_regs(const user_regs_struct &regs)
     do_ptrace("set_regs", PTRACE_SETREGS, _pid, nullptr, const_cast<user_regs_struct*>(&regs));
 }
 
-void ptrace::write(uintptr_t _to, const void *_from, size_t size)
+void ptrace::write(remote_ptr _to, const void *_from, size_t size)
 {
     if(size % sizeof(long) != 0)
         throw inject_error{"invalid write size"};
     size /= sizeof(long);
-    auto to = reinterpret_cast<long*>(_to);
+
+    auto to = _to.as<long*>();
     auto from = const_cast<long*>(reinterpret_cast<const long*>(_from));
+
     for(size_t i = 0; i < size; ++i)
     {
-        do_ptrace("write", PTRACE_POKEDATA, _pid, to + i, from + i);
+        do_ptrace("write", PTRACE_POKEDATA, _pid, to + i, reinterpret_cast<void*>(from[i]));
     }
 }
 
-void ptrace::read(void *_to, uintptr_t _from, size_t size) const
+void ptrace::read(void *_to, remote_ptr _from, size_t size) const
 {
     using namespace std::string_literals;
 
     if(size % sizeof(long) != 0)
         throw inject_error{"invalid read size"};
+    size /= sizeof(long);
+
     auto to = reinterpret_cast<long*>(_to);
-    auto from = reinterpret_cast<long*>(_from);
+    auto from = _from.as<long*>();
+
     errno = 0;
     for(size_t i = 0; i < size; ++i)
     {
@@ -102,7 +107,7 @@ int ptrace::wait()
 {
     using namespace std::string_literals;
     int status;
-    if(waitpid(_pid, &status, 0) == -1)
+    if(waitpid(_pid, &status, WUNTRACED) == -1)
         throw inject_error{"wait failed :"s + strerror(errno)};
     return status;
 }

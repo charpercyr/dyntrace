@@ -13,6 +13,11 @@ void handle_sigsegv(int sig, siginfo_t* siginfo, void* _ctx)
     kill(getpid(), SIGKILL);
 }
 
+void print(int a)
+{
+    printf("Hello %d\n", a);
+}
+
 int main()
 {
     struct sigaction act;

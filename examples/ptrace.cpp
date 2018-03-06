@@ -1,4 +1,5 @@
-#include "dyntrace/inject/ptrace.hpp"
+#include "dyntrace/inject/executor.hpp"
+#include "dyntrace/util/path.hpp"
 
 #include <iostream>
 #include <thread>
@@ -8,14 +9,12 @@ using namespace dyntrace::inject;
 
 int main(int argc, const char* argv[])
 {
-    if(argc < 2)
+    executor e{dyntrace::find_process("loop")};
+    auto f = e.create<void(int)>("print");
+    for(int i = 0; i < 10; ++i)
     {
-        cerr << "Usage: " << argv[0] << " <pid>\n";
-        exit(1);
+        f(i);
     }
-    pid_t pid = atoi(argv[1]);
-
-    ptrace pt{pid};
 
     return 0;
 }
