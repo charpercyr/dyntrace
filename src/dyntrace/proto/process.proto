@@ -18,6 +18,11 @@ message remove_tracepoint
 message list_symbol
 {
 }
+
+message hello
+{
+}
+
 message request
 {
     oneof req
@@ -28,11 +33,6 @@ message request
         hello hello = 4;
         list_symbol list_sym = 5;
     }
-}
-
-message hello
-{
-    int32 pid = 1;
 }
 
 message process_message

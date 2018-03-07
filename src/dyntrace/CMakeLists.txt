@@ -13,12 +13,13 @@ add_custom_target(proto_py ALL DEPENDS ${PROTO_PY_SRCS})
 
 set(DYNTRACE_DYNTRACE_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 
-configure_file(config.hpp.in config.hpp)
-add_library(config INTERFACE)
-target_include_directories(config INTERFACE ${CMAKE_CURRENT_BINARY_DIR})
-
 add_subdirectory(agent)
 add_subdirectory(dyntraced)
 add_subdirectory(frontends)
 add_subdirectory(proto)
 add_subdirectory(tracers)
+
+get_target_property(DYNTRACE_AGENT_LIBRARY agent OUTPUT)
+configure_file(config.hpp.in config.hpp)
+add_library(config INTERFACE)
+target_include_directories(config INTERFACE ${CMAKE_CURRENT_BINARY_DIR})

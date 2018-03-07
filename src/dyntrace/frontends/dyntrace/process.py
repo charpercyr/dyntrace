@@ -1,6 +1,8 @@
 
 from collections import namedtuple
 
+from dyntrace.common import DyntraceError
+
 import command_pb2
 import process_pb2
 

@@ -1,13 +1,10 @@
 
 from collections import namedtuple
 
+from dyntrace.common import DyntraceError
 from dyntrace.connection import Connection
-from dyntrace.debug import debug_print
 from dyntrace.process import Process
 import command_pb2
-
-class DyntraceError(Exception):
-    pass
 
 
 ProcessDesc = namedtuple('ProcessDesc', ['pid', 'cmdline'])
@@ -23,19 +20,23 @@ class Dyntrace:
     def list_processes(self):
         req = self.__create_message()
         req.req.list_proc.CopyFrom(command_pb2.list_process())
-        debug_print(req)
-        resp = self.conn.request(req)
-        debug_print(resp)
-        resp = resp.resp
+        resp = self.conn.request(req).resp
         self.__check_error(resp)
         return [ProcessDesc(proc.pid, proc.command_line) for proc in resp.ok.procs.procs]
+
+    def attach(self, proc):
+        req = self.__create_message()
+        if isinstance(proc, int):
+            req.req.att.pid = proc
+        else:
+            req.req.att.name = proc
+        resp = self.conn.request(req).resp
+        self.__check_error(resp)
 
     def _request_to_process(self, to_proc):
         req = self.__create_message()
         req.req.to_proc.CopyFrom(to_proc)
-        debug_print(req)
         resp = self.conn.request(req).resp
-        debug_print(resp)
         self.__check_error(resp)
         return resp.ok
 

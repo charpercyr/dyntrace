@@ -147,8 +147,6 @@ private:
 
             if(msg.req().has_hello())
             {
-                if(msg.req().hello().pid())
-                    throw std::runtime_error{"Giving pid not supported"};
                 resp.mutable_ok()->mutable_pid()->set_pid(getpid());
                 return resp;
             }

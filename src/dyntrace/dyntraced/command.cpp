@@ -1,19 +1,24 @@
 #include "command.hpp"
+#include "config.hpp"
 
+#include "dyntrace/inject/injector.hpp"
 #include "dyntrace/util/path.hpp"
 #include "dyntrace/util/error.hpp"
 
+#include <experimental/filesystem>
+
 using namespace dyntrace::d;
+namespace fs = std::experimental::filesystem;
 
 void command_connection::on_message(const message_type& msg)
 {
     if(msg.has_req())
     {
+        message_type resp;
+        resp.set_seq(next_seq());
+        resp.mutable_resp()->set_req_seq(msg.seq());
         if(msg.req().has_list_proc())
         {
-            message_type resp;
-            resp.set_seq(next_seq());
-            resp.mutable_resp()->set_req_seq(msg.seq());
             resp.mutable_resp()->mutable_ok()->mutable_procs();
             for(auto pid : _reg->all_processes())
             {
@@ -22,6 +27,18 @@ void command_connection::on_message(const message_type& msg)
                 for(auto&& a : dyntrace::read_cmdline(pid))
                     proc->add_command_line(std::forward<decltype(a)>(a));
             }
+            send(resp);
+        }
+        else if(msg.req().has_att())
+        {
+            pid_t pid;
+            if(!msg.req().att().name().empty())
+                pid = dyntrace::find_process(msg.req().att().name());
+            else
+                pid = msg.req().att().pid();
+            dyntrace::inject::injector inj{pid};
+            inj.inject(config::agent_library);
+            resp.mutable_resp()->mutable_ok();
             send(resp);
         }
         else

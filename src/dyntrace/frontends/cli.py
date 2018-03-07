@@ -66,6 +66,11 @@ def do_list(dt, args):
         print(line)
 
 
+def do_attach(dt, args):
+    proc = parse_process(args.process)
+    dt.attach(proc)
+
+
 def do_list_symbols(dt, args):
     proc = parse_process(args.process)
     print_name = args.name or (not args.name and not args.addr)
@@ -141,6 +146,10 @@ def main():
     list_processes.set_defaults(parser=list_processes, func=do_list_processes)
     list_processes.add_argument('--pid', help='Only print the pids', action='store_true')
     list_processes.add_argument('--cmdline', help='Only print the command line', action='store_true')
+
+    attach = sps.add_parser('attach')
+    attach.set_defaults(parser=attach, func=do_attach)
+    attach.add_argument('process', help='Which process to attach', metavar='<pid|name>')
 
     args = parser.parse_args()
     debug.set_debug(args.debug)

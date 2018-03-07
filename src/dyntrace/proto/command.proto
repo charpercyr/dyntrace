@@ -19,12 +19,22 @@ message list_process
 
 }
 
+message attach
+{
+    oneof process
+    {
+        int32 pid = 1;
+        string name = 2;
+    }
+}
+
 message request
 {
     oneof req
     {
         process_request to_proc = 1;
         list_process list_proc = 2;
+        attach att = 3;
     }
 }
 

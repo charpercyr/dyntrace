@@ -10,6 +10,7 @@ namespace dyntrace
         constexpr const char* command_socket_name{"${DYNTRACE_COMMAND_SOCKET_NAME}"};
         constexpr const char* process_socket_name{"${DYNTRACE_PROCESS_SOCKET_NAME}"};
         constexpr const char* lock_file_name{"${DYNTRACE_LOCK_FILE_NAME}"};
+        constexpr const char* agent_library{"${DYNTRACE_AGENT_LIBRARY}"};
         constexpr const char* tracer_directory{"${DYNTRACE_TRACER_DIRECTORY}"};
     }
 }

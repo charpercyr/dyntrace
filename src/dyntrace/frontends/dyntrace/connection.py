@@ -3,6 +3,7 @@ import socket
 import sys
 
 import command_pb2
+from dyntrace.debug import debug_print
 
 class Connection:
     def __init__(self, socket_file):
@@ -10,6 +11,7 @@ class Connection:
         self.sock.connect(socket_file)
 
     def request(self, req):
+        debug_print(req)
         msg = req.SerializeToString()
         size = len(msg)
         msg = size.to_bytes(4, byteorder=sys.byteorder) + msg
@@ -19,4 +21,5 @@ class Connection:
         msg = self.sock.recv(size)
         resp = command_pb2.command_message()
         resp.ParseFromString(msg)
+        debug_print(resp)
         return resp

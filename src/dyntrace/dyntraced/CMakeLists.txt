@@ -13,6 +13,7 @@ target_link_libraries(dyntraced
     boost_system
     boost_thread
     config
+    inject
     proto
     pthread
     stdc++fs
