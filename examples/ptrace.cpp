@@ -1,20 +1,16 @@
-#include "dyntrace/inject/executor.hpp"
+#include "dyntrace/inject/injector.hpp"
 #include "dyntrace/util/path.hpp"
 
 #include <iostream>
-#include <thread>
 
 using namespace std;
 using namespace dyntrace::inject;
 
+constexpr auto path = "/home/christian/Documents/dyntrace/cmake-build-debug/src/dyntrace/agent/libdyntrace-agent.so.0.1";
+
 int main(int argc, const char* argv[])
 {
-    executor e{dyntrace::find_process("loop")};
-    auto f = e.create<void(int)>("print");
-    for(int i = 0; i < 10; ++i)
-    {
-        f(i);
-    }
-
+    injector inj{dyntrace::find_process("loop")};
+    inj.inject(path);
     return 0;
 }

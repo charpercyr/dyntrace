@@ -83,12 +83,26 @@ const elf::elf& process::_elf(const std::string &path) const
 symbol process::_get(const std::string &sym, const binary &bin) const
 {
     const auto& e = _elf(bin.name());
-    auto symtab = e.get_section(".symtab").as_symtab();
-    for(const auto& s : symtab)
+    auto symtab = e.get_section(".symtab");
+    if(symtab.valid())
     {
-        if(s.get_name() == sym)
+        for (const auto &s : symtab.as_symtab())
         {
-            return create_symbol(bin, s);
+            if (s.get_name() == sym)
+            {
+                return create_symbol(bin, s);
+            }
+        }
+    }
+    auto dynsym = e.get_section(".dynsym");
+    if(dynsym.valid())
+    {
+        for (const auto &s : dynsym.as_symtab())
+        {
+            if (s.get_name() == sym)
+            {
+                return create_symbol(bin, s);
+            }
         }
     }
     throw process_error("Could not find symbol " + sym);

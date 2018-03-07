@@ -4,7 +4,6 @@
 
 extern "C" void __remote_execute64();
 extern const size_t __remote_execute64_size;
-const size_t aligned_remote_execute_64_size = ((__remote_execute64_size + 7) / 8) * 8;
 
 using namespace dyntrace::inject;
 
@@ -20,19 +19,19 @@ arch_executor::arch_executor(process_ptr proc)
         {
             for(auto&& z : b.second.zones())
             {
-                if(flag(z.perms, process::permissions::exec) && z.size() >= aligned_remote_execute_64_size)
+                if(flag(z.perms, process::permissions::exec) && z.size() >= __remote_execute64_size)
                 {
                     _old_code_ptr = remote_ptr{z.start};
-                    _old_code.resize(aligned_remote_execute_64_size);
+                    _old_code.resize(__remote_execute64_size);
                     _pt.read(
                         _old_code.data(),
                         _old_code_ptr,
-                        aligned_remote_execute_64_size
+                        __remote_execute64_size
                     );
                     _pt.write(
                         _old_code_ptr,
                         reinterpret_cast<void*>(__remote_execute64),
-                        aligned_remote_execute_64_size
+                        __remote_execute64_size
                     );
                     return;
                 }
@@ -44,7 +43,7 @@ arch_executor::arch_executor(process_ptr proc)
 
 arch_executor::~arch_executor()
 {
-    _pt.write(_old_code_ptr, _old_code.data(), aligned_remote_execute_64_size);
+    _pt.write(_old_code_ptr, _old_code.data(), __remote_execute64_size);
     _pt.set_regs(_old_regs);
 }
 

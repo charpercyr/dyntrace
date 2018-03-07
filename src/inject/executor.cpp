@@ -26,3 +26,15 @@ void executor::copy(void *to, remote_ptr from, size_t size)
 {
     _impl->get_ptrace().read(to, from, size);
 }
+
+static const auto libc_regex = std::regex{".*libc.*"};
+
+remote_malloc dyntrace::inject::make_malloc(executor &e)
+{
+    auto malloc_func = e.create<remote_ptr(size_t)>("malloc", libc_regex);
+    auto free_func = e.create<void(remote_ptr)>("free", libc_regex);
+    return [malloc_func, free_func](size_t size)
+    {
+        return unique_remote_ptr{malloc_func(size), free_func};
+    };
+}

@@ -58,28 +58,34 @@ void ptrace::set_regs(const user_regs_struct &regs)
     do_ptrace("set_regs", PTRACE_SETREGS, _pid, nullptr, const_cast<user_regs_struct*>(&regs));
 }
 
-void ptrace::write(remote_ptr _to, const void *_from, size_t size)
+void ptrace::write(remote_ptr _to, const void *_from, size_t _size)
 {
-    if(size % sizeof(long) != 0)
-        throw inject_error{"invalid write size"};
-    size /= sizeof(long);
-
     auto to = _to.as<long*>();
-    auto from = const_cast<long*>(reinterpret_cast<const long*>(_from));
+    auto from = (void**)_from;
 
+    size_t size = _size / sizeof(long);
+    size_t rem = _size % sizeof(long);
     for(size_t i = 0; i < size; ++i)
     {
-        do_ptrace("write", PTRACE_POKEDATA, _pid, to + i, reinterpret_cast<void*>(from[i]));
+        do_ptrace("write", PTRACE_POKEDATA, _pid, to + i, from[i]);
+    }
+
+    if(rem)
+    {
+        void* data;
+        read(&data, _to + size, sizeof(long));
+        memcpy(&data, from + size, rem);
+        do_ptrace("write", PTRACE_POKEDATA, _pid, to + size, data);
     }
 }
 
-void ptrace::read(void *_to, remote_ptr _from, size_t size) const
+void ptrace::read(void *_to, remote_ptr _from, size_t _size) const
 {
     using namespace std::string_literals;
 
-    if(size % sizeof(long) != 0)
-        throw inject_error{"invalid read size"};
-    size /= sizeof(long);
+
+    size_t size = _size / sizeof(long);
+    size_t rem = _size % sizeof(long);
 
     auto to = reinterpret_cast<long*>(_to);
     auto from = _from.as<long*>();
@@ -89,10 +95,16 @@ void ptrace::read(void *_to, remote_ptr _from, size_t size) const
     {
         long data = ::ptrace(PTRACE_PEEKDATA, _pid, from + i, nullptr);
         if(!data && errno)
-        {
             throw inject_error{"read failed: "s + strerror(errno)};
-        }
         to[i] = data;
+    }
+
+    if(rem)
+    {
+        long data = ::ptrace(PTRACE_PEEKDATA, _pid, from + size, nullptr);
+        if(!data && errno)
+            throw inject_error{"read failed: "s + strerror(errno)};
+        memcpy(to + size, &data, rem);
     }
 }
 

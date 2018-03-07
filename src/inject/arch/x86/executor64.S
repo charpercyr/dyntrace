@@ -17,6 +17,8 @@
 .global __remote_execute64
 .type __remote_execute64, @function
 __remote_execute64:
+// Align stack to 16-byte (sysv abi)
+    lea -8(%rsp), %rsp
     call *%rax
     int3
 .__remote_execute64_end:

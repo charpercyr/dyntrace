@@ -6,6 +6,7 @@ add_executable(foo foo.cpp)
 target_link_libraries(foo fasttp)
 
 add_executable(loop loop.S loop.c)
+#target_link_libraries(loop dl)
 
 add_executable(ptrace ptrace.cpp)
 target_link_libraries(ptrace inject)
