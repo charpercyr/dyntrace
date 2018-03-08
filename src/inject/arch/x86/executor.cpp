@@ -7,6 +7,29 @@ extern const size_t __remote_execute64_size;
 
 using namespace dyntrace::inject;
 
+void dump_regs(const user_regs_struct& regs, FILE* out = stdout)
+{
+#define DUMP_ONE(name) fprintf(out, #name" %llx\n", regs.name)
+    DUMP_ONE(rax);
+    DUMP_ONE(rbx);
+    DUMP_ONE(rcx);
+    DUMP_ONE(rdx);
+    DUMP_ONE(rdi);
+    DUMP_ONE(rsi);
+    DUMP_ONE(r8);
+    DUMP_ONE(r9);
+    DUMP_ONE(r10);
+    DUMP_ONE(r11);
+    DUMP_ONE(r12);
+    DUMP_ONE(r13);
+    DUMP_ONE(r14);
+    DUMP_ONE(r15);
+    DUMP_ONE(rbp);
+    DUMP_ONE(rsp);
+    DUMP_ONE(rip);
+#undef DUMP_ONE
+}
+
 arch_executor::arch_executor(process_ptr proc)
     : _pt{proc->pid()}
 {
@@ -66,8 +89,13 @@ uintptr_t arch_executor::remote_call(remote_ptr func, const remote_args &args)
     _pt.cont();
 
     int status = _pt.wait();
+    // printf("=== Calling %p ===\n", func.as_ptr());
     if(!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP)
-        throw inject_error{"Invalid signal received: "s + strsignal(WSTOPSIG(status))};
+    {
+        // dump_regs(_pt.get_regs(), stderr);
+        throw inject_error{"Invalid signal received "s + strsignal(WSTOPSIG(status))};
+    }
+    // dump_regs(_pt.get_regs());
 
     return _pt.get_regs().rax;
 }
