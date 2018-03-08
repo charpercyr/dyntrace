@@ -23,7 +23,7 @@ __remote_execute64:
 #    jnz .no_align
 #    push $0
 #.no_align:
-    push $0
+    push %rbp
     call *%rax
     int3
 .__remote_execute64_end:

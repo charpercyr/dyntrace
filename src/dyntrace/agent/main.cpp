@@ -197,14 +197,18 @@ private:
             else if(msg.req().has_list_sym())
             {
                 resp.mutable_ok()->mutable_syms();
-                for(const auto& sym : process::process::this_process().elf().get_section(".symtab").as_symtab())
+                auto symtab = process::process::this_process().elf().get_section(".symtab");
+                if(symtab.valid())
                 {
-                    if(sym.get_data().type() == elf::stt::func)
+                    for (const auto &sym : symtab.as_symtab())
                     {
-                        auto rsym = resp.mutable_ok()->mutable_syms()->add_sym();
-                        rsym->set_name(sym.get_name());
-                        if(sym.get_name().find("@@") == std::string::npos)
-                            rsym->set_address(sym.get_data().value + process::process::this_process().base());
+                        if (sym.get_data().type() == elf::stt::func)
+                        {
+                            auto rsym = resp.mutable_ok()->mutable_syms()->add_sym();
+                            rsym->set_name(sym.get_name());
+                            if (sym.get_name().find("@@") == std::string::npos)
+                                rsym->set_address(sym.get_data().value + process::process::this_process().base());
+                        }
                     }
                 }
             }
@@ -302,5 +306,5 @@ void __attribute__((constructor)) init()
 
 void __attribute__((destructor)) fini()
 {
-    _agent->stop();
+    delete _agent;
 }

@@ -83,19 +83,18 @@ uintptr_t arch_executor::remote_call(remote_ptr func, const remote_args &args)
     regs.r8 = args[4];
     regs.r9 = args[5];
     regs.rip = _old_code_ptr.as_int();
+    printf("==> Calling %p\n", func.as_ptr());
+    dump_regs(regs);
 
     _pt.set_regs(regs);
-
     _pt.cont();
 
     int status = _pt.wait();
-    // printf("=== Calling %p ===\n", func.as_ptr());
     if(!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP)
     {
-        // dump_regs(_pt.get_regs(), stderr);
+        dump_regs(regs, stderr);
         throw inject_error{"Invalid signal received "s + strsignal(WSTOPSIG(status))};
     }
-    // dump_regs(_pt.get_regs());
 
     return _pt.get_regs().rax;
 }
