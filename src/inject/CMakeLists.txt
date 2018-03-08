@@ -5,6 +5,7 @@ dyntrace_shared_library(inject
     ${${ARCH}_src}
     arch/executor.hpp
     executor.cpp
+    inject.cpp
     injector.cpp
     ptrace.cpp
 )
