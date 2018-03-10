@@ -5,7 +5,7 @@ The first is the in-process agent [dyntrace-agent](#dyntrace-agent). This librar
 
 The second is the daemon [dyntraced](#dyntraced). This daemon is responsible to control all the agents in every traced process. It will also inject the agent if need be into the traced process. It also ensures security since it only permits users in the group `dyntrace` (or the superuser) to add tracepoints to processes.
 
-The last is a [command line interface](#dyntrace) that communicates with the daemon and issues command. To it or to traced processes.
+The last is a command line interface that communicates with the daemon and issues command. To it or to traced processes.
 
 # dyntrace-agent
 To be able to place tracepoints, this library must be loaded into the traced process. There are 3 ways of doing so.
