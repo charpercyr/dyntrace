@@ -1,7 +1,7 @@
 #include "command.hpp"
 #include "config.hpp"
 
-#include "dyntrace/inject/injector.hpp"
+#include "dyntrace/inject/inject.hpp"
 #include "dyntrace/util/path.hpp"
 #include "dyntrace/util/error.hpp"
 
@@ -36,8 +36,7 @@ void command_connection::on_message(const message_type& msg)
                 pid = dyntrace::find_process(msg.req().att().name());
             else
                 pid = msg.req().att().pid();
-            dyntrace::inject::injector inj{pid};
-            inj.inject(config::agent_library);
+            inject::inject(pid, config::agent_library);
             resp.mutable_resp()->mutable_ok();
             send(resp);
         }
