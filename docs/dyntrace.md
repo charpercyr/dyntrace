@@ -71,7 +71,7 @@ This command will print the name of the created tracepoint.
 ```
 $ dyntrace rm <pid or name>:<tracepoint name>
 ```
-
+This command removes the designated tracepoint.
 # tracers
 ## log
 ```
