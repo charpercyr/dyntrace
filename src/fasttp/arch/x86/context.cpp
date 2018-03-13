@@ -35,17 +35,22 @@ namespace
             .r9 = static_cast<uintptr_t>(r[REG_R9]),
 #endif
             .bx = static_cast<uintptr_t>(r[REG(BX)]),
-#ifdef __x86_64__
+#ifdef __i386__
+            .flags = static_cast<uintptr_t>(r[REG_EFL]),
+            .sp = static_cast<uintptr_t>(r[REG_ESP]),
+            ._res = 0,
+            .bp = static_cast<uintptr_t>(REG_EBP),
+#else
             .r10 = static_cast<uintptr_t>(r[REG_R10]),
             .r11 = static_cast<uintptr_t>(r[REG_R11]),
             .r12 = static_cast<uintptr_t>(r[REG_R12]),
             .r13 = static_cast<uintptr_t>(r[REG_R13]),
             .r14 = static_cast<uintptr_t>(r[REG_R14]),
             .r15 = static_cast<uintptr_t>(r[REG_R15]),
-#endif // __x86_64__
-            .bp = static_cast<uintptr_t>(r[REG(BP)]),
+            .bp = static_cast<uintptr_t>(r[REG_RBP]),
             .flags = static_cast<uintptr_t>(r[REG_EFL]),
-            .sp = static_cast<uintptr_t>(r[REG(SP)]),
+            .sp = static_cast<uintptr_t>(r[REG_RSP]),
+#endif // __i386__
         };
     }
 

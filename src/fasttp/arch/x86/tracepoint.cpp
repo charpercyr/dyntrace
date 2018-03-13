@@ -24,17 +24,26 @@ struct PACKED tracepoint_inline_data
     void(*common_code)();
 };
 
-struct PACKED tracepoint_stack
-{
-    arch::regs regs;
-    tracepoint_inline_data* inline_data;
-};
-
 struct PACKED tracepoint_return_inline_data
 {
     arch_tracepoint_code* tracepoint;
     void(*common_enter_code)();
     void(*common_exit_code)();
+};
+
+#ifdef __i386__
+using tracepoint_stack = arch::regs;
+struct PACKED tracepoint_return_enter_stack
+{
+    arch::regs regs;
+    const void* return_address;
+};
+using tracepoint_return_exit_stack = tracepoint_return_enter_stack;
+#else
+struct PACKED tracepoint_stack
+{
+    arch::regs regs;
+    tracepoint_inline_data* inline_data;
 };
 
 struct PACKED tracepoint_return_enter_stack
@@ -53,39 +62,58 @@ struct PACKED tracepoint_return_exit_stack
         const void *return_address;
     } data;
 };
+#endif
 
 namespace
 {
 #ifdef __i386__
     // For normal tracepoint
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: push %ebp             */ 0x55,
-        /* 01: call 0                */ 0xe8, 0x00, 0x00, 0x00, 0x00,
-        /* 06: pop %ebp              */ 0x5d,
-        /* 07: call *0x8(%ebp)       */ 0xff, 0x55, 0x08
+        /* 00: push %ebp                   */ 0x55,
+        /* 01: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 06: pop %ebp                    */ 0x5d,
+        /* 07: call *0x8(%ebp)             */ 0xff, 0x55, 0x08
     };
-        /* 0a: arch_tracepoint_data  */
-        /* 0e: __tracepoint_handler  */
+        /* 0a: arch_tracepoint_data        */
+        /* 0e: __tracepoint_handler        */
     constexpr uint8_t tracepoint_handler_exit_code[] = {
-        /* 12: push %ebp             */ 0x55,
-        /* 13: pushf                 */ 0x9c,
-        /* 14: call 0                */ 0xe8, 0x00, 0x00, 0x00, 0x00,
-        /* 19: pop %ebp              */ 0x5d,
-        /* 1a: mov -0x9(%ebp), %ebp  */ 0x8b, 0x6d, 0xf2,
-        /* 1d: lock decl (%ebp)      */ 0xf0, 0xff, 0x4d, 0x00,
-        /* 21: popf                  */ 0x9d,
-        /* 22: pop %ebp              */ 0x5d,
+        /* 12: pushf                       */ 0x9c,
+        /* 13: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 18: pop %ebp                    */ 0x5d,
+        /* 19: mov -0xe(%ebp), %ebp        */ 0x8b, 0x6d, 0xf2,
+        /* 1c: lock decl (%ebp)            */ 0xf0, 0xff, 0x4d, 0x00,
+        /* 20: popf                        */ 0x9d,
+        /* 21: pop %ebp                    */ 0x5d,
     };
-        /* 23: ool                   */
-        /* 23+ool: jmp back          */
+        /* 21: ool                         */
+        /* 21+ool: jmp back                */
 
     constexpr uint8_t tracepoint_return_handler_code[] = {
-
+        /* 00: push %ebp                   */ 0x55,
+        /* 01: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 06: pop %ebp                    */ 0x5d,
+        /* 07: call 0x14(%ebp)             */ 0xff, 0x55, 0x14,
+        /* 0a: push $0                     */ 0x6a, 0x00,
+        /* 0c: push %ebp                   */ 0x55,
+        /* 0d: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 12: pop %ebp                    */ 0x5d,
+        /* 13: call 0x0b(%ebp)             */ 0xff, 0x55, 0x0b
     };
+        /* 16: arch_tracepoint_data        */
+        /* 1a: __tracepoint_handler        */
+        /* 1e: __tracepoint_return_handler */
+    constexpr uint8_t tracepoint_return_handler_code_exit[] = {
+        /* 22: pop %ebp                    */ 0x5d,
+    };
+        /* 23: ool                         */
+        /* 23+ool: jmp_back                */
+
+    /// Size for a rip relative call
+    constexpr size_t tracepoint_enter_data_disp = 12;
 #else
     // For normal tracepoint
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: call *0x8(%rip)            */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+        /* 00: call *0x8(%rip)             */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
     };
         /* 06: arch_tracepoint_data        */
         /* 0e: __tracepoint_handler        */
@@ -108,8 +136,12 @@ namespace
         /* 0c: arch_tracepoint_data        */
         /* 14: __tracepoint_handler        */
         /* 1c: __tracepoint_return_handler */
+    constexpr uint8_t tracepoint_return_handler_code_exit[0] = {};
         /* 24: ool                         */
         /* 24+ool: jmp back                */
+
+    /// Size for a rip relative call
+    constexpr size_t tracepoint_enter_data_disp = 6;
 #endif
 
     /// Opcode for a 5-byte jmp
@@ -118,8 +150,6 @@ namespace
     constexpr size_t jmp_size = 5;
     /// Opcode for a 1-byte trap
     constexpr uint8_t trap_op = 0xcc;
-    /// Size for a rip relative call
-    constexpr size_t rip_call_size = 6;
 
     size_t tracepoint_handler_size(size_t ool_size) noexcept
     {
@@ -140,11 +170,29 @@ namespace
             jmp_size;
     }
 
-    template<typename Int>
-    std::enable_if_t<std::is_integral_v<Int>> atomic_store(volatile void *where, Int val) noexcept
+    template<typename T>
+    T* advance(T* t, intptr_t off) noexcept
     {
-        __atomic_store(reinterpret_cast<volatile Int*>(where), &val, __ATOMIC_SEQ_CST);
+        return reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(t) + off);
     }
+
+#ifdef __i386__
+
+    void atomic_store_jmp(volatile void* where, uint64_t _val) noexcept
+    {
+        auto val = reinterpret_cast<uint8_t*>(&_val);
+        __atomic_store(reinterpret_cast<volatile uint8_t*>(where), &trap_op, __ATOMIC_SEQ_CST);
+        where = advance(where, 1);
+        __atomic_store(reinterpret_cast<volatile int32_t*>(where), reinterpret_cast<int32_t*>(val + 1), __ATOMIC_SEQ_CST);
+        where = advance(where, -1);
+        __atomic_store(reinterpret_cast<volatile uint8_t*>(where), val, __ATOMIC_SEQ_CST);
+    }
+#else
+    void atomic_store_jmp(volatile void *where, uint64_t val) noexcept
+    {
+        __atomic_store(reinterpret_cast<volatile uint64_t*>(where), &val, __ATOMIC_SEQ_CST);
+    }
+#endif
 
     /**
      * Calculates a jmp and atomically writes the instruction to where.
@@ -156,10 +204,10 @@ namespace
             return false;
         auto diff = odiff.value();
         uint8_t bytes[8];
-        *reinterpret_cast<uintptr_t*>(bytes) = *where.as<uintptr_t*>();
+        *reinterpret_cast<uint64_t*>(bytes) = *where.as<uint64_t*>();
         bytes[0] = jmp_op;
         memcpy(bytes + 1, &diff, 4);
-        atomic_store(where.as_ptr(), *reinterpret_cast<uint64_t *>(bytes));
+        atomic_store_jmp(where.as_ptr(), *reinterpret_cast<uint64_t*>(bytes));
         return true;
     }
 
@@ -211,49 +259,80 @@ namespace
         }
     }
 
-    template<typename T>
-    T* advance(T* t, intptr_t off) noexcept
-    {
-        return reinterpret_cast<T*>(reinterpret_cast<uintptr_t>(t) + off);
-    }
 }
 
 extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
 {
-    if(auto tp = st->inline_data->tracepoint->tracepoint.load())
+#ifdef __i386__
+    auto inline_data = reinterpret_cast<tracepoint_inline_data*>(st->_res);
+    const auto& regs = *st;
+    st->sp += 8; // sp is 8 bytes too far (it is not pushed first)
+#else
+    auto inline_data = st->inline_data;
+    const auto& regs = st->regs;
+#endif
+    if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
-        tp->call_handler(st->regs);
+        tp->call_handler(regs);
     }
+#ifdef __i386__
+    st->sp -= 8;
+    // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
+    st->_res += sizeof(tracepoint_inline_data);
+#else
     // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
     st->inline_data += 1;
+#endif
 }
 
 thread_local const void* tracepoint_current_return_address;
 extern "C" void tracepoint_return_enter_handler(tracepoint_return_enter_stack* st) noexcept
 {
     tracepoint_current_return_address = st->return_address;
+#ifdef __i386__
+    st->return_address = reinterpret_cast<const void*>(st->regs._res);
+    auto inline_data = reinterpret_cast<tracepoint_return_inline_data*>(st->regs._res + tracepoint_enter_data_disp);
+    st->regs.sp += 8;
+#else
     // Inline data is pointing to the return call
-    st->return_address = st->inline_data; // Replace return address with the handler's return address
-    st->inline_data = advance(st->inline_data, rip_call_size);
-    if(auto tp = st->inline_data->tracepoint->tracepoint.load())
+    st->return_address = st->inline_data;
+    st->inline_data = advance(st->inline_data, tracepoint_enter_data_disp);
+    auto inline_data = st->inline_data;
+#endif
+    if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
         tp->call_enter_handler(st->regs);
     }
+#ifdef __i386__
+    st->regs.sp -= 8;
+    st->regs._res += tracepoint_enter_data_disp + sizeof(tracepoint_return_inline_data);
+#else
     st->inline_data += 1;
+#endif
 }
 
 extern "C" void tracepoint_return_exit_handler(tracepoint_return_exit_stack* st) noexcept
 {
-    if(auto tp = st->data.inline_data->tracepoint->tracepoint.load())
+#ifdef __i386__
+    auto inline_data = reinterpret_cast<tracepoint_inline_data*>(st->regs._res);
+#else
+    auto inline_data = st->data.inline_data;
+#endif
+    if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
         tp->call_exit_handler(st->regs);
-        st->data.return_address = tracepoint_current_return_address;
     }
     else
     {
-        fprintf(stderr, "Invalid return address\n");
-        st->data.return_address = nullptr;
+        fprintf(stderr, "Invalid return address, SHOULD NOT HAPPEN\n");
+        fflush(stderr);
+        std::terminate();
     }
+#ifdef __i386__
+    st->return_address = tracepoint_current_return_address;
+#else
+    st->data.return_address = tracepoint_current_return_address;
+#endif
 }
 
 void arch_tracepoint::call_handler(const arch::regs &r) noexcept
@@ -315,14 +394,17 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     {
         writer.write(__tracepoint_return_enter_handler);
         writer.write(__tracepoint_return_exit_handler);
+        writer.write(tracepoint_return_handler_code_exit);
     }
     bool is_first = true;
     ool.write(writer, [code = _code, &is_first, this](code_ptr loc, code_ptr ool_loc)
     {
+#ifdef __x86_64__
         if(is_first)
             is_first = false;
         else
         {
+#endif
             _redirects.push_back(context::instance().arch().add_redirect(
                 [code](const void* from, const arch::regs& regs)
                 {
@@ -335,7 +417,9 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
                 },
                 loc, ool_loc)
             );
+#ifdef __x86_64__
         }
+#endif
     });
 
     auto jmp = calc_jmp(writer.ptr().as_int(), (_location + _ool_size).as_int(), jmp_size);
@@ -382,7 +466,7 @@ void arch_tracepoint::disable() noexcept
         // Atomically remove tracepoint.
         auto [real_loc, mmap_size] = get_pages(_location, 8);
         mprotect(real_loc.as_ptr(), mmap_size, PROT_WRITE | PROT_EXEC | PROT_READ);
-        atomic_store(_location.as_ptr(), _old_code);
+        atomic_store_jmp(_location.as_ptr(), _old_code);
         mprotect(real_loc.as_ptr(), mmap_size, PROT_EXEC | PROT_READ);
         _enabled = false;
     }

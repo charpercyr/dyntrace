@@ -1,7 +1,7 @@
+// Its missing ebp and return since it is saved in the generated machine-code (see tracepoint.cpp)
 .macro save_state
     push %esp
     pushf
-    push %ebp
     push %ebx
     push %ecx
     push %edx
@@ -17,7 +17,6 @@
     pop %edx
     pop %ecx
     pop %ebx
-    pop %ebp
     popf
     pop %esp
 .endm
@@ -27,12 +26,12 @@
 .type \name, @function
 \name\():
     save_state
-    mov 0x24(%esp), %ebp
+    mov 0x20(%esp), %ebp
     mov \disp(%ebp), %ebp
     lock incl (%ebp)
     push %esp
-    call \handler\()@plt
-    add $4, %esp
+    call \handler\()
+    lea 4(%esp), %esp
     restore_state
     ret
 .\name\()_end:
@@ -42,7 +41,7 @@
 .macro symbol_size symbol
 .global \symbol\()_size
 .type \symbol\()_size, @object
-\symbol\()_size: .quad .\symbol\()_end - \symbol
+\symbol\()_size: .long .\symbol\()_end - \symbol
 .size \symbol\()_size, . - \symbol\()_size
 .endm
 
@@ -51,38 +50,27 @@
 /////////////////////////////////////////////////////////////////////
 
 enter_handler __tracepoint_handler, tracepoint_handler
-enter_handler __tracepoint_return_enter_handler, tracepoint_return_enter_handler, 6
+enter_handler __tracepoint_return_enter_handler, tracepoint_return_enter_handler, 0xc
 
 .global __tracepoint_return_exit_handler
 .type __tracepoint_return_exit_handler, @function
 __tracepoint_return_exit_handler:
     save_state
-    mov 0x24 (%esp), %ebp
+    mov 0x20 (%esp), %ebp
     mov (%ebp), %ebp
     push %esp
-    call tracepoint_return_exit_handler@plt
-    add $4, %esp
+    call tracepoint_return_exit_handler
+    lea 4(%esp), %esp
     lock decl (%ebp)
     restore_state
+    lea 4(%esp), %esp
+    pop %ebp
     ret
 .__tracepoint_return_exit_handler_end:
 .size __tracepoint_return_exit_handler, . - __tracepoint_return_exit_handler
 
-test_enter:
-    call .L0
-.L0:
-    pop %ebp
-    call *0x8(%ebp)
-test_exit:
-    push %ebp
-    pushf
-    call .L1
-.L1:
-    pop %ebp
-    mov -0x19(%ebp), %ebp
-    lock decl (%ebp)
-    popf
-    pop %ebp
+test:
+    push $0
 
 /////////////////////////////////////////////////////////////////////
 .section .rodata

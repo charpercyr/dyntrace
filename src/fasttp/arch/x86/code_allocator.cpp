@@ -21,6 +21,18 @@ namespace
         return *reinterpret_cast<int32_t*>(res);
     }
 
+    template<typename Int, typename Int2>
+    auto add_no_overflow(Int a, Int2 b)
+    {
+        using Ret = decltype(a + b);
+        if(b > 0 && std::numeric_limits<Ret>::max() - b < a)
+            return std::numeric_limits<Ret>::max();
+        else if(b < 0 && std::numeric_limits<Ret>::min() - b > a)
+            return std::numeric_limits<Ret>::min();
+        else
+            return a + b;
+    }
+
     offset_range make_offset_range(const constraint& c) noexcept
     {
         int32_t start = make_integer(c, 0x00);
@@ -92,7 +104,13 @@ code_allocator::~code_allocator() noexcept
 code_ptr code_allocator::alloc(code_ptr from, size_t size, const constraint &c)
 {
     auto offset_range = make_offset_range(c);
-    auto constraint_range = address_range{from.as_int() + offset_range.start, from.as_int() + offset_range.end};
+    auto constraint_range = address_range{
+        add_no_overflow(from.as_int(), offset_range.start),
+        add_no_overflow(from.as_int(), offset_range.end)
+    };
+    // We usually can't mmap at 0, we'll mmap over 1M just to be sure.
+    if(constraint_range.start < 1_M)
+        constraint_range.start = 1_M;
     code_ptr res;
     for(const auto& f :_free)
     {

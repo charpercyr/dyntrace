@@ -8,12 +8,17 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
+    constexpr uint8_t jmp8_op = 0xeb;
+    constexpr uint8_t jmp32_op = 0xe9;
+    constexpr uint8_t call_op = 0xe8;
+    constexpr uint8_t lea_op = 0x8d;
+
     std::unique_ptr<instruction> make_instruction(cs_insn* insn)
     {
         // TODO weird rel8 branches (loop, jecxz, ...)
         uint8_t op = insn->bytes[0];
         // jmp rel8, jmp rel32, call rel32
-        if(op == 0xe8 || op == 0xe9 || op == 0xeb)
+        if(op == jmp8_op || op == jmp32_op || op == call_op)
             return std::make_unique<relative_branch>(insn);
         // j[cond] rel8
         else if((op & 0xf0) == 0x70)
@@ -38,6 +43,64 @@ namespace
         }
         return std::make_unique<instruction>(insn);
     }
+
+#ifdef __i386__
+
+    const std::unordered_map<std::string, uint8_t> register_ids = {
+        {"ax", 0},
+        {"cx", 1},
+        {"dx", 2},
+        {"bx", 3},
+        {"sp", 4},
+        {"di", 6},
+        {"si", 7},
+    };
+
+    uint8_t get_register(const std::string& thunk)
+    {
+        auto i = thunk.find_last_of('.');
+        return register_ids.at(thunk.substr(i + 1));
+    }
+
+    auto init_thunks()
+    {
+        std::regex thunk_pattern{".*\\.get_pc_thunk\\.(.*)"};
+        std::unordered_map<uintptr_t, uint8_t> res;
+        auto symtab = dyntrace::process::process::this_process().elf().get_section(".symtab");
+        if(symtab.valid())
+        {
+            for(auto&& sym : symtab.as_symtab())
+            {
+                if(std::regex_match(sym.get_name(), thunk_pattern))
+                {
+                    res.insert(std::make_pair(dyntrace::process::process::this_process().base() + sym.get_data().value, get_register(sym.get_name())));
+                }
+            }
+        }
+        return res;
+    }
+
+    std::optional<uint8_t> is_thunk(uintptr_t addr)
+    {
+        static const auto thunks = init_thunks();
+
+        auto it = thunks.find(addr);
+        if(it != thunks.end())
+            return it->second;
+        else
+            return {};
+    }
+
+    void write_lea(buffer_writer& w, uint8_t id, uintptr_t orig)
+    {
+        uint8_t modrm = uint8_t{0b1000'0000} | (id << 3) | (id << 0);
+        int32_t disp = orig - w.ptr().as_int();
+        w.write(lea_op);
+        w.write(modrm);
+        w.write(disp);
+    }
+
+#endif
 }
 
 instruction::~instruction()
@@ -68,6 +131,17 @@ void relative_branch::write(buffer_writer &writer) const noexcept
 
     write_op(writer);
     writer.write(rel);
+
+#ifdef __i386__
+    // Patch call get_pc_thunk.<reg> (get eip).
+    if(insn()->bytes[0] == call_op)
+    {
+        if(auto _id = is_thunk(target))
+        {
+            write_lea(writer, _id.value(), insn()->address + insn()->size);
+        }
+    }
+#endif // __i386__
 }
 
 uint8_t relative_branch::op_size() const noexcept
@@ -77,7 +151,7 @@ uint8_t relative_branch::op_size() const noexcept
 
 void relative_branch::write_op(buffer_writer &writer) const noexcept
 {
-    writer.write(uint8_t{0xe9});
+    writer.write(insn()->bytes[0] == 0xe8 ? uint8_t{0xe8} : uint8_t{0xe9});
 }
 
 int32_t relative_branch::displacement() const noexcept

@@ -7,11 +7,13 @@
 #include "buffer_writer.hpp"
 
 #include "dyntrace/fasttp/code_ptr.hpp"
+#include "dyntrace/process/process.hpp"
 
 #include <capstone/capstone.h>
 
 #include <functional>
 #include <memory>
+#include <unordered_set>
 #include <vector>
 
 namespace dyntrace::fasttp
