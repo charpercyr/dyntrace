@@ -56,13 +56,39 @@ struct PACKED tracepoint_return_exit_stack
 
 namespace
 {
+#ifdef __i386__
     // For normal tracepoint
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: callq *0x8(%rip)            */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+        /* 00: push %ebp             */ 0x55,
+        /* 01: call 0                */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 06: pop %ebp              */ 0x5d,
+        /* 07: call *0x8(%ebp)       */ 0xff, 0x55, 0x08
+    };
+        /* 0a: arch_tracepoint_data  */
+        /* 0e: __tracepoint_handler  */
+    constexpr uint8_t tracepoint_handler_exit_code[] = {
+        /* 12: push %ebp             */ 0x55,
+        /* 13: pushf                 */ 0x9c,
+        /* 14: call 0                */ 0xe8, 0x00, 0x00, 0x00, 0x00,
+        /* 19: pop %ebp              */ 0x5d,
+        /* 1a: mov -0x9(%ebp), %ebp  */ 0x8b, 0x6d, 0xf2,
+        /* 1d: lock decl (%ebp)      */ 0xf0, 0xff, 0x4d, 0x00,
+        /* 21: popf                  */ 0x9d,
+        /* 22: pop %ebp              */ 0x5d,
+    };
+        /* 23: ool                   */
+        /* 23+ool: jmp back          */
+
+    constexpr uint8_t tracepoint_return_handler_code[] = {
+
+    };
+#else
+    // For normal tracepoint
+    constexpr uint8_t tracepoint_handler_enter_code[] = {
+        /* 00: call *0x8(%rip)            */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
     };
         /* 06: arch_tracepoint_data        */
         /* 0e: __tracepoint_handler        */
-        /* */
     constexpr uint8_t tracepoint_handler_exit_code[] = {
         /* 16: push %rbp                   */ 0x55,
         /* 17: pushf                       */ 0x9c,
@@ -76,14 +102,15 @@ namespace
 
     // For enter/exit tracepoint
     constexpr uint8_t tracepoint_return_handler_code[] = {
-        /* 00: callq *0xe(%rip)            */ 0xff, 0x15, 0x0e, 0x00, 0x00, 0x00, // Call for enter
-        /* 06: callq *0x10(%rip)           */ 0xff, 0x15, 0x10, 0x00, 0x00, 0x00, // Call for exit
+        /* 00: call *0xe(%rip)             */ 0xff, 0x15, 0x0e, 0x00, 0x00, 0x00, // Call for enter
+        /* 06: call *0x10(%rip)            */ 0xff, 0x15, 0x10, 0x00, 0x00, 0x00, // Call for exit
     };
         /* 0c: arch_tracepoint_data        */
         /* 14: __tracepoint_handler        */
         /* 1c: __tracepoint_return_handler */
         /* 24: ool                         */
         /* 24+ool: jmp back                */
+#endif
 
     /// Opcode for a 5-byte jmp
     constexpr uint8_t jmp_op = 0xe9;

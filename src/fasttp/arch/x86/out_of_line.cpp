@@ -147,7 +147,7 @@ out_of_line::out_of_line(code_ptr _code) noexcept
     size_t count = 0;
 
     auto code = _code.as<const uint8_t*>();
-    auto addr = _code.as_int();
+    uint64_t addr = _code.as_int();
     size_t size = 15;
     cs_insn* insn = cs_malloc(_handle);
 

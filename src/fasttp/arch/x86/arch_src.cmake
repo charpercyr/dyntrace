@@ -8,6 +8,8 @@ set(
     arch/x86/tracepoint.cpp arch/x86/tracepoint.hpp
 )
 
-if(SUBARCH STREQUAL x86_64)
+if(SUBARCH STREQUAL i386)
+    list(APPEND x86_src arch/x86/tracepoint32.S)
+else()
     list(APPEND x86_src arch/x86/tracepoint64.S)
 endif()

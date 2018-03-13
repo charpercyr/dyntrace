@@ -119,10 +119,15 @@ void reclaimer::reclaim_batch()
 
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
 {
+#ifdef __i386__
+#define REG_IP REG_EIP
+#else
+#define REG_IP REG_RIP
+#endif
     if(_reclaim_data)
     {
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
-        auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_RIP]);
+        auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_IP]);
         {
             auto ainv = _reclaim_data->self->_always_invalid.lock();
             for(auto& r : *ainv)
