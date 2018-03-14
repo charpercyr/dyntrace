@@ -110,23 +110,26 @@ namespace
 
     /// Size for a rip relative call
     constexpr size_t tracepoint_enter_data_disp = 12;
-#else
+#else // __i386__
     // For normal tracepoint
     constexpr uint8_t tracepoint_handler_enter_code[] = {
-        /* 00: call *0x8(%rip)             */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
+        // Skip the red zone since it could potentially be used by leaf functions
+        /* 00: lea -0x80(%rsp), %rsp       */ 0x48, 0x8d, 0x64, 0x24, 0x80,
+        /* 05: call *0x8(%rip)             */ 0xff, 0x15, 0x08, 0x00, 0x00, 0x00,
     };
-        /* 06: arch_tracepoint_data        */
-        /* 0e: __tracepoint_handler        */
+        /* 0b: arch_tracepoint_data        */
+        /* 13: __tracepoint_handler        */
     constexpr uint8_t tracepoint_handler_exit_code[] = {
-        /* 16: push %rbp                   */ 0x55,
-        /* 17: pushf                       */ 0x9c,
-        /* 18: mov -0x19(%rip), %rbp       */ 0x48, 0x8b, 0x2d, 0xe7, 0xff, 0xff, 0xff,
-        /* 1f: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
-        /* 24: popf                        */ 0x9d,
-        /* 25: pop %rbp                    */ 0x5d
+        /* 1a: push %rbp                   */ 0x55,
+        /* 1b: pushf                       */ 0x9c,
+        /* 1c: mov -0x19(%rip), %rbp       */ 0x48, 0x8b, 0x2d, 0xe7, 0xff, 0xff, 0xff,
+        /* 24: lock decq (%rbp)            */ 0xf0, 0x48, 0xff, 0x4d, 0x00,
+        /* 29: popf                        */ 0x9d,
+        /* 2a: pop %rbp                    */ 0x5d,
+        /* 2b: lea 0x80(%rsp), %rsp        */ 0x48, 0x8d, 0xa4, 0x24, 0x80, 0x00, 0x00, 0x00,
     };
-        /* 26: ool                         */
-        /* 26+ool: jmp back                */
+        /* 33: ool                         */
+        /* 33+ool: jmp back                */
 
     // For enter/exit tracepoint
     constexpr uint8_t tracepoint_return_handler_code[] = {
@@ -142,7 +145,7 @@ namespace
 
     /// Size for a rip relative call
     constexpr size_t tracepoint_enter_data_disp = 6;
-#endif
+#endif // __i386__
 
     /// Opcode for a 5-byte jmp
     constexpr uint8_t jmp_op = 0xe9;
@@ -271,6 +274,7 @@ extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
 #else
     auto inline_data = st->inline_data;
     const auto& regs = st->regs;
+    st->regs.sp += 128; // sp is 128 bytes too far (red zone)
 #endif
     if(auto tp = inline_data->tracepoint->tracepoint.load())
     {
@@ -281,6 +285,7 @@ extern "C" void tracepoint_handler(tracepoint_stack* st) noexcept
     // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
     st->_res += sizeof(tracepoint_inline_data);
 #else
+    st->regs.sp -= 128;
     // The return address is the address of the tracepoint's data. We move it to the tracepoint exit code.
     st->inline_data += 1;
 #endif

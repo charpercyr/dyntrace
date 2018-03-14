@@ -69,9 +69,6 @@ __tracepoint_return_exit_handler:
 .__tracepoint_return_exit_handler_end:
 .size __tracepoint_return_exit_handler, . - __tracepoint_return_exit_handler
 
-test:
-    push $0
-
 /////////////////////////////////////////////////////////////////////
 .section .rodata
 /////////////////////////////////////////////////////////////////////
