@@ -43,6 +43,11 @@ namespace dyntrace
             _cond.notify_all();
         }
 
+        void reset()
+        {
+            _cancel = false;
+        }
+
     private:
         uintptr_t _count;
         uintptr_t _max;

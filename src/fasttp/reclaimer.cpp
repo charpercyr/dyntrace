@@ -168,8 +168,8 @@ void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
             tr.second.del();
         else
         {
-            auto to_remove = _to_remove.lock();
-            to_remove->insert(std::move(tr));
+            auto self_to_remove = _to_remove.lock();
+            self_to_remove->insert(std::move(tr));
         }
     }
 
