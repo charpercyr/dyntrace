@@ -4,16 +4,17 @@
 
 #include <cinttypes>
 
-#ifdef __i386__
+
 extern "C" void __remote_execute32();
 extern const size_t __remote_execute32_size;
+#ifdef __i386__
 #define __remote_execute __remote_execute32
 #define __remote_execute_size __remote_execute32_size
 #else
 extern "C" void __remote_execute64();
 extern const size_t __remote_execute64_size;
-#define __remote_execute __remote_execute64
-#define __remote_execute_size __remote_execute64_size
+#define __remote_execute __remote_execute32
+#define __remote_execute_size __remote_execute32_size
 #endif
 
 using namespace dyntrace::inject;
@@ -24,29 +25,36 @@ using namespace dyntrace::inject;
 #define REG(name) r##name
 #endif
 
-void dump_regs(const user_regs_struct& regs, FILE* out = stdout)
+namespace
 {
+    void dump_regs(const user_regs_struct &regs, FILE *out = stdout)
+    {
+#ifdef __i386__
 #define DUMP_ONE(name) fprintf(out, #name" %lx\n", regs.name)
-    DUMP_ONE(REG(ax));
-    DUMP_ONE(REG(bx));
-    DUMP_ONE(REG(cx));
-    DUMP_ONE(REG(dx));
-    DUMP_ONE(REG(di));
-    DUMP_ONE(REG(si));
-#ifdef __x86_64__
-    DUMP_ONE(r8);
-    DUMP_ONE(r9);
-    DUMP_ONE(r10);
-    DUMP_ONE(r11);
-    DUMP_ONE(r12);
-    DUMP_ONE(r13);
-    DUMP_ONE(r14);
-    DUMP_ONE(r15);
+#else
+#define DUMP_ONE(name) fprintf(out, #name" %llx\n", regs.name)
 #endif
-    DUMP_ONE(REG(bp));
-    DUMP_ONE(REG(sp));
-    DUMP_ONE(REG(ip));
+        DUMP_ONE(REG(ax));
+        DUMP_ONE(REG(bx));
+        DUMP_ONE(REG(cx));
+        DUMP_ONE(REG(dx));
+        DUMP_ONE(REG(di));
+        DUMP_ONE(REG(si));
+#ifdef __x86_64__
+        DUMP_ONE(r8);
+        DUMP_ONE(r9);
+        DUMP_ONE(r10);
+        DUMP_ONE(r11);
+        DUMP_ONE(r12);
+        DUMP_ONE(r13);
+        DUMP_ONE(r14);
+        DUMP_ONE(r15);
+#endif
+        DUMP_ONE(REG(bp));
+        DUMP_ONE(REG(sp));
+        DUMP_ONE(REG(ip));
 #undef DUMP_ONE
+    }
 }
 
 arch_executor::arch_executor(process_ptr proc)
@@ -107,8 +115,6 @@ uintptr_t arch_executor::remote_call(remote_ptr func, const remote_args &args)
     regs.r9 = args[5];
 #endif
     regs.REG(ip) = _old_code_ptr.as_int();
-    printf("==> Calling %p\n", func.as_ptr());
-    dump_regs(regs);
 
     _pt.set_regs(regs);
     _pt.cont();

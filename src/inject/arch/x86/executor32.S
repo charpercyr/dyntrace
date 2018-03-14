@@ -18,6 +18,12 @@
 .type __remote_execute32, @function
 __remote_execute32:
     push $0
+    push %ebp
+    push %ebx
+    push %ecx
+    push %edx
+    push %esi
+    push %edi
     call *%eax
     int3
 .__remote_execute32_end:
