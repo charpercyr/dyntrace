@@ -96,6 +96,8 @@ void reclaimer::run()
 
 void reclaimer::reclaim_batch(locked_to_remove_type::proxy_type&& to_remove_proxy)
 {
+    if(to_remove_proxy->empty())
+        return;
     to_remove_type to_remove = std::move(*to_remove_proxy);
     to_remove_proxy->clear();
     to_remove_proxy.unlock();
@@ -172,6 +174,7 @@ void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
     }
 
     cant_remove->clear();
+    current::barrier = nullptr;
     current::to_remove = nullptr;
     current::self = nullptr;
 }

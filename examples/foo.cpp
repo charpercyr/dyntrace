@@ -42,6 +42,7 @@ int main()
         printf("===========\n");
         do_run();
     }
+    std::this_thread::sleep_for(std::chrono::seconds{5});
     do_run();
     return 0;
 }

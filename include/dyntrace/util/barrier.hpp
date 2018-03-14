@@ -1,6 +1,7 @@
 #ifndef DYNTRACE_UTIL_BARRIER_HPP_
 #define DYNTRACE_UTIL_BARRIER_HPP_
 
+#include <atomic>
 #include <condition_variable>
 #include <mutex>
 
@@ -15,14 +16,23 @@ namespace dyntrace
         barrier& operator=(barrier&&) = delete;
 
         explicit barrier(uintptr_t n)
-            : _max{n} {}
+            : _count{n}, _max{n} {}
 
         bool wait()
         {
             std::unique_lock lock{_lock};
-            ++_count;
-            _cond.notify_all();
-            while(!_cancel && _count < _max)
+            auto gen = _gen;
+
+            if(--_count == 0)
+            {
+                _gen = !_gen;
+                _count = _max;
+                lock.unlock();
+                _cond.notify_all();
+                return !_cancel;
+            }
+
+            while(!_cancel && gen == _gen)
                 _cond.wait(lock);
             return !_cancel;
         }
@@ -34,10 +44,11 @@ namespace dyntrace
         }
 
     private:
+        uintptr_t _count;
+        uintptr_t _max;
         std::mutex _lock;
         std::condition_variable _cond;
-        uintptr_t _count{0};
-        uintptr_t _max;
+        bool _gen{false};
         bool _cancel{false};
     };
 }
