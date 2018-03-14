@@ -84,6 +84,14 @@ namespace dyntrace
     };
 
     /**
+     * Megabyte literal.
+     */
+    constexpr unsigned long long int operator""_M(unsigned long long int i) noexcept
+    {
+        return i << 20;
+    }
+
+    /**
      * Gigabyte literal.
      */
     constexpr unsigned long long int operator""_G(unsigned long long int i) noexcept

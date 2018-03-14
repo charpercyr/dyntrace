@@ -12,6 +12,12 @@
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
 
+#ifdef __i386__
+#define REG(name) REG_E##name
+#else // __i386__
+#define REG(name) REG_R##name
+#endif // __i386__
+
 namespace
 {
     shared_locked<std::unordered_map<code_ptr, std::tuple<point_handler, code_ptr>, code_ptr::hash>> redirects;
@@ -19,14 +25,22 @@ namespace
     arch::regs make_regs(const greg_t* r)
     {
         return arch::regs {
-            .ax = static_cast<uintptr_t>(r[REG_RAX]),
-            .di = static_cast<uintptr_t>(r[REG_RDI]),
-            .si = static_cast<uintptr_t>(r[REG_RSI]),
-            .dx = static_cast<uintptr_t>(r[REG_RDX]),
-            .cx = static_cast<uintptr_t>(r[REG_RCX]),
+            .ax = static_cast<uintptr_t>(r[REG(AX)]),
+            .di = static_cast<uintptr_t>(r[REG(DI)]),
+            .si = static_cast<uintptr_t>(r[REG(SI)]),
+            .dx = static_cast<uintptr_t>(r[REG(DX)]),
+            .cx = static_cast<uintptr_t>(r[REG(CX)]),
+#ifdef __x86_64__
             .r8 = static_cast<uintptr_t>(r[REG_R8]),
             .r9 = static_cast<uintptr_t>(r[REG_R9]),
-            .bx = static_cast<uintptr_t>(r[REG_RBX]),
+#endif
+            .bx = static_cast<uintptr_t>(r[REG(BX)]),
+#ifdef __i386__
+            .flags = static_cast<uintptr_t>(r[REG_EFL]),
+            .sp = static_cast<uintptr_t>(r[REG_ESP]),
+            ._res = 0,
+            .bp = static_cast<uintptr_t>(REG_EBP),
+#else
             .r10 = static_cast<uintptr_t>(r[REG_R10]),
             .r11 = static_cast<uintptr_t>(r[REG_R11]),
             .r12 = static_cast<uintptr_t>(r[REG_R12]),
@@ -36,6 +50,7 @@ namespace
             .bp = static_cast<uintptr_t>(r[REG_RBP]),
             .flags = static_cast<uintptr_t>(r[REG_EFL]),
             .sp = static_cast<uintptr_t>(r[REG_RSP]),
+#endif // __i386__
         };
     }
 
@@ -44,7 +59,7 @@ namespace
     {
         auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
         code_ptr target{};
-        code_ptr from{ctx->uc_mcontext.gregs[REG_RIP] - 1}; // We are one byte too far (after the trap)
+        code_ptr from{ctx->uc_mcontext.gregs[REG(IP)] - 1}; // We are one byte too far (after the trap)
 
         // If we call the old handler, red may never unlock
         {
@@ -61,7 +76,7 @@ namespace
 
         if(target)
         {
-            ctx->uc_mcontext.gregs[REG_RIP] = target.as<greg_t>();
+            ctx->uc_mcontext.gregs[REG(IP)] = target.as<greg_t>();
         }
         else
         {

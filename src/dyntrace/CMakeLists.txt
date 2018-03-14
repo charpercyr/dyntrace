@@ -1,11 +1,10 @@
 
-find_package(Protobuf)
+
 set(PROTO_FILES proto/command.proto proto/common.proto proto/process.proto)
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
-protobuf_generate_python(PROTO_PY_SRCS ${PROTO_FILES})
+dyntrace_protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
+dyntrace_protobuf_generate_python(PROTO_PY_SRCS ${PROTO_FILES})
 add_library(proto STATIC ${PROTO_SRCS})
-target_include_directories(proto PUBLIC ${Protobuf_INCLUDE_DIRS})
-target_link_libraries(proto PUBLIC ${Protobuf_LIBRARIES})
+target_link_libraries(proto PUBLIC protobuf)
 set_target_properties(proto PROPERTIES
     POSITION_INDEPENDENT_CODE ON
 )

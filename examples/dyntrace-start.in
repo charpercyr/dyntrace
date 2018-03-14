@@ -1,3 +1,0 @@
-#!/bin/bash
-
-LD_PRELOAD=@CMAKE_INSTALL_PREFIX@/lib/libdyntrace-agent.so LD_LIBRARY_PATH=@CMAKE_INSTALL_PREFIX@/lib $1

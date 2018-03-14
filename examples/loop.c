@@ -4,19 +4,15 @@
 #include <signal.h>
 #include <stdlib.h>
 
-void do_inc(long long*);
-void do_printf(const char* str)
-{
-    printf("Message: %s\n", str);
-}
+void do_inc(intptr_t*);
 
 int main()
 {
-    long long a = 0;
+    intptr_t a = 0;
     for(;;)
     {
         do_inc(&a);
-        printf("%lld\n", a);
+        printf("%d\n", a);
         sleep(1);
     }
     return 0;

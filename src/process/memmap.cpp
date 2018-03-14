@@ -1,6 +1,7 @@
 #include "dyntrace/process/memmap.hpp"
 
 #include <fstream>
+#include <cinttypes>
 #include <set>
 
 using dyntrace::address_range;
@@ -16,7 +17,7 @@ memmap memmap::from_stream(std::istream &is) noexcept
         char name[1024]{};
         char perms[5];
 
-        sscanf(line.c_str(), "%lx-%lx %s %*s %*s %*s %s\n", &start, &end, perms, name);
+        sscanf(line.c_str(), "%" PRIxPTR "-%" PRIxPTR " %s %*s %*s %*s %s\n", &start, &end, perms, name);
 
         zone z{start, end, permissions::none, name};
         if(perms[0] == 'r')

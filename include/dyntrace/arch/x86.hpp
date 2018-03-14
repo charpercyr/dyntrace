@@ -16,9 +16,10 @@
  * 0c: edx
  * 10: ecx
  * 14: ebx
- * 18: ebp
- * 1c: eflags
- * 20: esp
+ * 18: eflags
+ * 1c: esp
+ * 20: reserved
+ * 24: ebp
  *
  * x86_64:
  * 00: rax
@@ -45,7 +46,6 @@ namespace dyntrace::arch
     struct __attribute__((packed)) regs
     {
         using uint = uintptr_t;
-
         uint ax;
         uint di;
         uint si;
@@ -63,10 +63,16 @@ namespace dyntrace::arch
         uint r13;
         uint r14;
         uint r15;
-#endif // __x86_64__
         uint bp;
         uint flags;
         uint sp;
+#else
+        uint flags;
+        uint sp;
+        uint _res;
+        uint bp;
+#endif // __x86_64__
+
 
 #ifdef __x86_64__
         uint arg(size_t i) const noexcept
@@ -102,7 +108,7 @@ namespace dyntrace::arch
 #else // __x86_64__
         uint arg(size_t i) const noexcept
         {
-            return *(reinterpret_cast<uint*>(sp) + i);
+            return *(reinterpret_cast<uint*>(sp) + i + 1);
         }
 #endif // __x86_64__
 
