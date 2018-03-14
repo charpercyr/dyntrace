@@ -97,7 +97,7 @@ namespace
         /* 0c: push %ebp                   */ 0x55,
         /* 0d: call 0                      */ 0xe8, 0x00, 0x00, 0x00, 0x00,
         /* 12: pop %ebp                    */ 0x5d,
-        /* 13: call 0x0b(%ebp)             */ 0xff, 0x55, 0x0b
+        /* 13: call 0x0c(%ebp)             */ 0xff, 0x55, 0x0c
     };
         /* 16: arch_tracepoint_data        */
         /* 1a: __tracepoint_handler        */
@@ -156,8 +156,8 @@ namespace
         return
             sizeof(tracepoint_handler_enter_code) +
             sizeof(tracepoint_inline_data) +
-            ool_size +
             sizeof(tracepoint_handler_exit_code) +
+            ool_size +
             jmp_size;
     }
 
@@ -166,6 +166,7 @@ namespace
         return
             sizeof(tracepoint_return_handler_code) +
             sizeof(tracepoint_return_inline_data) +
+            sizeof(tracepoint_return_handler_code_exit) +
             ool_size +
             jmp_size;
     }
