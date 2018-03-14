@@ -7,6 +7,7 @@
 #include "jmp.hpp"
 #include "out_of_line.hpp"
 
+#include <random>
 #include <sys/mman.h>
 
 #include "dyntrace/fasttp/error.hpp"
@@ -385,10 +386,14 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
             if (code->handler_size >= handler_size)
             {
                 handler_location = code->handler;
+                _code = code;
+                _code->tracepoint = this;
             }
             else
             {
-                context::instance().get_reclaimer().reclaim(_location.as_int(),
+                // Generate an id that should statistically not be reused. Else we have a small memory leak
+                context::instance().get_reclaimer().reclaim(
+                    std::mt19937_64(std::chrono::steady_clock::now().time_since_epoch().count())(),
                     [code](uintptr_t rip) -> bool
                     {
                         return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
@@ -406,12 +411,11 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
         {
             auto alloc = context::instance().arch().allocator();
             handler_location = alloc->alloc(_location + jmp_size, handler_size, cond);
+            _code = new arch_tracepoint_code{0, handler_location, handler_size, this};
         }
     }
     if(!handler_location)
         throw fasttp_error{"Could not allocate tracepoint"};
-
-    _code = new arch_tracepoint_code{0, handler_location, handler_size, this};
 
     buffer_writer writer{handler_location};
     if(is_point)
