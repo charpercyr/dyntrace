@@ -23,9 +23,12 @@ namespace dyntrace
             std::unique_lock lock{_lock};
             auto gen = _gen;
 
+            printf("Barrier wait gen %lu\r\n", gen);
+
             if(--_count == 0)
             {
-                _gen = !_gen;
+                printf("Barrier unlock gen %lu\r\n", gen);
+                ++_gen;
                 _count = _max;
                 lock.unlock();
                 _cond.notify_all();
@@ -53,7 +56,7 @@ namespace dyntrace
         uintptr_t _max;
         std::mutex _lock;
         std::condition_variable _cond;
-        bool _gen{false};
+        uintptr_t _gen{0};
         bool _cancel{false};
     };
 }

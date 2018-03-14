@@ -23,6 +23,9 @@ namespace dyntrace::fasttp
     class reclaimer
     {
     public:
+
+        static reclaimer& instance();
+
         using predicate_type = std::function<bool(uintptr_t)>;
         using deleter_type = std::function<void()>;
         struct to_remove_data
@@ -48,6 +51,7 @@ namespace dyntrace::fasttp
         void reclaim_batch(locked_to_remove_type::proxy_type&& to_remove);
         void reclaim_batch(to_remove_type&& to_remove);
         static void on_usr1(int, siginfo_t* sig, void* ctx);
+        static void on_usr2(int, siginfo_t* sig, void* ctx);
 
         dyntrace::semaphore _events{0};
         std::atomic<bool> _stop{false};

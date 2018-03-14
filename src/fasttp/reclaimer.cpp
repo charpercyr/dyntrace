@@ -19,6 +19,12 @@ public:
         : std::runtime_error{"reclaim failed"} {}
 };
 
+reclaimer& reclaimer::instance()
+{
+    static reclaimer r;
+    return r;
+}
+
 reclaimer::reclaimer() noexcept
 {
     static std::once_flag once_flag;
@@ -28,6 +34,8 @@ reclaimer::reclaimer() noexcept
         sa.sa_flags = SA_SIGINFO;
         sa.sa_sigaction = &reclaimer::on_usr1;
         sigaction(SIGUSR1, &sa, nullptr);
+        sa.sa_sigaction = &reclaimer::on_usr2;
+        sigaction(SIGUSR2, &sa, nullptr);
     });
     std::thread th{&reclaimer::run, this};
     th.detach();
@@ -122,6 +130,7 @@ namespace
         std::unique_ptr<dyntrace::barrier> barrier;
         reclaimer::to_remove_type* to_remove;
         dyntrace::locked<std::unordered_set<uintptr_t>> cant_remove;
+        std::atomic<uintptr_t> alive;
     }
     pid_t gettid() noexcept
     {
@@ -139,13 +148,30 @@ void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
     std::unique_lock lock{current::lock};
     current::self = this;
     current::to_remove = &to_remove;
+    current::alive = 0;
 
     auto ths = dyntrace::process::process::this_process().threads();
-    current::barrier = std::make_unique<dyntrace::barrier>(ths.size());
+
     for(auto tid : ths)
     {
         if(tid != gettid())
         {
+            printf("Signal %d\r\n", tid);
+            if(signal_thread(tid, SIGUSR2) == -1)
+            {
+                throw reclaim_failed{};
+            }
+        }
+    }
+
+    std::this_thread::sleep_for(1s);
+
+    current::barrier = std::make_unique<dyntrace::barrier>(current::alive);
+    for(auto tid : ths)
+    {
+        if(tid != gettid())
+        {
+            printf("Signal %d\r\n", tid);
             if(signal_thread(tid, SIGUSR1) == -1)
             {
                 current::barrier->cancel();
@@ -185,18 +211,26 @@ void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
 #define REG_IP REG_RIP
 #endif
 
+void reclaimer::on_usr2(int, siginfo_t* sig, void* _ctx)
+{
+    ++current::alive;
+}
+
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
 {
+    printf("Start reclaim %d\r\n", gettid());
     if(!current::barrier->wait())
         return;
 
     auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
     auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_IP]);
 
+    printf("Start always_invalid %d\r\n", gettid());
     {
         auto always_invalid = current::self->_always_invalid.lock_shared();
         for (auto&& ai : *always_invalid)
         {
+            printf("Found invalid %lx\r\n", rip);
             if (ai.contains(rip))
             {
                 current::barrier->cancel();
@@ -208,10 +242,12 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
     if(!current::barrier->wait())
         return;
 
+    printf("Start preds %d\r\n", gettid());
     for(const auto& tr : *current::to_remove)
     {
         if(!tr.second.pred(rip))
         {
+            printf("Cant remove %lx %lx\r\n", tr.first, rip);
             auto cant_remove = current::cant_remove.lock();
             cant_remove->insert(tr.first);
         }

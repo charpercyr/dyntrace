@@ -13,7 +13,7 @@ context& context::instance() noexcept
 }
 
 context::context() noexcept
-    : _impl{std::make_unique<arch_context>(this)}, _reclaimer{}
+    : _impl{std::make_unique<arch_context>(this)}
 {
 
 }

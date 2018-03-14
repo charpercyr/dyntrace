@@ -152,19 +152,19 @@ void redirect_handle::remove()
 
 arch_context::arch_context(context* ctx) noexcept
 {
-    ctx->get_reclaimer().add_invalid(
+    reclaimer::instance().add_invalid(
         {
             reinterpret_cast<uintptr_t>(__tracepoint_handler),
             reinterpret_cast<uintptr_t>(__tracepoint_handler) + __tracepoint_handler_size,
         }
     );
-    ctx->get_reclaimer().add_invalid(
+    reclaimer::instance().add_invalid(
         {
             reinterpret_cast<uintptr_t>(__tracepoint_return_enter_handler),
             reinterpret_cast<uintptr_t>(__tracepoint_return_enter_handler) + __tracepoint_return_enter_handler_size,
         }
     );
-    ctx->get_reclaimer().add_invalid(
+    reclaimer::instance().add_invalid(
         {
             reinterpret_cast<uintptr_t>(__tracepoint_return_exit_handler),
             reinterpret_cast<uintptr_t>(__tracepoint_return_exit_handler) + __tracepoint_return_exit_handler_size,

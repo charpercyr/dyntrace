@@ -371,16 +371,9 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     auto handler_size = is_point ? tracepoint_handler_size(_ool_size) : tracepoint_return_handler_size(_ool_size);
     handler_size = next_pow2(handler_size);
 
-    // Create handler in memory.
-    constraint cond;
-    if(!ops.x86.disable_thread_safe)
-    {
-        cond = make_constraint(_location.as_int(), ool);
-    }
-
     code_ptr handler_location;
     {
-        if(auto _data = context::instance().get_reclaimer().cancel(_location.as_int()))
+        if(auto _data = reclaimer::instance().cancel(_location.as_int()))
         {
             auto code = std::any_cast<arch_tracepoint_code*>(_data.value());
             if (code->handler_size >= handler_size)
@@ -392,7 +385,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
             else
             {
                 // Generate an id that should statistically not be reused. Else we have a small memory leak
-                context::instance().get_reclaimer().reclaim(
+                reclaimer::instance().reclaim(
                     std::mt19937_64(std::chrono::steady_clock::now().time_since_epoch().count())(),
                     [code](uintptr_t rip) -> bool
                     {
@@ -409,6 +402,12 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
         }
         if(!handler_location)
         {
+            // Create handler in memory.
+            constraint cond;
+            if(!ops.x86.disable_thread_safe)
+            {
+                cond = make_constraint(_location.as_int(), ool);
+            }
             auto alloc = context::instance().arch().allocator();
             handler_location = alloc->alloc(_location + jmp_size, handler_size, cond);
             _code = new arch_tracepoint_code{0, handler_location, handler_size, this};
@@ -471,7 +470,7 @@ arch_tracepoint::~arch_tracepoint()
 {
     disable();
     _code->tracepoint.store(nullptr, std::memory_order_seq_cst);
-    context::instance().get_reclaimer().reclaim(_location.as_int(),
+    reclaimer::instance().reclaim(_location.as_int(),
         [code = _code](uintptr_t rip) -> bool
         {
             return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;

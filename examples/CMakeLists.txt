@@ -14,6 +14,7 @@ if(ARCH STREQUAL x86)
 endif()
 
 add_executable(loop loop.c ${loop_asm})
+target_link_libraries(loop agent)
 
 add_executable(ptrace ptrace.cpp)
 target_link_libraries(ptrace inject)

@@ -28,16 +28,10 @@ namespace dyntrace::fasttp
             return *_impl;
         }
 
-        reclaimer& get_reclaimer() noexcept
-        {
-            return _reclaimer;
-        }
-
     private:
         context() noexcept;
 
         std::unique_ptr<arch_context> _impl;
-        reclaimer _reclaimer;
     };
 }
 
