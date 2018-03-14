@@ -1,5 +1,8 @@
 #include "dyntrace/fasttp/reclaimer.hpp"
 
+#include "dyntrace/fasttp/error.hpp"
+
+#include <unordered_set>
 #include <syscall.h>
 #include <sys/ucontext.h>
 
@@ -9,11 +12,14 @@ using namespace std::chrono_literals;
 inline constexpr auto reclaim_period = 5s;
 inline constexpr auto reclaim_count = 2000;
 
-reclaimer::reclaim_data* reclaimer::_reclaim_data{nullptr};
-std::mutex reclaimer::_reclaim_lock;
+class reclaim_failed : public std::runtime_error
+{
+public:
+    reclaim_failed() noexcept
+        : std::runtime_error{"reclaim failed"} {}
+};
 
 reclaimer::reclaimer() noexcept
-    : _thread{&reclaimer::run, this}
 {
     static std::once_flag once_flag;
     std::call_once(once_flag, []()
@@ -23,147 +29,190 @@ reclaimer::reclaimer() noexcept
         sa.sa_sigaction = &reclaimer::on_usr1;
         sigaction(SIGUSR1, &sa, nullptr);
     });
+    std::thread th{&reclaimer::run, this};
+    th.detach();
 }
 
 reclaimer::~reclaimer()
 {
-    _queue.put(reclaim_stop{});
-    _thread.join();
+    _stop = true;
+    _events.put();
 }
 
-std::future<void> reclaimer::trigger_reclaim() noexcept
+void reclaimer::add_invalid(dyntrace::address_range range) noexcept
 {
-    auto p = std::make_shared<std::promise<void>>();
-    auto l = [p]()
+    auto inv = _always_invalid.lock();
+    inv->push_back(range);
+}
+
+void reclaimer::reclaim(uintptr_t id, reclaimer::predicate_type pred, reclaimer::deleter_type del, std::any data)
+{
+    auto to_remove = _to_remove.lock();
+    to_remove->emplace(id, to_remove_data{std::move(pred), std::move(del), std::move(data)});
+    _events.put();
+}
+
+std::optional<std::any> reclaimer::cancel(uintptr_t id)
+{
+    auto to_remove = _to_remove.lock();
+    auto it = to_remove->find(id);
+    if(it != to_remove->end())
     {
-        p->set_value();
-    };
-    _queue.put(reclaim_force{std::move(l)});
-    return p->get_future();
+        std::any data = std::move(it->second.data);
+        to_remove->erase(it);
+        return std::move(data);
+    }
+    return std::nullopt;
 }
 
 void reclaimer::run()
 {
     auto end = std::chrono::steady_clock::now() + reclaim_period;
-    reclaimer::queue_element next;
     while(true)
     {
-        if(_queue.try_pop_until(next, end))
+        bool not_timeout = _events.wait_until(end);
+        if(_stop.load(std::memory_order_relaxed))
         {
-            if(std::holds_alternative<reclaim_stop>(next))
+            auto to_remove = _to_remove.lock();
+            reclaim_batch(std::move(*to_remove));
+            break;
+        }
+        if(not_timeout)
+        {
+            auto to_remove = _to_remove.lock();
+            if(to_remove->size() >= reclaim_count)
             {
-                reclaim_batch();
-                return;
-            }
-            else if(std::holds_alternative<reclaim_work>(next))
-            {
-                auto batch = _batch.lock();
-                batch->push_back(std::move(std::get<reclaim_work>(next)));
-                if(batch->size() >= reclaim_count)
-                {
-                    batch.unlock();
-                    reclaim_batch();
-                    end = std::chrono::steady_clock::now() + reclaim_period;
-                }
-            }
-            else if(std::holds_alternative<reclaim_force>(next))
-            {
-                reclaim_batch();
+                reclaim_batch(std::move(to_remove));
                 end = std::chrono::steady_clock::now() + reclaim_period;
             }
         }
         else
         {
-            reclaim_batch();
+            reclaim_batch(_to_remove.lock());
             end = std::chrono::steady_clock::now() + reclaim_period;
         }
     }
 }
 
-void reclaimer::reclaim_batch()
+void reclaimer::reclaim_batch(locked_to_remove_type::proxy_type&& to_remove_proxy)
 {
-    if(_batch->empty())
-        return;
-
-    std::unique_lock lock{_reclaim_lock};
-
-    auto ths = process::process::this_process().threads();
-
-    _reclaim_data = new reclaim_data{
-        this,
-        {},
-        dyntrace::barrier{ths.size()},
-        false
-    };
-
-    for(auto pid : ths)
+    to_remove_type to_remove = std::move(*to_remove_proxy);
+    to_remove_proxy->clear();
+    to_remove_proxy.unlock();
+    try
     {
-        // DO NOT SEND SIGNAL TO SELF, IT WILL PROBABLY DEADLOCK
-        if(pid != syscall(SYS_gettid))
-        {
-            syscall(SYS_tgkill, getpid(), pid, SIGUSR1);
-        }
+        reclaim_batch(std::move(to_remove));
     }
-    _reclaim_data->barrier.wait();
-    _reclaim_data->barrier.wait();
-
+    catch(const reclaim_failed&)
     {
-        auto to_del = _reclaim_data->to_delete.lock();
-        for(const auto& d : *to_del)
-            d();
+        // If the reclaim failed for some reason, we put back the reclaim data
+        to_remove_proxy = _to_remove.lock();
+        to_remove_proxy->insert(to_remove.begin(), to_remove.end());
     }
-
-    delete _reclaim_data;
-
 }
 
-void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
+namespace
 {
+    namespace current
+    {
+        std::mutex lock;
+        reclaimer* self;
+        std::unique_ptr<dyntrace::barrier> barrier;
+        reclaimer::to_remove_type* to_remove;
+        dyntrace::locked<std::unordered_set<uintptr_t>> cant_remove;
+    }
+    pid_t gettid() noexcept
+    {
+        return syscall(SYS_gettid);
+    }
+
+    int signal_thread(pid_t tid, int sig)
+    {
+        return syscall(SYS_tgkill, getpid(), tid, sig);
+    }
+}
+
+void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
+{
+    std::unique_lock lock{current::lock};
+    current::self = this;
+    current::to_remove = &to_remove;
+
+    auto ths = dyntrace::process::process::this_process().threads();
+    current::barrier = std::make_unique<dyntrace::barrier>(ths.size());
+    for(auto tid : ths)
+    {
+        if(tid != gettid())
+        {
+            if(signal_thread(tid, SIGUSR1) == -1)
+            {
+                current::barrier->cancel();
+                throw reclaim_failed{};
+            }
+        }
+    }
+
+    current::barrier->wait();
+    if(!current::barrier->wait())
+    {
+        throw reclaim_failed{};
+    }
+    current::barrier->wait();
+
+    auto cant_remove = current::cant_remove.lock();
+    for(auto&& tr : to_remove)
+    {
+        if(cant_remove->find(tr.first) == cant_remove->end())
+            tr.second.del();
+        else
+        {
+            auto to_remove = _to_remove.lock();
+            to_remove->insert(std::move(tr));
+        }
+    }
+
+    cant_remove->clear();
+    current::to_remove = nullptr;
+    current::self = nullptr;
+}
+
 #ifdef __i386__
 #define REG_IP REG_EIP
 #else
 #define REG_IP REG_RIP
 #endif
-    if(_reclaim_data)
+
+void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
+{
+    if(!current::barrier->wait())
+        return;
+
+    auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
+    auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_IP]);
+
     {
-        auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
-        auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_IP]);
+        auto always_invalid = current::self->_always_invalid.lock_shared();
+        for (auto&& ai : *always_invalid)
         {
-            auto ainv = _reclaim_data->self->_always_invalid.lock();
-            for(auto& r : *ainv)
+            if (ai.contains(rip))
             {
-                if(r.contains(rip))
-                {
-                    _reclaim_data->cancel = true;
-                }
+                current::barrier->cancel();
+                return;
             }
         }
-        _reclaim_data->barrier.wait();
-
-        if(_reclaim_data->cancel)
-        {
-            fprintf(stderr, "Cancel\n");
-            return;
-        }
-
-        {
-            auto batch = _reclaim_data->self->_batch.lock();
-            for (auto it = batch->begin(); it != batch->end();)
-            {
-                if (it->predicate(rip))
-                {
-                    auto to_del = _reclaim_data->to_delete.lock();
-                    to_del->push_back(std::move(it->deleter));
-                    batch->erase(it++);
-                }
-                else
-                    ++it;
-            }
-        }
-        _reclaim_data->barrier.wait();
     }
-    else
+
+    if(!current::barrier->wait())
+        return;
+
+    for(const auto& tr : *current::to_remove)
     {
-        exit(128 + SIGUSR1);
+        if(!tr.second.pred(rip))
+        {
+            auto cant_remove = current::cant_remove.lock();
+            cant_remove->insert(tr.first);
+        }
     }
+
+    current::barrier->wait();
 }

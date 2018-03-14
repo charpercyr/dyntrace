@@ -5,12 +5,12 @@
 #include "dyntrace/util/barrier.hpp"
 #include "dyntrace/util/integer_range.hpp"
 #include "dyntrace/util/locked.hpp"
-#include "dyntrace/util/safe_queue.hpp"
+#include "dyntrace/util/semaphore.hpp"
 
+#include <any>
 #include <csignal>
 #include <functional>
 #include <future>
-#include <list>
 #include <thread>
 #include <variant>
 #include <vector>
@@ -25,55 +25,34 @@ namespace dyntrace::fasttp
     public:
         using predicate_type = std::function<bool(uintptr_t)>;
         using deleter_type = std::function<void()>;
+        struct to_remove_data
+        {
+            predicate_type pred;
+            deleter_type del;
+            std::any data;
+        };
+        using to_remove_type = std::unordered_map<uintptr_t, to_remove_data>;
+        using locked_to_remove_type = dyntrace::locked<to_remove_type>;
 
         reclaimer() noexcept;
         ~reclaimer();
 
-        void reclaim(predicate_type pred, deleter_type del)
-        {
-            _queue.put(reclaim_work{std::move(pred), std::move(del)});
-        }
-
-        void add_invalid(dyntrace::address_range range) noexcept
-        {
-            auto inv = _always_invalid.lock();
-            inv->push_back(range);
-        }
-
-        std::future<void> trigger_reclaim() noexcept;
+        void reclaim(uintptr_t id, predicate_type pred, deleter_type del, std::any data = {});
+        void add_invalid(dyntrace::address_range range) noexcept;
+        std::optional<std::any> cancel(uintptr_t id);
 
     private:
-        struct reclaim_stop {};
-        struct reclaim_work
-        {
-            predicate_type predicate;
-            deleter_type deleter;
-        };
-        struct reclaim_force
-        {
-            std::function<void()> done;
-        };
-        using queue_element = std::variant<std::monostate, reclaim_stop, reclaim_work, reclaim_force>;
-
-        struct reclaim_data
-        {
-            reclaimer* self;
-            dyntrace::locked<std::list<std::function<void()>>> to_delete;
-            dyntrace::barrier barrier;
-            std::atomic<bool> cancel;
-        };
 
         void run();
-        void reclaim_batch();
 
+        void reclaim_batch(locked_to_remove_type::proxy_type&& to_remove);
+        void reclaim_batch(to_remove_type&& to_remove);
         static void on_usr1(int, siginfo_t* sig, void* ctx);
-        static reclaim_data* _reclaim_data;
-        static std::mutex _reclaim_lock;
 
-        dyntrace::safe_queue<queue_element> _queue;
-        dyntrace::locked<std::list<reclaim_work>> _batch;
-        dyntrace::locked<std::vector<dyntrace::address_range>> _always_invalid;
-        std::thread _thread;
+        dyntrace::semaphore _events{0};
+        std::atomic<bool> _stop{false};
+        locked_to_remove_type _to_remove;
+        dyntrace::shared_locked<std::vector<dyntrace::address_range>> _always_invalid;
     };
 }
 

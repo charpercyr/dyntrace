@@ -62,6 +62,7 @@ struct PACKED tracepoint_return_exit_stack
         const void *return_address;
     } data;
 };
+
 #endif
 
 namespace
@@ -367,6 +368,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     _ool_size = ool.size();
 
     auto handler_size = is_point ? tracepoint_handler_size(_ool_size) : tracepoint_return_handler_size(_ool_size);
+    handler_size = next_pow2(handler_size);
 
     // Create handler in memory.
     constraint cond;
@@ -377,8 +379,34 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
 
     code_ptr handler_location;
     {
-        auto alloc = context::instance().arch().allocator();
-        handler_location = alloc->alloc(_location + jmp_size, handler_size, cond);
+        if(auto _data = context::instance().get_reclaimer().cancel(_location.as_int()))
+        {
+            auto code = std::any_cast<arch_tracepoint_code*>(_data.value());
+            if (code->handler_size >= handler_size)
+            {
+                handler_location = code->handler;
+            }
+            else
+            {
+                context::instance().get_reclaimer().reclaim(_location.as_int(),
+                    [code](uintptr_t rip) -> bool
+                    {
+                        return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
+                    },
+                    [code]() -> void
+                    {
+                        context::instance().arch().allocator()->free(code->handler, code->handler_size);
+                        delete code;
+                    },
+                    _code
+                );
+            }
+        }
+        if(!handler_location)
+        {
+            auto alloc = context::instance().arch().allocator();
+            handler_location = alloc->alloc(_location + jmp_size, handler_size, cond);
+        }
     }
     if(!handler_location)
         throw fasttp_error{"Could not allocate tracepoint"};
@@ -439,7 +467,7 @@ arch_tracepoint::~arch_tracepoint()
 {
     disable();
     _code->tracepoint.store(nullptr, std::memory_order_seq_cst);
-    context::instance().get_reclaimer().reclaim(
+    context::instance().get_reclaimer().reclaim(_location.as_int(),
         [code = _code](uintptr_t rip) -> bool
         {
             return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
@@ -448,7 +476,8 @@ arch_tracepoint::~arch_tracepoint()
         {
             context::instance().arch().allocator()->free(code->handler, code->handler_size);
             delete code;
-        }
+        },
+        _code
     );
 }
 
