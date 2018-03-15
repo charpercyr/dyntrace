@@ -1,5 +1,5 @@
 # dyntrace
-This project implements a fast tracepoint insertion ecosystem for x86_64 on Linux.
+This project implements a fast tracepoint insertion ecosystem for x86(_64) on Linux.
 
 # Getting Started
 ## Prerequesites
@@ -60,8 +60,11 @@ sudo pkill dyntraced
 ```
 More details in the [docs](docs/) folder.
 
+<aside class="notice">
+To trace x86 programs, you need the x86 build on x634.
+</aside>
+
 # TODO
-- x86 (32 bit) support
 - ARM (32 and 64 bit) support
 - Tracepoint name filters (wildcard + regex)
 - Tracepoint arguments filters (only trace if condition is true)
