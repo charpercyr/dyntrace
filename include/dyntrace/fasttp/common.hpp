@@ -23,6 +23,11 @@ namespace dyntrace
             return loc;
         }
 
+        inline location make_location(uintptr_t loc)
+        {
+            return reinterpret_cast<void*>(loc);
+        }
+
         template<typename R, typename...Args>
         inline location make_location(R(*loc)(Args...))
         {

@@ -11,8 +11,9 @@ auto handler = [](const void* addr, const dyntrace::arch::regs& regs)
 {
     std::cout << "Tracepoint hit at " << addr << "\n";
 };
-tracepoint tp{symbol_location{"foo"}, handler}; // Creates the tracepoint with a name
-tp = tracepoint{addr_location{0x1234}, handler}; // Creates the tracepoint with an address
+tracepoint tp{"foo", handler}; // Creates the tracepoint with a name
+tp = tracepoint{make_location(0x1234), handler}; // Creates the tracepoint with an address
+tp = tracepoint{make_location(foo), handler}; // Creates the tracepoint with a function pointer
 tp.enable(); // Enables the tracepoint
 tp.disable(); // Disables the tracepoint
 /// On tp.~tracepoint(), the tracepoint is removed
