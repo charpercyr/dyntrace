@@ -3,6 +3,7 @@
 
 #include "dyntrace/fasttp/fasttp.hpp"
 #include "dyntrace/fasttp/error.hpp"
+#include "dyntrace/process/process.hpp"
 
 #include <config.hpp>
 #include <process.pb.h>
@@ -237,18 +238,18 @@ private:
 
     void create_tp(tracepoint_info&& info)
     {
-        std::unique_ptr<fasttp::location> loc;
+        fasttp::location loc;
         void* addr{nullptr};
         if(std::holds_alternative<std::string>(info.loc))
         {
             fasttp::symbol_location symloc{std::get<std::string>(info.loc)};
-            addr = symloc.resolve(process::process::this_process());
-            loc = std::make_unique<fasttp::addr_location>(addr);
+            addr = fasttp::resolve(symloc);
+            loc = addr;
         }
         else
         {
             addr = reinterpret_cast<void*>(std::get<uintptr_t>(info.loc));
-            loc = std::make_unique<fasttp::addr_location>(addr);
+            loc = addr;
         }
         for(const auto& tp : _tps)
         {
@@ -262,7 +263,7 @@ private:
             h = _registry.get_factory(info.tracer).create_entry_exit_handler(info.tracer_args);
         else
             h = _registry.get_factory(info.tracer).create_point_handler(info.tracer_args);
-        info.tp = fasttp::tracepoint{*loc, std::move(h)};
+        info.tp = fasttp::tracepoint{loc, std::move(h)};
         _tps.push_back(std::move(info));
     }
 

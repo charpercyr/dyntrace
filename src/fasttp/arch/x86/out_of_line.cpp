@@ -2,7 +2,7 @@
 
 #include "jmp.hpp"
 
-#include "dyntrace/fasttp/context.hpp"
+#include "context.hpp"
 
 using namespace dyntrace::fasttp;
 

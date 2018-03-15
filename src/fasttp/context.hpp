@@ -1,7 +1,6 @@
 #ifndef DYNTRACE_FASTTP_CONTEXT_HPP_
 #define DYNTRACE_FASTTP_CONTEXT_HPP_
 
-#include "location.hpp"
 #include "reclaimer.hpp"
 
 #include "dyntrace/process/process.hpp"

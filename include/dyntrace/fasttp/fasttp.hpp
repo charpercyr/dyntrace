@@ -5,7 +5,6 @@
 #define DYNTRACE_FASTTP_FASTTP_HPP_
 
 #include "common.hpp"
-#include "location.hpp"
 
 #include <memory>
 
@@ -46,6 +45,8 @@ namespace dyntrace::fasttp
     private:
         arch_tracepoint* _impl;
     };
+
+    void* resolve(const location& loc);
 }
 
 #endif

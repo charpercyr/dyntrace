@@ -3,9 +3,10 @@ include(arch/${ARCH}/arch_src.cmake)
 
 dyntrace_shared_library(fasttp
     ${${ARCH}_src}
+    code_ptr.hpp
     arch/tracepoint.hpp
-    context.cpp
+    context.cpp context.hpp
     fasttp.cpp
-    location.cpp
-    reclaimer.cpp)
+    reclaimer.cpp reclaimer.hpp)
 target_link_libraries(fasttp capstone process pthread )
+target_include_directories(fasttp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})

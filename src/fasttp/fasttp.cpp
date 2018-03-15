@@ -4,9 +4,26 @@
 
 using namespace dyntrace::fasttp;
 
+void* dyntrace::fasttp::resolve(const location& loc)
+{
+    if(std::holds_alternative<addr_location>(loc))
+    {
+        return std::get<addr_location>(loc);
+    }
+    else if(std::holds_alternative<symbol_location>(loc))
+    {
+        auto sym = dyntrace::process::process::this_process().get(std::get<symbol_location>(loc));
+        return reinterpret_cast<void*>(sym.value);
+    }
+    else
+    {
+        return nullptr;
+    }
+}
+
 tracepoint::tracepoint(const fasttp::location &loc, handler handler, const options &ops)
     : _impl{new arch_tracepoint{
-        loc.resolve(process::process::this_process()),
+        resolve(loc),
         std::move(handler), ops
     }} {}
 

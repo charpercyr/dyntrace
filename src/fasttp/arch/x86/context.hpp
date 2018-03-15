@@ -5,8 +5,8 @@
 #define DYNTRACE_FASTTP_ARCH_X86_64_CONTEXT_HPP_
 
 #include "code_allocator.hpp"
+#include "code_ptr.hpp"
 
-#include "dyntrace/fasttp/code_ptr.hpp"
 #include "dyntrace/fasttp/common.hpp"
 
 #include "dyntrace/arch/arch.hpp"

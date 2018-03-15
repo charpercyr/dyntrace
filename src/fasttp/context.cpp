@@ -1,4 +1,4 @@
-#include "dyntrace/fasttp/context.hpp"
+#include "context.hpp"
 
 #include "arch/tracepoint.hpp"
 

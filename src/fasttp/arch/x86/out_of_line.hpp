@@ -5,8 +5,8 @@
 #define DYNTRACE_FASTTP_ARCH_X86_64_PATCHER_HPP_
 
 #include "buffer_writer.hpp"
+#include "code_ptr.hpp"
 
-#include "dyntrace/fasttp/code_ptr.hpp"
 #include "dyntrace/process/process.hpp"
 
 #include <capstone/capstone.h>

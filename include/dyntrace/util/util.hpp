@@ -113,6 +113,31 @@ namespace dyntrace
             printf("\n");
         }
     }
+
+    class assert_failed_error : public std::exception
+    {
+    public:
+        assert_failed_error(const char* file, int line, const char* expr)
+            : _msg{std::string{"assert failed at "} + file + "@" + std::to_string(line) + ": " + expr} {}
+
+        const char* what() const noexcept override
+        {
+            return _msg.c_str();
+        }
+
+    private:
+        const std::string _msg;
+    };
+
+#define assert(x) \
+    do \
+    { \
+        if(!(x)) \
+            throw ::dyntrace::assert_failed_error{__FILE__, __LINE__, #x}; \
+    } \
+    while(0)
+#else
+#define assert(x)
 #endif // _DEBUG
 }
 

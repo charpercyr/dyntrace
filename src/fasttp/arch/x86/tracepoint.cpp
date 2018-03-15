@@ -12,7 +12,7 @@
 
 #include "dyntrace/fasttp/error.hpp"
 #include "dyntrace/fasttp/fasttp.hpp"
-#include "dyntrace/fasttp/context.hpp"
+#include "../../context.hpp"
 
 #define PACKED __attribute__((packed))
 
@@ -375,7 +375,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
     {
         if(auto _data = reclaimer::instance().cancel(_location.as_int()))
         {
-            auto code = std::any_cast<arch_tracepoint_code*>(_data.value());
+            auto code = std::any_cast<arch_tracepoint_code*>(_data.value().data);
             if (code->handler_size >= handler_size)
             {
                 handler_location = code->handler;
@@ -384,20 +384,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
             }
             else
             {
-                // Generate an id that should statistically not be reused. Else we have a small memory leak
-                reclaimer::instance().reclaim(
-                    std::mt19937_64(std::chrono::steady_clock::now().time_since_epoch().count())(),
-                    [code](uintptr_t rip) -> bool
-                    {
-                        return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
-                    },
-                    [code]() -> void
-                    {
-                        context::instance().arch().allocator()->free(code->handler, code->handler_size);
-                        delete code;
-                    },
-                    _code
-                );
+                reclaimer::instance().reclaim(std::mt19937_64(clock())(), std::move(_data.value()));
             }
         }
         if(!handler_location)
@@ -470,17 +457,21 @@ arch_tracepoint::~arch_tracepoint()
 {
     disable();
     _code->tracepoint.store(nullptr, std::memory_order_seq_cst);
-    reclaimer::instance().reclaim(_location.as_int(),
-        [code = _code](uintptr_t rip) -> bool
-        {
-            return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) && code->refcount.load() == 0;
-        },
-        [code = _code]() -> void
-        {
-            context::instance().arch().allocator()->free(code->handler, code->handler_size);
-            delete code;
-        },
-        _code
+    reclaimer::instance().reclaim(
+        _location.as_int(),
+        reclaimer::reclaim_request{
+            [code = _code](uintptr_t rip) -> bool
+            {
+                return !(rip > code->handler.as_int() && rip < (code->handler.as_int() + code->handler_size)) &&
+                       code->refcount.load() == 0;
+            },
+            [code = _code]() -> void
+            {
+                context::instance().arch().allocator()->free(code->handler, code->handler_size);
+                delete code;
+            },
+            _code
+        }
     );
 }
 

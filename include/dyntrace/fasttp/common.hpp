@@ -6,10 +6,6 @@
 
 #include "dyntrace/tracer.hpp"
 
-#include <functional>
-#include <tuple>
-#include <variant>
-
 namespace dyntrace
 {
     namespace fasttp
@@ -17,6 +13,26 @@ namespace dyntrace
         using point_handler = dyntrace::tracer::point_handler;
         using entry_exit_handler = dyntrace::tracer::entry_exit_handler;
         using handler = dyntrace::tracer::handler;
+
+        using addr_location = void*;
+        using symbol_location = std::string;
+        using location = std::variant<addr_location, symbol_location>;
+
+        inline location make_location(addr_location loc)
+        {
+            return loc;
+        }
+
+        template<typename R, typename...Args>
+        inline location make_location(R(*loc)(Args...))
+        {
+            return reinterpret_cast<void*>(loc);
+        }
+
+        inline location make_location(symbol_location loc)
+        {
+            return loc;
+        }
 
         /**
          * Tracepoint options.

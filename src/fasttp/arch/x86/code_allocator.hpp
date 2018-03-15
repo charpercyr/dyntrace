@@ -1,7 +1,7 @@
 #ifndef DYNTRACE_FASTTP_ARCH_X86_64_CODE_ALLOCATOR_HPP_
 #define DYNTRACE_FASTTP_ARCH_X86_64_CODE_ALLOCATOR_HPP_
 
-#include "dyntrace/fasttp/code_ptr.hpp"
+#include "code_ptr.hpp"
 
 #include "dyntrace/process/process.hpp"
 #include "dyntrace/util/integer_range.hpp"

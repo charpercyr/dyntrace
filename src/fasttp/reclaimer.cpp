@@ -1,4 +1,4 @@
-#include "dyntrace/fasttp/reclaimer.hpp"
+#include "reclaimer.hpp"
 
 #include "dyntrace/fasttp/error.hpp"
 
@@ -11,13 +11,6 @@ using namespace std::chrono_literals;
 
 inline constexpr auto reclaim_period = 5s;
 inline constexpr auto reclaim_count = 2000;
-
-class reclaim_failed : public std::runtime_error
-{
-public:
-    reclaim_failed() noexcept
-        : std::runtime_error{"reclaim failed"} {}
-};
 
 reclaimer& reclaimer::instance()
 {
@@ -34,17 +27,15 @@ reclaimer::reclaimer() noexcept
         sa.sa_flags = SA_SIGINFO;
         sa.sa_sigaction = &reclaimer::on_usr1;
         sigaction(SIGUSR1, &sa, nullptr);
-        sa.sa_sigaction = &reclaimer::on_usr2;
-        sigaction(SIGUSR2, &sa, nullptr);
     });
-    std::thread th{&reclaimer::run, this};
-    th.detach();
+    _thread = std::thread{&reclaimer::run, this};
 }
 
 reclaimer::~reclaimer()
 {
     _stop = true;
     _events.put();
+    _thread.join();
 }
 
 void reclaimer::add_invalid(dyntrace::address_range range) noexcept
@@ -53,22 +44,33 @@ void reclaimer::add_invalid(dyntrace::address_range range) noexcept
     inv->push_back(range);
 }
 
-void reclaimer::reclaim(uintptr_t id, reclaimer::predicate_type pred, reclaimer::deleter_type del, std::any data)
+void reclaimer::reclaim(uintptr_t id, reclaim_request&& req)
 {
     auto to_remove = _to_remove.lock();
-    to_remove->emplace(id, to_remove_data{std::move(pred), std::move(del), std::move(data)});
+    to_remove->emplace(
+        id,
+        std::shared_ptr<reclaim_request>{
+            new reclaim_request{std::move(req)},
+            [](reclaim_request* data)
+            {
+                if(data->del)
+                    data->del();
+                delete data;
+            }
+        }
+    );
     _events.put();
 }
 
-std::optional<std::any> reclaimer::cancel(uintptr_t id)
+std::optional<reclaimer::reclaim_request> reclaimer::cancel(uintptr_t id)
 {
     auto to_remove = _to_remove.lock();
     auto it = to_remove->find(id);
     if(it != to_remove->end())
     {
-        std::any data = std::move(it->second.data);
+        auto req = std::move(*it->second);
         to_remove->erase(it);
-        return std::move(data);
+        return std::move(req);
     }
     return std::nullopt;
 }
@@ -81,8 +83,11 @@ void reclaimer::run()
         bool not_timeout = _events.wait_until(end);
         if(_stop.load(std::memory_order_relaxed))
         {
+            // The only time this is called is when the program is closing
+            // These functions cause problems because of the order of global delete
             auto to_remove = _to_remove.lock();
-            reclaim_batch(std::move(*to_remove));
+            for(auto& tr : *to_remove)
+                tr.second->del = nullptr;
             break;
         }
         if(not_timeout)
@@ -102,107 +107,151 @@ void reclaimer::run()
     }
 }
 
-void reclaimer::reclaim_batch(locked_to_remove_type::proxy_type&& to_remove_proxy)
+void reclaimer::reclaim_batch(locked_request_map::proxy_type&& to_remove_proxy)
 {
     if(to_remove_proxy->empty())
         return;
-    to_remove_type to_remove = std::move(*to_remove_proxy);
+    request_map to_remove = std::move(*to_remove_proxy);
     to_remove_proxy->clear();
     to_remove_proxy.unlock();
-    try
-    {
-        reclaim_batch(std::move(to_remove));
-    }
-    catch(const reclaim_failed&)
-    {
-        // If the reclaim failed for some reason, we put back the reclaim data
-        to_remove_proxy = _to_remove.lock();
-        to_remove_proxy->insert(to_remove.begin(), to_remove.end());
-    }
+    reclaim_batch(std::move(to_remove));
 }
 
 namespace
 {
+
+    void do_nothing() {}
+
+    class reclaim_barrier
+    {
+    public:
+
+        void reclaim_enter(std::function<void()> f)
+        {
+            assert(f);
+            std::unique_lock lock{_lock};
+            while(_count)
+                _cond.wait(lock);
+            assert(!_on_done);
+            _on_done = std::move(f);
+            ++_count;
+        }
+
+        void worker_enter()
+        {
+            std::unique_lock lock{_lock};
+            assert(_on_done);
+            ++_count;
+        }
+
+        void exit()
+        {
+            std::unique_lock lock{_lock};
+            if(--_count == 0)
+            {
+                _on_done();
+                _on_done = nullptr;
+                lock.unlock();
+                _cond.notify_one();
+            }
+        }
+
+    private:
+        std::mutex _lock;
+        std::condition_variable _cond;
+        uintptr_t _count{0};
+        std::function<void()> _on_done;
+    };
+
+    class reclaim_lock
+    {
+    public:
+        explicit reclaim_lock(reclaim_barrier& b, std::function<void()> f = do_nothing)
+            : _b{b}
+        {
+            _b.reclaim_enter(std::move(f));
+        }
+        ~reclaim_lock()
+        {
+            _b.exit();
+        }
+    private:
+        reclaim_barrier& _b;
+    };
+
+    class worker_lock
+    {
+    public:
+        explicit worker_lock(reclaim_barrier& b)
+            : _b{b}
+        {
+            _b.worker_enter();
+        }
+        ~worker_lock()
+        {
+            _b.exit();
+        }
+    private:
+        reclaim_barrier& _b;
+    };
+
     namespace current
     {
-        std::mutex lock;
-        reclaimer* self;
-        std::unique_ptr<dyntrace::barrier> barrier;
-        reclaimer::to_remove_type* to_remove;
-        dyntrace::locked<std::unordered_set<uintptr_t>> cant_remove;
-        std::atomic<uintptr_t> alive;
+        reclaim_barrier barrier;
+        std::promise<void> ready{};
+        std::vector<std::pair<uintptr_t, std::shared_ptr<reclaimer::reclaim_request>>> to_delete;
+
+        void cleanup()
+        {
+            to_delete.clear();
+        }
     }
+
     pid_t gettid() noexcept
     {
         return syscall(SYS_gettid);
     }
 
-    int signal_thread(pid_t tid, int sig)
+    int tgkill(pid_t tgid, pid_t tid, int sig)
     {
-        return syscall(SYS_tgkill, getpid(), tid, sig);
+        return syscall(SYS_tgkill, tgid, tid, sig);
     }
 }
 
-void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
+void reclaimer::reclaim_batch(reclaimer::request_map&& to_remove)
 {
-    std::unique_lock lock{current::lock};
-    current::self = this;
-    current::to_remove = &to_remove;
-    current::alive = 0;
+    reclaim_lock lock{current::barrier, current::cleanup};
+    current::ready = {};
+    auto ready = current::ready.get_future();
 
-    auto ths = dyntrace::process::process::this_process().threads();
+    std::copy(to_remove.begin(), to_remove.end(), std::back_inserter(current::to_delete));
 
-    for(auto tid : ths)
+    for(auto tid : process::process::this_process().threads())
     {
         if(tid != gettid())
+            tgkill(getpid(), tid, SIGUSR1);
+    }
+
+    // If we wait too long, we just put back the data, else it is deleted.
+    // It means that no other thread can be signaled with SIGUSR1 (weird)
+    if(ready.wait_for(reclaim_period) == std::future_status::timeout)
+    {
+        auto _tr = _to_remove.lock();
+        for(auto&& tr : to_remove)
         {
-            printf("Signal %d\r\n", tid);
-            if(signal_thread(tid, SIGUSR2) == -1)
-            {
-                throw reclaim_failed{};
-            }
+            _tr->insert(std::move(tr));
         }
     }
+}
 
-    std::this_thread::sleep_for(1s);
-
-    current::barrier = std::make_unique<dyntrace::barrier>(current::alive);
-    for(auto tid : ths)
+void reclaimer::wait_last()
+{
+    reclaim_lock lock{current::barrier};
+    auto to_remove = _to_remove.lock();
+    for(auto&& tr : *to_remove)
     {
-        if(tid != gettid())
-        {
-            printf("Signal %d\r\n", tid);
-            if(signal_thread(tid, SIGUSR1) == -1)
-            {
-                current::barrier->cancel();
-                throw reclaim_failed{};
-            }
-        }
+        tr.second->del = nullptr;
     }
-
-    current::barrier->wait();
-    if(!current::barrier->wait())
-    {
-        throw reclaim_failed{};
-    }
-    current::barrier->wait();
-
-    auto cant_remove = current::cant_remove.lock();
-    for(auto&& tr : to_remove)
-    {
-        if(cant_remove->find(tr.first) == cant_remove->end())
-            tr.second.del();
-        else
-        {
-            auto self_to_remove = _to_remove.lock();
-            self_to_remove->insert(std::move(tr));
-        }
-    }
-
-    cant_remove->clear();
-    current::barrier = nullptr;
-    current::to_remove = nullptr;
-    current::self = nullptr;
 }
 
 #ifdef __i386__
@@ -211,47 +260,44 @@ void reclaimer::reclaim_batch(reclaimer::to_remove_type&& to_remove)
 #define REG_IP REG_RIP
 #endif
 
-void reclaimer::on_usr2(int, siginfo_t* sig, void* _ctx)
-{
-    ++current::alive;
-}
-
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
 {
-    printf("Start reclaim %d\r\n", gettid());
-    if(!current::barrier->wait())
-        return;
-
-    auto ctx = reinterpret_cast<ucontext_t*>(_ctx);
-    auto rip = static_cast<uintptr_t>(ctx->uc_mcontext.gregs[REG_IP]);
-
-    printf("Start always_invalid %d\r\n", gettid());
+    worker_lock lock{current::barrier};
+    try
     {
-        auto always_invalid = current::self->_always_invalid.lock_shared();
-        for (auto&& ai : *always_invalid)
+        current::ready.set_value();
+    }
+    catch(std::future_error&)
+    {
+        // Nothing
+    }
+
+    uintptr_t rip = reinterpret_cast<ucontext_t*>(_ctx)->uc_mcontext.gregs[REG_IP];
+
+    {
+        auto always_invalid = instance()._always_invalid.lock_shared();
+        for(auto&& ai : *always_invalid)
         {
-            printf("Found invalid %lx\r\n", rip);
-            if (ai.contains(rip))
+            if(ai.contains(rip))
             {
-                current::barrier->cancel();
-                return;
+                auto _tr = instance()._to_remove.lock();
+                for(auto&& tr : current::to_delete)
+                {
+                    _tr->insert(tr);
+                }
+                break;
             }
         }
     }
 
-    if(!current::barrier->wait())
-        return;
-
-    printf("Start preds %d\r\n", gettid());
-    for(const auto& tr : *current::to_remove)
+    for(auto&& td : current::to_delete)
     {
-        if(!tr.second.pred(rip))
+        if(!td.second->pred(rip))
         {
-            printf("Cant remove %lx %lx\r\n", tr.first, rip);
-            auto cant_remove = current::cant_remove.lock();
-            cant_remove->insert(tr.first);
+            auto tr = instance()._to_remove.lock();
+            auto it = tr->find(td.first);
+            if(it == tr->end())
+                tr->insert(td);
         }
     }
-
-    current::barrier->wait();
 }

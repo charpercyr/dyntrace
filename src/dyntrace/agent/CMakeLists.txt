@@ -8,6 +8,7 @@ target_link_libraries(agent
     boost_log
     boost_system
     config
+    dl
     fasttp
     proto
     stdc++fs

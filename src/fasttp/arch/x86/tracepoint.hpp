@@ -3,7 +3,7 @@
 
 #include "context.hpp"
 
-#include "dyntrace/fasttp/code_ptr.hpp"
+#include "code_ptr.hpp"
 #include "dyntrace/fasttp/common.hpp"
 
 #include "dyntrace/arch/arch.hpp"
