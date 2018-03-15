@@ -61,7 +61,7 @@ sudo pkill dyntraced
 More details in the [docs](docs/) folder.
 
 <aside class="notice">
-To trace x86 programs, you need the x86 build on x634.
+To trace x86 programs, you need the x86 build on x64.
 </aside>
 
 # TODO
