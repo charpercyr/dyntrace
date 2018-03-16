@@ -12,7 +12,7 @@ int main()
     for(;;)
     {
         do_inc(&a);
-        printf("%d\n", a);
+        printf("%ld\n", a);
         sleep(1);
     }
     return 0;

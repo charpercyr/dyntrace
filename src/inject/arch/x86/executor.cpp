@@ -5,16 +5,16 @@
 #include <cinttypes>
 
 
+#ifdef __i386__
 extern "C" void __remote_execute32();
 extern const size_t __remote_execute32_size;
-#ifdef __i386__
 #define __remote_execute __remote_execute32
 #define __remote_execute_size __remote_execute32_size
 #else
 extern "C" void __remote_execute64();
 extern const size_t __remote_execute64_size;
-#define __remote_execute __remote_execute32
-#define __remote_execute_size __remote_execute32_size
+#define __remote_execute __remote_execute64
+#define __remote_execute_size __remote_execute64_size
 #endif
 
 using namespace dyntrace::inject;

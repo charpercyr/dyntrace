@@ -3,6 +3,7 @@ dyntrace_shared_library(agent
     main.cpp
     tracer.cpp tracer.hpp
     DESTINATION lib/dyntrace
+    NOSOVERSION
 )
 target_link_libraries(agent
     boost_log
