@@ -6,14 +6,26 @@ message tracepoint
 {
     string symbol = 1;
     uint64 address = 2;
-    string name = 3;
-    string tracer = 4;
+    uint64 id = 3;
+    bool failed = 4;
+}
+message tracepoint_group
+{
+    string name = 1;
+    oneof location
+    {
+        string filter = 2;
+        string regex = 3;
+        uint64 address = 4;
+    }
     bool entry_exit = 5;
-    repeated string tracer_args = 6;
+    string tracer = 6;
+    repeated string tracer_args = 7;
+    repeated tracepoint tps = 8;
 }
 message tracepoint_list
 {
-    repeated tracepoint tp = 1;
+    repeated tracepoint_group tgs = 1;
 }
 message symbol
 {
@@ -24,9 +36,15 @@ message symbol_list
 {
     repeated symbol sym = 1;
 }
+message tracepoint_creation_failed
+{
+    uint64 id = 1;
+    string msg = 2;
+}
 message tracepoint_created
 {
     string name = 1;
+    repeated tracepoint_creation_failed failed = 2;
 }
 
 message my_pid

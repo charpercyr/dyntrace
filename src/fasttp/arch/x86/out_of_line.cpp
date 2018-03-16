@@ -113,7 +113,7 @@ uint8_t instruction::size() const noexcept
     return _insn->size;
 }
 
-void instruction::write(buffer_writer &writer) const noexcept
+void instruction::write(buffer_writer &writer) const
 {
     writer.write_bytes(_insn->bytes, _insn->size);
 }
@@ -192,7 +192,7 @@ int32_t relative_cond_branch::displacement() const noexcept
     }
 }
 
-void ip_relative_instruction::write(buffer_writer &writer) const noexcept
+void ip_relative_instruction::write(buffer_writer &writer) const
 {
     uintptr_t disp_diff_bits = 0;
     for(uintptr_t i = 0; i < insn()->detail->x86.op_count; ++i)

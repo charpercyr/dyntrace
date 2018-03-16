@@ -30,7 +30,7 @@ namespace dyntrace::fasttp
 
         virtual uint8_t size() const noexcept;
 
-        virtual void write(buffer_writer &writer) const noexcept;
+        virtual void write(buffer_writer &writer) const;
 
         uintptr_t address() const noexcept
         {
@@ -86,7 +86,7 @@ namespace dyntrace::fasttp
     {
         using instruction::instruction;
 
-        void write(buffer_writer &writer) const noexcept override;
+        void write(buffer_writer &writer) const;
     };
 
     /**

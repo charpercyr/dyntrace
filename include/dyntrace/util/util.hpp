@@ -129,7 +129,7 @@ namespace dyntrace
         const std::string _msg;
     };
 
-#define assert(x) \
+#define dyntrace_assert(x) \
     do \
     { \
         if(!(x)) \
@@ -137,7 +137,7 @@ namespace dyntrace
     } \
     while(0)
 #else
-#define assert(x)
+#define dyntrace_assert(x)
 #endif // _DEBUG
 }
 
