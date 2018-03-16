@@ -21,19 +21,20 @@ using namespace dyntrace::inject;
 
 #ifdef __i386__
 #define REG(name) e##name
-#else
+#else // __i386__
 #define REG(name) r##name
-#endif
+#endif // __i386__
 
 namespace
 {
+#ifdef _DEBUG
     void dump_regs(const user_regs_struct &regs, FILE *out = stdout)
     {
 #ifdef __i386__
 #define DUMP_ONE(name) fprintf(out, #name" %lx\n", regs.name)
-#else
+#else // __i386__
 #define DUMP_ONE(name) fprintf(out, #name" %llx\n", regs.name)
-#endif
+#endif // __i386__
         DUMP_ONE(REG(ax));
         DUMP_ONE(REG(bx));
         DUMP_ONE(REG(cx));
@@ -55,6 +56,7 @@ namespace
         DUMP_ONE(REG(ip));
 #undef DUMP_ONE
     }
+#endif // _DEBUG
 }
 
 arch_executor::arch_executor(process_ptr proc)
@@ -110,10 +112,10 @@ uintptr_t arch_executor::remote_call(remote_ptr func, const remote_args &args)
 #ifdef __i386__
     regs.ebx = args[4];
     regs.ebp = args[5];
-#else
+#else // __i386__
     regs.r8 = args[4];
     regs.r9 = args[5];
-#endif
+#endif // __i386__
     regs.REG(ip) = _old_code_ptr.as_int();
 
     _pt.set_regs(regs);
@@ -122,7 +124,9 @@ uintptr_t arch_executor::remote_call(remote_ptr func, const remote_args &args)
     int status = _pt.wait();
     if(!WIFSTOPPED(status) || WSTOPSIG(status) != SIGTRAP)
     {
+#ifdef _DEBUG
         dump_regs(regs, stderr);
+#endif // _DEBUG
         throw inject_error{"Invalid signal received "s + strsignal(WSTOPSIG(status))};
     }
 

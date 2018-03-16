@@ -40,6 +40,7 @@ struct cmdline
     size_t threads;
 };
 
+#ifndef _DEBUG
 gid_t get_dyntrace_group()
 {
     if(auto grp = getgrnam(dyntrace::config::group_name))
@@ -49,6 +50,7 @@ gid_t get_dyntrace_group()
     else
         do_exit("Could not find group '"s + dyntrace::config::group_name + "'"s);
 }
+#endif
 
 cmdline parse_args(int argc, const char** argv)
 {
@@ -149,8 +151,8 @@ int main(int argc, const char** argv)
     {
         do_exit("You must be root to run this"sv);
     }
-#endif
     auto grp = get_dyntrace_group();
+#endif
     auto args = parse_args(argc, argv);
     setup_daemon(args.daemonize);
     init_logging(args.daemonize);
@@ -191,9 +193,11 @@ int main(int argc, const char** argv)
         comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, process_factory};
 
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
-        chown(dyntrace::config::command_socket_name, geteuid(), grp);
         chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG);
+#ifndef _DEBUG
+        chown(dyntrace::config::command_socket_name, geteuid(), grp);
         chown(dyntrace::config::process_socket_name, geteuid(), grp);
+#endif
 
         asio::signal_set sigs{ctx, SIGINT, SIGTERM};
         sigs.async_wait(
