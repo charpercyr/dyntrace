@@ -163,6 +163,7 @@ void code_allocator::free(code_ptr ptr, size_t size) noexcept
             --it->second;
             if(it->second == 0)
             {
+                dealloc_page(it->first);
                 _refcount.erase(it);
                 remove_free({i.as_int(), i.as_int() + PAGE_SIZE});
             }
