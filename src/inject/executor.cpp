@@ -27,7 +27,7 @@ void executor::copy(void *to, remote_ptr from, size_t size)
     _impl->get_ptrace().read(to, from, size);
 }
 
-static const auto libc_regex = std::regex{".*libc.*"};
+static const auto libc_regex = std::regex{"libc-.*\\.so"};
 
 remote_malloc dyntrace::inject::make_malloc(executor &e)
 {
