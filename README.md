@@ -9,7 +9,8 @@ Libraries
 - [boost 1.66+](http://www.boost.org/users/download/)
 - [libelfin](https://github.com/aclements/libelfin)
 - [Capstone](http://www.capstone-engine.org/)
-- [Google Protocol Buffers](https://developers.google.com/protocol-buffers/)
+- [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) for C++ and Python 3
+- [LTTng](https://lttng.org/) (optional)
 
 Programs
 - [Python 3.6+](https://www.python.org/downloads/)
