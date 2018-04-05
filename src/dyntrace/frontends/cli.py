@@ -6,6 +6,9 @@ from dyntrace.dyntrace import Dyntrace, DyntraceError
 import dyntrace.debug as debug
 
 
+SOCKET_FILE='@DYNTRACE_WORKING_DIRECTORY@/@DYNTRACE_COMMAND_SOCKET_NAME@'
+
+
 def parse_process(proc):
     try:
         return int(proc)
@@ -126,7 +129,7 @@ def main():
     parser.add_argument(
         '-s', '--socket',
         help='Socket to connect to',
-        default='@DYNTRACE_WORKING_DIRECTORY@/@DYNTRACE_COMMAND_SOCKET_NAME@'
+        default=SOCKET_FILE
     )
 
     add = sps.add_parser('add')
