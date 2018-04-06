@@ -100,7 +100,64 @@ namespace
         w.write(disp);
     }
 
-#endif
+#endif // __i386__
+
+    void remove_used_reg(std::unordered_set<x86_reg>& free, x86_reg reg)
+    {
+        switch(reg)
+        {
+            case X86_REG_AL:
+            case X86_REG_AH:
+            case X86_REG_AX:
+            case X86_REG_EAX:
+            case X86_REG_RAX:
+                free.erase(X86_REG_RAX);
+                break;
+            case X86_REG_CL:
+            case X86_REG_CH:
+            case X86_REG_CX:
+            case X86_REG_ECX:
+            case X86_REG_RCX:
+                free.erase(X86_REG_RCX);
+                break;
+            case X86_REG_DL:
+            case X86_REG_DH:
+            case X86_REG_DX:
+            case X86_REG_EDX:
+            case X86_REG_RDX:
+                free.erase(X86_REG_RDX);
+                break;
+            case X86_REG_DIL:
+            case X86_REG_DI:
+            case X86_REG_EDI:
+            case X86_REG_RDI:
+                free.erase(X86_REG_RDI);
+                break;
+            default:
+                break;
+        }
+    }
+
+    x86_reg find_free_reg(cs_insn* insn)
+    {
+        std::unordered_set<x86_reg> free = {
+            X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RDI
+        };
+        auto x86 = &insn->detail->x86;
+        for(size_t i = 0; i < x86->op_count; ++i)
+        {
+            if(x86->operands[i].type == X86_OP_REG)
+            {
+                remove_used_reg(free, x86->operands[i].reg);
+            }
+            else if(x86->operands[i].type == X86_OP_MEM)
+            {
+                remove_used_reg(free, static_cast<x86_reg>(x86->operands[i].mem.base));
+                remove_used_reg(free, static_cast<x86_reg>(x86->operands[i].mem.index));
+            }
+        }
+        return *free.begin();
+    }
 }
 
 instruction::~instruction()
