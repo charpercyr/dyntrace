@@ -124,7 +124,7 @@ tracepoint_registry::add_status tracepoint_registry::add(const proto::process::a
         });
     }
     if(tg.active == 0)
-        throw tracepoints_error{"Could not create any tracepoints"};
+        return status;
 
     if(req.name().empty())
         tg.name = "tp-" + std::to_string(_next_id++);
@@ -140,7 +140,12 @@ tracepoint_registry::add_status tracepoint_registry::add(const proto::process::a
 
 void tracepoint_registry::remove(const proto::process::remove_tracepoint &req)
 {
-
+    using namespace std::string_literals;
+    auto it = _groups.find(req.name());
+    if(it != _groups.end())
+         _groups.erase(it);
+    else
+        throw tracepoints_error{"Tracepoint "s + req.name() + " does not exist"s};
 }
 
 bool tracepoint_registry::check_sym(void *addr)

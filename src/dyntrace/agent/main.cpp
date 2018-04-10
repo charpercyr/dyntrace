@@ -138,6 +138,7 @@ private:
 
     proto::response on_request(const proto::process::process_message& msg) noexcept
     {
+        using namespace std::string_literals;
         proto::response resp;
         resp.set_req_seq(msg.seq());
         resp.mutable_ok();
@@ -153,12 +154,25 @@ private:
             else if(msg.req().has_add_tp())
             {
                 auto r = _registry.add(msg.req().add_tp());
-                resp.mutable_ok()->mutable_tp_created()->set_name(std::move(r.first));
-                for(auto&& e : r.second)
+                if(r.first.empty())
                 {
-                    auto failed = resp.mutable_ok()->mutable_tp_created()->add_failed();
-                    failed->set_id(e.first);
-                    failed->set_msg(std::move(e.second));
+                    resp.mutable_err()->set_type("tracepoint_error");
+                    std::string err_msg;
+                    for(auto&& e : r.second)
+                    {
+                        err_msg += "#"s + std::to_string(e.first) + ": "s + e.second;
+                    }
+                    resp.mutable_err()->set_msg(std::move(err_msg));
+                }
+                else
+                {
+                    resp.mutable_ok()->mutable_tp_created()->set_name(std::move(r.first));
+                    for (auto &&e : r.second)
+                    {
+                        auto failed = resp.mutable_ok()->mutable_tp_created()->add_failed();
+                        failed->set_id(e.first);
+                        failed->set_msg(std::move(e.second));
+                    }
                 }
             }
             else if(msg.req().has_remove_tp())
