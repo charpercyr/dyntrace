@@ -46,7 +46,7 @@ namespace
 
 #ifdef __i386__
 
-    const std::unordered_map<std::string, uint8_t> register_ids = {
+    const std::unordered_map<std::string, uint8_t> reg_name_ids = {
         {"ax", 0},
         {"cx", 1},
         {"dx", 2},
@@ -59,7 +59,7 @@ namespace
     uint8_t get_register(const std::string& thunk)
     {
         auto i = thunk.find_last_of('.');
-        return register_ids.at(thunk.substr(i + 1));
+        return reg_name_ids.at(thunk.substr(i + 1));
     }
 
     auto init_thunks()
@@ -127,21 +127,22 @@ namespace
             case X86_REG_RDX:
                 free.erase(X86_REG_RDX);
                 break;
-            case X86_REG_DIL:
-            case X86_REG_DI:
-            case X86_REG_EDI:
-            case X86_REG_RDI:
-                free.erase(X86_REG_RDI);
+        case X86_REG_BL:
+        case X86_REG_BH:
+        case X86_REG_BX:
+        case X86_REG_EBX:
+        case X86_REG_RBX:
+                free.erase(X86_REG_RBX);
                 break;
             default:
                 break;
         }
     }
 
-    x86_reg find_free_reg(cs_insn* insn)
+    x86_reg find_free_reg(const cs_insn* insn)
     {
         std::unordered_set<x86_reg> free = {
-            X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RDI
+            X86_REG_RAX, X86_REG_RCX, X86_REG_RDX, X86_REG_RBX
         };
         auto x86 = &insn->detail->x86;
         for(size_t i = 0; i < x86->op_count; ++i)
@@ -157,6 +158,18 @@ namespace
             }
         }
         return *free.begin();
+    }
+
+    const std::unordered_map<x86_reg, uint8_t> reg_capstone_ids = {
+        {X86_REG_RAX, 0},
+        {X86_REG_RCX, 1},
+        {X86_REG_RDX, 2},
+        {X86_REG_RBX, 3},
+    };
+
+    uint16_t patched_ip_rel_size(uint16_t size)
+    {
+        return size + 8;
     }
 }
 
@@ -249,8 +262,15 @@ int32_t relative_cond_branch::displacement() const noexcept
     }
 }
 
+uint8_t ip_relative_instruction::size() const noexcept
+{
+    return patched_ip_rel_size(insn()->size);
+}
+
 void ip_relative_instruction::write(buffer_writer &writer) const
 {
+    auto free_reg = find_free_reg(insn());
+    auto reg_id = reg_capstone_ids.at(free_reg);
     uintptr_t disp_diff_bits = 0;
     for(uintptr_t i = 0; i < insn()->detail->x86.op_count; ++i)
     {
@@ -259,15 +279,19 @@ void ip_relative_instruction::write(buffer_writer &writer) const
     }
     uintptr_t disp_idx = insn()->size - 4 - (disp_diff_bits + 7) / 8;
 
-    code_ptr to = writer.ptr();
-
-    writer.write_bytes(insn()->bytes, insn()->size);
-    int32_t disp;
-    memcpy(&disp, insn()->bytes + disp_idx, 4);
-
+    auto disp = *reinterpret_cast<const int32_t*>(insn()->bytes + disp_idx);
     uintptr_t target = insn()->address + disp_idx + 4 + disp;
-    disp = calc_jmp(to.as_int(), target, disp_idx + 4).value();
-    memcpy((to + disp_idx).as_ptr(), &disp, 4);
+
+    uint8_t modrm = insn()->bytes[disp_idx - 1];
+    modrm = (modrm & 0b11'111'000) | (reg_id & 0b00'000'111);
+
+    writer.write(uint8_t(0x50 + reg_id)); // push %reg
+    writer.write(uint8_t(0x48)); // REX.W
+    writer.write(uint8_t(0xb8 + reg_id)); // MOVABS ???, %reg
+    writer.write(target);
+    writer.write_bytes(insn()->bytes, disp_idx - 1);
+    writer.write(modrm);
+    writer.write(uint8_t(0x58 + reg_id));
 }
 
 out_of_line::out_of_line(code_ptr _code) noexcept
@@ -306,6 +330,14 @@ void out_of_line::write(buffer_writer& writer, write_callback callback)
             callback(code_ptr{insn->address()}, writer.ptr());
         insn->write(writer);
     }
+}
+
+size_t out_of_line::ool_size() const noexcept
+{
+    size_t res = 0;
+    for(const auto& insn : _insns)
+        res += insn->insn()->size;
+    return res;
 }
 
 size_t out_of_line::size() const noexcept

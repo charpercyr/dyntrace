@@ -446,7 +446,7 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const options& ops)
 #endif
     });
 
-    auto jmp = calc_jmp(writer.ptr().as_int(), (_location + _ool_size).as_int(), jmp_size);
+    auto jmp = calc_jmp(writer.ptr().as_int(), (_location + ool.ool_size()).as_int(), jmp_size);
     writer.write(jmp_op);
     writer.write(jmp.value());
 
