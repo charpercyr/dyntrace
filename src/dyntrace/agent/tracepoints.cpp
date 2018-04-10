@@ -11,9 +11,10 @@ using namespace dyntrace::agent;
 namespace
 {
     using symbol_list = std::vector<std::pair<std::string, void*>>;
-    symbol_list find_symbols(const std::regex &r)
+
+    symbol_list _find_symbols(const std::regex& r, const elf::elf& e, uintptr_t base)
     {
-        auto symtab = process::process::this_process().elf().get_section(".symtab");
+        auto symtab = e.get_section(".symtab");
         if (!symtab.valid())
             return {};
         symbol_list addrs;
@@ -24,13 +25,23 @@ namespace
                 if (std::regex_match(sym.get_name(), r))
                 {
                     auto addr = reinterpret_cast<void *>(
-                        sym.get_data().value + process::process::this_process().base()
+                        sym.get_data().value + base
                     );
                     addrs.emplace_back(sym.get_name(), addr);
                 }
             }
         }
         return addrs;
+    }
+
+    symbol_list find_symbols(const std::regex &name)
+    {
+        return _find_symbols(name, process::process::this_process().elf(), process::process::this_process().base());
+    }
+
+    symbol_list find_symbols(const std::regex& name, const std::regex& lib)
+    {
+        return _find_symbols(name, process::process::this_process().elf(lib), process::process::this_process().base(lib));
     }
 
     std::regex create_regex_from_filter(const std::string& filter)
@@ -67,15 +78,14 @@ tracepoint_registry::add_status tracepoint_registry::add(const proto::process::a
     }
 
     symbol_list syms;
-    if(!req.filter().empty())
+    if(req.has_filter())
     {
-        syms = find_symbols(create_regex_from_filter(req.filter()));
-        tg.location = tracepoint_group_filter{req.filter()};
-    }
-    else if(!req.regex().empty())
-    {
-        syms = find_symbols(std::regex{req.regex()});
-        tg.location = tracepoint_group_regex{req.regex()};
+        std::regex name = req.filter().regex() ? std::regex{req.filter().name()} : create_regex_from_filter(req.filter().name());
+        if(req.filter().lib().empty())
+            syms = find_symbols(name);
+        else
+            syms = find_symbols(name, std::regex{req.filter().lib()});
+        tg.location = tracepoint_group_filter{req.filter().name() + (req.filter().lib().empty() ? "" : "@" + req.filter().lib())};
     }
     else
     {

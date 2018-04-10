@@ -25,16 +25,19 @@ class Process:
         self.dt = dt
         self.proc = proc
 
-    def add_tracepoint(self, tracer, entry_exit=False, name=None, tracer_args=None, filter=None, regex=None, addr=None):
+    def add_tracepoint(self, tracer, entry_exit=False, name=None, tracer_args=None, filter=None, regex=None, addr=None, lib=None):
         req = self.__create_msg()
         if not filter and not regex and not addr:
             raise ValueError('Must specify one of filter, regex or addr')
         if filter:
-            req.req.add_tp.filter = filter
+            req.req.add_tp.filter.name = filter
         elif regex:
-            req.req.add_tp.regex = regex
+            req.req.add_tp.filter.name = regex
+            req.req.add_tp.filter.regex = True
         else:
             req.req.add_tp.address = addr
+        if lib:
+            req.req.add_tp.filter.lib = lib
         if name:
             req.req.add_tp.name = name
         req.req.add_tp.tracer = tracer

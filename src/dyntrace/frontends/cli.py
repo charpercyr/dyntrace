@@ -24,8 +24,17 @@ def parse_process_and_location(proc):
     return parse_process(proc), loc
 
 
+def split_symbol(loc):
+    loc = loc.split('@')
+    if len(loc) == 1:
+        return loc[0], None
+    else:
+        return loc[0], '@'.join(loc[1:])
+
+
 def do_add(dt, args):
     proc, loc = parse_process_and_location(args.location)
+    loc, lib = split_symbol(loc)
     address = None
     filter = None
     regex = None
@@ -42,7 +51,7 @@ def do_add(dt, args):
         args.entry_exit,
         args.name,
         args.tracer_args,
-        filter, regex, address
+        filter, regex, address, lib
     )
     print(name)
     for e in err:
@@ -137,7 +146,7 @@ def main():
     add.add_argument(
         'location',
         help='Where to put the tracepoints, the filter is a string with wildcard.',
-        metavar='<pid|name>:<filter>'
+        metavar='<pid|name>:<filter>[@library]'
     )
     add.add_argument(
         '-n', '--name',

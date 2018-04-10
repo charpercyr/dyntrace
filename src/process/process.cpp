@@ -62,6 +62,23 @@ uintptr_t process::base() const
     throw process_error("Could not find process executable base");
 }
 
+uintptr_t process::base(const std::regex& r) const
+{
+    auto memmap = create_memmap();
+    for(const auto& [name, bin] : memmap.binaries())
+    {
+        if(std::regex_search(name, r))
+        {
+            for(const auto& z: bin.zones())
+            {
+                if(flag(z.perms, permissions::exec))
+                    return z.start;
+            }
+        }
+    }
+    throw process_error("Could not find library's executable base");
+}
+
 const elf::elf& process::_elf(const std::string &path) const
 {
     auto it = _elfs.find(path);

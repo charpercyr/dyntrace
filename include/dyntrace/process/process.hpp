@@ -66,6 +66,7 @@ namespace dyntrace::process
          * @return
          */
         uintptr_t base() const;
+        uintptr_t base(const std::regex& name) const;
 
         pid_t pid() const noexcept
         {
