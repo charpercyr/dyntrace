@@ -83,6 +83,14 @@ __tracepoint_return_exit_handler:
 .__tracepoint_return_exit_handler_end:
 .size __tracepoint_return_exit_handler, . - __tracepoint_return_exit_handler
 
+test:
+    push %rcx
+    movabs $1, %rcx
+    cmpb $0, (%rcx)
+    pop %rcx
+test2:
+    cmpb $0, (%rip)
+
 /////////////////////////////////////////////////////////////////////
 .section .rodata
 /////////////////////////////////////////////////////////////////////

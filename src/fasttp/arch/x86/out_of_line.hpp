@@ -30,14 +30,12 @@ namespace dyntrace::fasttp
 
         virtual uint8_t size() const noexcept;
 
-        virtual void write(buffer_writer &writer) const noexcept;
+        virtual void write(buffer_writer &writer) const;
 
         uintptr_t address() const noexcept
         {
             return _insn->address;
         }
-
-    protected:
 
         const cs_insn* insn() const noexcept
         {
@@ -86,7 +84,8 @@ namespace dyntrace::fasttp
     {
         using instruction::instruction;
 
-        void write(buffer_writer &writer) const noexcept override;
+        uint8_t size() const noexcept override;
+        void write(buffer_writer &writer) const;
     };
 
     /**
@@ -110,6 +109,9 @@ namespace dyntrace::fasttp
          */
         void write(buffer_writer &writer, write_callback callback);
 
+        // Number of bytes replaced
+        size_t ool_size() const noexcept;
+        // Number of bytes produced
         size_t size() const noexcept;
 
         const std::vector<std::unique_ptr<instruction>>& instructions() const noexcept

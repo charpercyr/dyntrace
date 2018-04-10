@@ -9,11 +9,21 @@ message list_tracepoint
 }
 message add_tracepoint
 {
-    tracepoint tp = 1;
+    oneof location
+    {
+        string filter = 1;
+        string regex = 2;
+        uint64 address = 3;
+    };
+    bool entry_exit = 4;
+    string tracer = 5;
+    repeated string tracer_args = 6;
+    string name = 7;
 }
 message remove_tracepoint
 {
     string name = 1;
+    repeated uint32 id = 2;
 }
 message list_symbol
 {

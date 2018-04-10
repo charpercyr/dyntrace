@@ -1,9 +1,12 @@
 #ifndef DYNTRACE_AGENT_TRACER_HPP_
 #define DYNTRACE_AGENT_TRACER_HPP_
 
+#include "common.hpp"
+
 #include "dyntrace/tracer.hpp"
 
 #include <functional>
+#include <memory>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -13,27 +16,7 @@ namespace dyntrace::agent
     using point_handler_factory = dyntrace::tracer::point_handler(*)(const std::vector<std::string>&);
     using entry_exit_handler_factory = dyntrace::tracer::entry_exit_handler(*)(const std::vector<std::string>&);
 
-    struct agent_error : public std::runtime_error
-    {
-    public:
-        explicit agent_error(const std::string& category, const std::string& msg = "") noexcept
-            : std::runtime_error{msg}, _category{category} {}
-
-        const std::string& category() const noexcept
-        {
-            return _category;
-        }
-
-    private:
-        std::string _category;
-    };
-
-    class tracer_error : public agent_error
-    {
-    public:
-        explicit tracer_error(const std::string& msg = "") noexcept
-            : agent_error{"tracer_error", msg} {}
-    };
+    DYNTRACE_AGENT_CREATE_ERROR(tracer_error);
 
     class tracer
     {

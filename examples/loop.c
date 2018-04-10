@@ -3,16 +3,16 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
+#include <stdint.h>
 
-void do_inc(intptr_t*);
+uint64_t do_inc();
 
 int main()
 {
     intptr_t a = 0;
     for(;;)
     {
-        do_inc(&a);
-        printf("%ld\n", a);
+        printf("%lx\n", do_inc());
         sleep(1);
     }
     return 0;

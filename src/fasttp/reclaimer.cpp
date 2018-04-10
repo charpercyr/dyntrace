@@ -128,11 +128,11 @@ namespace
 
         void reclaim_enter(std::function<void()> f)
         {
-            assert(f);
+            dyntrace_assert(f);
             std::unique_lock lock{_lock};
             while(_count)
                 _cond.wait(lock);
-            assert(!_on_done);
+            dyntrace_assert(!_on_done);
             _on_done = std::move(f);
             ++_count;
         }
@@ -140,7 +140,7 @@ namespace
         void worker_enter()
         {
             std::unique_lock lock{_lock};
-            assert(_on_done);
+            dyntrace_assert(_on_done);
             ++_count;
         }
 

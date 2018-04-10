@@ -88,7 +88,7 @@ namespace dyntrace::process
         {
             for(const auto& b : _binaries)
             {
-                if(std::regex_match(b.first, name))
+                if(std::regex_search(b.first, name))
                     return b.second;
             }
             throw process_error("Could not find name");

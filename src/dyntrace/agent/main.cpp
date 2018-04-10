@@ -1,5 +1,5 @@
 
-#include "tracer.hpp"
+#include "tracepoints.hpp"
 
 #include "dyntrace/fasttp/fasttp.hpp"
 #include "dyntrace/fasttp/error.hpp"
@@ -138,6 +138,7 @@ private:
 
     proto::response on_request(const proto::process::process_message& msg) noexcept
     {
+        using namespace std::string_literals;
         proto::response resp;
         resp.set_req_seq(msg.seq());
         resp.mutable_ok();
@@ -149,50 +150,65 @@ private:
             if(msg.req().has_hello())
             {
                 resp.mutable_ok()->mutable_pid()->set_pid(getpid());
-                return resp;
             }
             else if(msg.req().has_add_tp())
             {
-                if(!msg.req().add_tp().has_tp())
-                    throw bad_message_error{"No tracepoint"};
-                tracepoint_info tp_info;
-                tp_info.name = msg.req().add_tp().tp().name();
-                if(tp_info.name.empty())
-                    tp_info.name = next_tp();
-                if(msg.req().add_tp().tp().symbol().empty())
-                    tp_info.loc = msg.req().add_tp().tp().address();
+                auto r = _registry.add(msg.req().add_tp());
+                if(r.first.empty())
+                {
+                    resp.mutable_err()->set_type("tracepoint_error");
+                    std::string err_msg;
+                    for(auto&& e : r.second)
+                    {
+                        err_msg += "#"s + std::to_string(e.first) + ": "s + e.second;
+                    }
+                    resp.mutable_err()->set_msg(std::move(err_msg));
+                }
                 else
-                    tp_info.loc = msg.req().add_tp().tp().symbol();
-                tp_info.tracer = msg.req().add_tp().tp().tracer();
-                tp_info.tracer_args.insert(
-                    tp_info.tracer_args.begin(),
-                    msg.req().add_tp().tp().tracer_args().begin(),
-                    msg.req().add_tp().tp().tracer_args().end()
-                );
-                tp_info.entry_exit = msg.req().add_tp().tp().entry_exit();
-
-                resp.mutable_ok()->mutable_tp_created()->set_name(tp_info.name);
-                create_tp(std::move(tp_info));
+                {
+                    resp.mutable_ok()->mutable_tp_created()->set_name(std::move(r.first));
+                    for (auto &&e : r.second)
+                    {
+                        auto failed = resp.mutable_ok()->mutable_tp_created()->add_failed();
+                        failed->set_id(e.first);
+                        failed->set_msg(std::move(e.second));
+                    }
+                }
             }
             else if(msg.req().has_remove_tp())
             {
-                remove_tp(msg.req().remove_tp().name());
+                _registry.remove(msg.req().remove_tp());
             }
             else if(msg.req().has_list_tp())
             {
-                resp.mutable_ok()->mutable_tps();
-                resp.mutable_ok()->mutable_tps();
-                for(auto&& tp : _tps)
+                for(auto&& [name, tg] : _registry.groups())
                 {
-                    proto::tracepoint* resp_tp = resp.mutable_ok()->mutable_tps()->add_tp();
-                    resp_tp->set_name(tp.name);
-                    if(std::holds_alternative<std::string>(tp.loc))
-                        resp_tp->set_symbol(std::get<std::string>(tp.loc));
-                    resp_tp->set_address(reinterpret_cast<uintptr_t>(tp.tp.location()));
-                    resp_tp->set_tracer(tp.tracer);
-                    resp_tp->set_entry_exit(tp.entry_exit);
-                    for(auto&& a : tp.tracer_args)
-                        resp_tp->add_tracer_args(a);
+                    auto g = resp.mutable_ok()->mutable_tps()->add_tgs();
+                    g->set_name(name);
+                    if(std::holds_alternative<tracepoint_group_filter>(tg.location))
+                        g->set_filter(std::get<tracepoint_group_filter>(tg.location).filter);
+                    else if(std::holds_alternative<tracepoint_group_regex>(tg.location))
+                        g->set_regex(std::get<tracepoint_group_regex>(tg.location).regex);
+                    else
+                        g->set_address(std::get<uintptr_t>(tg.location));
+                    g->set_entry_exit(tg.entry_exit);
+                    g->set_tracer(tg.tracer);
+                    for(auto&& arg : tg.tracer_args)
+                        g->add_tracer_args(arg);
+                    for(size_t i = 0; i < tg.tps.size(); ++i)
+                    {
+                        // Skip deleted tracepoints
+                        if(!tg.tps[i].failed && !tg.tps[i].tp)
+                            continue;
+                        auto tp = g->add_tps();
+                        if(tg.tps[i].symbol)
+                            tp->set_symbol(tg.tps[i].symbol.value());
+                        if(tg.tps[i].failed)
+                            tp->set_failed(true);
+                        else
+                            tp->set_address(reinterpret_cast<uintptr_t>(tg.tps[i].tp.location()));
+                        tp->set_id(i);
+                    }
                 }
             }
             else if(msg.req().has_list_sym())
@@ -201,15 +217,11 @@ private:
                 auto symtab = process::process::this_process().elf().get_section(".symtab");
                 if(symtab.valid())
                 {
-                    for (const auto &sym : symtab.as_symtab())
+                    for(auto&& sym : symtab.as_symtab())
                     {
-                        if (sym.get_data().type() == elf::stt::func)
-                        {
-                            auto rsym = resp.mutable_ok()->mutable_syms()->add_sym();
-                            rsym->set_name(sym.get_name());
-                            if (sym.get_name().find("@@") == std::string::npos)
-                                rsym->set_address(sym.get_data().value + process::process::this_process().base());
-                        }
+                        auto s = resp.mutable_ok()->mutable_syms()->add_sym();
+                        s->set_name(sym.get_name());
+                        s->set_address(sym.get_data().value + process::process::this_process().base());
                     }
                 }
             }
@@ -236,50 +248,6 @@ private:
         return resp;
     }
 
-    void create_tp(tracepoint_info&& info)
-    {
-        fasttp::location loc;
-        void* addr{nullptr};
-        if(std::holds_alternative<std::string>(info.loc))
-        {
-            fasttp::symbol_location symloc{std::get<std::string>(info.loc)};
-            addr = fasttp::resolve(symloc);
-            loc = addr;
-        }
-        else
-        {
-            addr = reinterpret_cast<void*>(std::get<uintptr_t>(info.loc));
-            loc = addr;
-        }
-        for(const auto& tp : _tps)
-        {
-            if(info.name == tp.name)
-                throw invalid_tracepoint_error{"tracepoint named" + info.name + " already exists"};
-            if(tp.tp.location() == addr)
-                throw invalid_tracepoint_error{"tracepoint at " + dyntrace::to_hex_string(addr) + " already exists"};
-        }
-        dyntrace::tracer::handler h;
-        if(info.entry_exit)
-            h = _registry.get_factory(info.tracer).create_entry_exit_handler(info.tracer_args);
-        else
-            h = _registry.get_factory(info.tracer).create_point_handler(info.tracer_args);
-        info.tp = fasttp::tracepoint{loc, std::move(h)};
-        _tps.push_back(std::move(info));
-    }
-
-    void remove_tp(const std::string& name)
-    {
-        for(auto it = _tps.begin(); it != _tps.end(); ++it)
-        {
-            if(it->name == name)
-            {
-                _tps.erase(it);
-                return;
-            }
-        }
-        throw invalid_tracepoint_error{"tracepoint " + name + " does not exist"};
-    }
-
     std::string next_tp() noexcept
     {
         return "tp-" + std::to_string(_next_tp++);
@@ -288,7 +256,7 @@ private:
     uint64_t _next_seq{1};
     uint64_t _next_tp{0};
     std::list<tracepoint_info> _tps;
-    dyntrace::agent::tracer_registry _registry;
+    dyntrace::agent::tracepoint_registry _registry;
 
     boost::asio::io_context _ctx;
     boost::asio::local::stream_protocol::socket _sock;

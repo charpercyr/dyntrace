@@ -1,6 +1,8 @@
 
 dyntrace_shared_library(agent
+    common.hpp
     main.cpp
+    tracepoints.cpp tracepoints.hpp
     tracer.cpp tracer.hpp
     DESTINATION lib/dyntrace
     NOSOVERSION
