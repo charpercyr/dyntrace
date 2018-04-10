@@ -4,6 +4,8 @@
 #ifndef DYNTRACE_FASTTP_OPTIONS_HPP_
 #define DYNTRACE_FASTTP_OPTIONS_HPP_
 
+#include <string>
+
 #include "dyntrace/tracer.hpp"
 
 namespace dyntrace
@@ -14,30 +16,23 @@ namespace dyntrace
         using entry_exit_handler = dyntrace::tracer::entry_exit_handler;
         using handler = dyntrace::tracer::handler;
 
-        using addr_location = void*;
-        using symbol_location = std::string;
-        using location = std::variant<addr_location, symbol_location>;
-
-        inline location make_location(addr_location loc)
+        inline void* resolve(void *loc)
         {
             return loc;
         }
 
-        inline location make_location(uintptr_t loc)
+        inline void* resolve(uintptr_t loc)
         {
             return reinterpret_cast<void*>(loc);
         }
 
         template<typename R, typename...Args>
-        inline location make_location(R(*loc)(Args...))
+        inline void* resolve(R(*loc)(Args...))
         {
             return reinterpret_cast<void*>(loc);
         }
 
-        inline location make_location(symbol_location loc)
-        {
-            return loc;
-        }
+        void* resolve(const std::string& loc);
 
         /**
          * Tracepoint options.

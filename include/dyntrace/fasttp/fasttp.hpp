@@ -23,7 +23,7 @@ namespace dyntrace::fasttp
 
         tracepoint() noexcept
             : _impl{nullptr} {}
-        tracepoint(const fasttp::location& loc, handler handler, const options& ops = {});
+        tracepoint(void* loc, handler handler, const options& ops = {});
         tracepoint(tracepoint&& tp) noexcept
             : _impl{tp._impl}
         {
@@ -45,8 +45,6 @@ namespace dyntrace::fasttp
     private:
         arch_tracepoint* _impl;
     };
-
-    void* resolve(const location& loc);
 }
 
 #endif

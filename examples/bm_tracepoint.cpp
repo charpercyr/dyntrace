@@ -45,7 +45,7 @@ static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
 
     fasttp::options ops{};
     ops.x86.trap_handler = trap_handler;
-    auto tp = fasttp::tracepoint{fasttp::make_location(func), fasttp::point_handler{handler}, ops};
+    auto tp = fasttp::tracepoint{fasttp::resolve(func), fasttp::point_handler{handler}, ops};
     for(auto _ : state)
     {
         func();
@@ -80,7 +80,7 @@ static void bm_run_tracepoints_enter_exit(benchmark::State& state)
         ++exit_count;
     };
 
-    auto tp = fasttp::tracepoint{fasttp::make_location(test_func_no_trap), fasttp::entry_exit_handler{enter, exit}};
+    auto tp = fasttp::tracepoint{fasttp::resolve(test_func_no_trap), fasttp::entry_exit_handler{enter, exit}};
     for(auto _ : state)
     {
         test_func_no_trap();
@@ -90,7 +90,7 @@ static void bm_run_tracepoints_enter_exit(benchmark::State& state)
 }
 BENCHMARK(bm_run_tracepoints_enter_exit);
 
-static void do_place_tracepoint(benchmark::State& state, const fasttp::location& loc)
+static void do_place_tracepoint(benchmark::State& state, void* loc)
 {
     auto handler = [](const void*, const arch::regs&) {};
 
@@ -102,20 +102,20 @@ static void do_place_tracepoint(benchmark::State& state, const fasttp::location&
 
 static void bm_place_tracepoints_with_addr(benchmark::State& state)
 {
-    do_place_tracepoint(state, fasttp::make_location(test_func_no_trap));
+    do_place_tracepoint(state, fasttp::resolve(test_func_no_trap));
 }
 BENCHMARK(bm_place_tracepoints_with_addr);
 
 static void bm_place_tracepoints_with_name(benchmark::State& state)
 {
-    do_place_tracepoint(state, fasttp::symbol_location{"test_func_no_trap"});
+    do_place_tracepoint(state, fasttp::resolve("test_func_no_trap"));
 }
 BENCHMARK(bm_place_tracepoints_with_name);
 
 static void bm_enable_disable_tracepoints(benchmark::State& state)
 {
     auto handler = [](const void*, const arch::regs&) {};
-    fasttp::tracepoint tp{fasttp::make_location(test_func_no_trap), handler};
+    fasttp::tracepoint tp{fasttp::resolve(test_func_no_trap), handler};
     for(auto _ : state)
     {
         tp.enable();
