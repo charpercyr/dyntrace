@@ -137,7 +137,7 @@ def main():
     parser.add_argument('--debug', help='Debug mode, prints more information', action='store_true')
     parser.add_argument(
         '-s', '--socket',
-        help='Socket to connect to',
+        help=f'Socket to connect to ({SOCKET_FILE})',
         default=SOCKET_FILE
     )
 
@@ -145,8 +145,9 @@ def main():
     add.set_defaults(parser=add, func=do_add)
     add.add_argument(
         'location',
-        help='Where to put the tracepoints, the filter is a string with wildcard.',
-        metavar='<pid|name>:<filter>[@library]'
+        help='Where to put the tracepoints, the filter is a string with wildcard.'
+             'The library is a substring of the full library path, it uses the first match',
+        metavar='<pid|name>:<filter[@library]|address>'
     )
     add.add_argument(
         '-n', '--name',

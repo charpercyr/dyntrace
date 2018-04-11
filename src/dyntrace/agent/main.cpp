@@ -235,6 +235,11 @@ private:
             resp.mutable_err()->set_type(e.category());
             resp.mutable_err()->set_msg(e.what());
         }
+        catch(const tracer::tracer_error& e)
+        {
+            resp.mutable_err()->set_type("tracer_error");
+            resp.mutable_err()->set_msg(e.what());
+        }
         catch(const fasttp::fasttp_error& e)
         {
             resp.mutable_err()->set_type("tracepoint_error");

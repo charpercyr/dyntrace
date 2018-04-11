@@ -16,11 +16,16 @@ When linking the program, add these to the linker's options.
 -L<install>/lib/dyntrace -ldyntrace-agent
 ```
 
-## LD_PRELOAD
-When starting the process, add this to the command line.
+## dyntrace-run
+When starting the process, use this command.
 ```
-$ LD_PRELOAD=<install>/lib/dyntrace/libdyntrace-agent.so <program> <args...>
+$ dyntrace-run -- <program> <args...>
 ```
+This program preloads (LD_PRELOAD) the agent library when running the program. If you want to preload a tracer as well, use this command.
+```
+$ dyntrace-run -t lttng -t log -- <program> <args...>
+```
+This will preload the agent library, the lttng and the log tracer when running the program.
 
 ## Inject
 Using the command line interface, with the daemon started. The process has to be running.
@@ -75,9 +80,9 @@ This command removes the designated tracepoint.
 # tracers
 ## log
 ```
-$ dyntrace add ... log [log file]
+$ dyntrace add ... log <log file>
 ```
-This tracer logs to a file when a tracepoint is hit. If no file is given, it will log **to the traced program's stdout**.
+This tracer logs to a file when a tracepoint is hit.
 
 Do **NOT** use in a performance sensitive context since it simply writes to the file and then flushes it. Use the [lttng](#lttng) tracer instead.
 

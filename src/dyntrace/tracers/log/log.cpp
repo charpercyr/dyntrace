@@ -10,7 +10,13 @@ extern "C" point_handler create_point_handler(const std::vector<std::string>& ar
 {
     std::shared_ptr<std::ostream> file;
     if(args.empty())
+    {
+#ifdef _DEBUG
         file = std::shared_ptr<std::ostream>(&std::cout, [](std::ostream*){});
+#else
+        throw tracer_error{"log", "Missing file argument"};
+#endif
+    }
     else
         file = std::make_shared<std::ofstream>(args[0], std::ios::app | std::ios::out);
     if(!*file)
