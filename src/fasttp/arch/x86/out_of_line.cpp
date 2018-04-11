@@ -283,7 +283,7 @@ void ip_relative_instruction::write(buffer_writer &writer) const
     uintptr_t target = insn()->address + disp_idx + 4 + disp;
 
     uint8_t modrm = insn()->bytes[disp_idx - 1];
-    modrm = (modrm & 0b11'111'000) | (reg_id & 0b00'000'111);
+    modrm = (modrm & 0b00'111'000) | (reg_id & 0b00'000'111);
 
     writer.write(uint8_t(0x50 + reg_id)); // push %reg
     writer.write(uint8_t(0x48)); // REX.W
@@ -291,6 +291,7 @@ void ip_relative_instruction::write(buffer_writer &writer) const
     writer.write(target);
     writer.write_bytes(insn()->bytes, disp_idx - 1);
     writer.write(modrm);
+    writer.write_bytes(insn()->bytes + disp_idx + 4, insn()->size - disp_idx - 4);
     writer.write(uint8_t(0x58 + reg_id));
 }
 

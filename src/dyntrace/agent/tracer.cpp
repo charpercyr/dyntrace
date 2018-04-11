@@ -12,14 +12,13 @@ tracer::tracer(const std::string &name)
 {
     using namespace std::string_literals;
     auto tracer_path = fs::path{dyntrace::config::tracer_directory} / fs::path{name + ".so"s};
-    if(!fs::exists(tracer_path))
-    {
-        if(!fs::exists(tracer_path = fs::path{name}))
-            throw tracer_error{"Could not find tracer "s + name};
-    }
     _handle = dlopen(tracer_path.c_str(), RTLD_LAZY);
     if(!_handle)
-        throw tracer_error{"Could not open tracer "s + name};
+    {
+        _handle = dlopen(name.c_str(), RTLD_LAZY);
+        if(!_handle)
+            throw tracer_error{"Could not open tracer "s + name};
+    }
     _point_factory = reinterpret_cast<point_handler_factory>(dlsym(_handle, "create_point_handler"));
     _entry_exit_factory = reinterpret_cast<entry_exit_handler_factory>(dlsym(_handle, "create_entry_exit_handler"));
     if(!_point_factory && !_entry_exit_factory)

@@ -13,6 +13,7 @@
 
 #include <atomic>
 #include <chrono>
+#include <dlfcn.h>
 #include <list>
 #include <thread>
 #include <variant>
@@ -21,6 +22,9 @@
 using namespace dyntrace;
 using namespace dyntrace::agent;
 namespace fs = std::experimental::filesystem;
+
+using malloc_sig = void*(*)(size_t);
+using free_sig = void(*)(void*);
 
 struct bad_message_error : agent_error
 {

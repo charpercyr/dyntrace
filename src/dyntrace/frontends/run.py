@@ -17,12 +17,22 @@ def daemonize():
     if os.fork() > 0:
         exit(0)
 
+
 def main():
     parser = argparse.ArgumentParser(description='Runs a command with the dyntrace-agent pre-loaded')
+    parser.add_argument('--print', help='Print the environment variables instead of running a program', action='store_true')
     parser.add_argument('--daemonize', help='Detaches the process from the terminal', action='store_true')
-    parser.add_argument('args', nargs='+', help='Program to run')
+    parser.add_argument('args', nargs='*', help='Program to run')
 
     args = parser.parse_args()
+
+    if args.print:
+        print(f'LD_PRELOAD={DYNTRACE_AGENT_LIBRARY}')
+        exit(0)
+
+    if len(args.args) == 0:
+        parser.print_help()
+        exit(1)
 
     if args.daemonize:
         daemonize()
