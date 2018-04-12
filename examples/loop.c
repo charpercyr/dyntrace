@@ -5,14 +5,15 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-uint64_t do_inc();
+void do_inc(intptr_t*);
 
 int main()
 {
     intptr_t a = 0;
     for(;;)
     {
-        printf("%lx\n", do_inc());
+        do_inc(&a);
+        printf("%ld\n", a);
         sleep(1);
     }
     return 0;
