@@ -6,6 +6,9 @@ if(NOT ARCH_INSTALL)
     set(ARCH_INSTALL "/usr")
 endif()
 
+configure_file(dyntrace-defs.cmake dyntrace-defs.cmake)
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR})
+
 include(arch.cmake)
 include(dyntrace.cmake)
 include(private.cmake)
@@ -24,6 +27,7 @@ include_directories(include)
 
 install(DIRECTORY include/dyntrace DESTINATION include)
 install(FILES dyntrace.cmake DESTINATION share/cmake)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dyntrace-defs.cmake DESTINATION share/cmake)
 
 add_subdirectory(examples)
 add_subdirectory(src)
