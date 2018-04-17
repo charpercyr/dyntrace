@@ -66,10 +66,8 @@ To trace x86 programs, you need the x86 build on x64.
 </aside>
 
 # TODO
-- ARM (32 and 64 bit) support
-- Tracepoint name filters (wildcard + regex)
-- Tracepoint arguments filters (only trace if condition is true)
-- Tracepoint groups (Multiple tracepoints under the same name for easier control)
+- ARM 32bit (In-progress)
+- ARM 64bit
 
 # Contact
 Christian Harper-Cyr <charpercyr@gmail.com>
