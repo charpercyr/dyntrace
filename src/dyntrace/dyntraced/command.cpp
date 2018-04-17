@@ -5,10 +5,7 @@
 #include "dyntrace/util/path.hpp"
 #include "dyntrace/util/error.hpp"
 
-#include <experimental/filesystem>
-
 using namespace dyntrace::d;
-namespace fs = std::experimental::filesystem;
 
 void command_connection::on_message(const message_type& msg)
 {

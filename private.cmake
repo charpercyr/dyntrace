@@ -26,6 +26,10 @@ function(dyntrace_shared_library target)
     )
 endfunction()
 
+if(NOT ARCH_PROTOC)
+    set(ARCH_PROTOC ${ARCH_INSTALL}/bin/protoc)
+endif()
+
 macro(dyntrace_protobuf_generate_cpp SRCS HDRS)
     foreach(file ${ARGN})
         get_filename_component(file_dir ${file} DIRECTORY)
@@ -35,7 +39,7 @@ macro(dyntrace_protobuf_generate_cpp SRCS HDRS)
         get_filename_component(file_name ${file} NAME_WE)
         add_custom_command(
             OUTPUT ${file_name}.pb.cc
-            COMMAND ${ARCH_INSTALL}/bin/protoc -I${CMAKE_CURRENT_SOURCE_DIR}/${file_dir} --cpp_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${file}
+            COMMAND ${ARCH_PROTOC} -I${CMAKE_CURRENT_SOURCE_DIR}/${file_dir} --cpp_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${file}
             DEPENDS ${file}
         )
         list(APPEND ${SRCS} ${CMAKE_CURRENT_BINARY_DIR}/${file_name}.pb.cc)
@@ -52,7 +56,7 @@ macro(dyntrace_protobuf_generate_python PY)
         get_filename_component(file_name ${file} NAME_WE)
         add_custom_command(
             OUTPUT ${file_name}_pb2.py
-            COMMAND ${ARCH_INSTALL}/bin/protoc -I${CMAKE_CURRENT_SOURCE_DIR}/${file_dir} --python_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${file}
+            COMMAND ${ARCH_PROTOC} -I${CMAKE_CURRENT_SOURCE_DIR}/${file_dir} --python_out=${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/${file}
             DEPENDS ${file}
         )
         list(APPEND ${PY} ${CMAKE_CURRENT_BINARY_DIR}/${file_name}_pb2.py)

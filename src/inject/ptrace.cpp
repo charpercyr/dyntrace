@@ -46,16 +46,16 @@ ptrace::~ptrace()
     }
 }
 
-user_regs_struct ptrace::get_regs() const
+user_regs ptrace::get_regs() const
 {
-    user_regs_struct res{};
+    user_regs res{};
     do_ptrace("get_regs", PTRACE_GETREGS, _pid, nullptr, &res);
     return res;
 }
 
-void ptrace::set_regs(const user_regs_struct &regs)
+void ptrace::set_regs(const user_regs &regs)
 {
-    do_ptrace("set_regs", PTRACE_SETREGS, _pid, nullptr, const_cast<user_regs_struct*>(&regs));
+    do_ptrace("set_regs", PTRACE_SETREGS, _pid, nullptr, const_cast<user_regs*>(&regs));
 }
 
 void ptrace::write(remote_ptr _to, const void *_from, size_t _size)

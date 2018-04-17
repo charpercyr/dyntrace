@@ -7,6 +7,10 @@
 #include <signal.h>
 #include <sys/user.h>
 
+#if defined(__i386__) || defined(__x86_64__)
+using user_regs = user_regs_struct;
+#endif
+
 namespace dyntrace::inject
 {
     class ptrace
@@ -16,8 +20,8 @@ namespace dyntrace::inject
         explicit ptrace(pid_t pid);
         ~ptrace();
 
-        user_regs_struct get_regs() const;
-        void set_regs(const user_regs_struct& regs);
+        user_regs get_regs() const;
+        void set_regs(const user_regs& regs);
 
         void write(remote_ptr to, const void* from, size_t size);
         void read(void* to, remote_ptr from, size_t size) const;

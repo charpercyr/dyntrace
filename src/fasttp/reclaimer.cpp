@@ -255,9 +255,11 @@ void reclaimer::wait_last()
 }
 
 #ifdef __i386__
-#define REG_IP REG_EIP
-#else
-#define REG_IP REG_RIP
+#define REG_IP uc_mcontext.gregs[REG_EIP]
+#elif __x86_64__
+#define REG_IP uc_mcontext.gregs[REG_RIP]
+#elif __arm__
+#define REG_IP uc_mcontext.arm_pc
 #endif
 
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
@@ -272,7 +274,7 @@ void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
         // Nothing
     }
 
-    uintptr_t rip = reinterpret_cast<ucontext_t*>(_ctx)->uc_mcontext.gregs[REG_IP];
+    uintptr_t rip = reinterpret_cast<ucontext_t*>(_ctx)->REG_IP;
 
     {
         auto always_invalid = instance()._always_invalid.lock_shared();

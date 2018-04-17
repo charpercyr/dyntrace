@@ -27,6 +27,15 @@ namespace po = boost::program_options;
 using namespace std::string_literals;
 using namespace std::string_view_literals;
 
+#ifdef __arm__
+extern "C" unsigned long long __atomic_fetch_add_8(volatile unsigned long long* a, unsigned long long b, int)
+{
+    unsigned long long ret = *a;
+    *a += b;
+    return ret;
+}
+#endif
+
 [[noreturn]]
 void do_exit(std::string_view msg, int code = 1)
 {

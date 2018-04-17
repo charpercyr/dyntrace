@@ -8,6 +8,11 @@ set(
     arch/x86/tracepoint.cpp arch/x86/tracepoint.hpp
 )
 
+set(
+    x86_lib
+    capstone
+)
+
 if(SUBARCH STREQUAL i386)
     list(APPEND x86_src arch/x86/tracepoint32.S)
 else()

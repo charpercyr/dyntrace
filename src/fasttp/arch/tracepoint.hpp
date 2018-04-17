@@ -6,6 +6,8 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 #include "x86/tracepoint.hpp"
+#elif defined(__arm__)
+#include "arm/tracepoint.hpp"
 #else
 #error "Architecture not supported"
 #endif
