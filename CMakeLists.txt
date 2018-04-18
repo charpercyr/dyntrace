@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 
+project(dyntrace)
+
 enable_language(CXX ASM)
 
 if(NOT ARCH_INSTALL)
@@ -16,7 +18,11 @@ include(options.cmake)
 
 set(link-flags "-L${ARCH_INSTALL}/lib")
 
-set(CMAKE_VERSION 0.1)
+set(DYNTRACE_VERSION_MAJOR 0)
+set(DYNTRACE_VERSION_MINOR 1)
+set(DYNTRACE_VERSION_PATCH 0)
+
+set(CMAKE_VERSION ${DYNTRACE_VERSION_MAJOR}.${DYNTRACE_VERSION_MINOR}.${DYNTRACE_VERSION_PATCH})
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS "-Wall -I${ARCH_INSTALL}/include ${link-flags}")
 set(CMAKE_ASM_FLAGS "-Wall ${link-flags}")
@@ -33,3 +39,10 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/dyntrace-defs.cmake DESTINATION share/
 
 add_subdirectory(examples)
 add_subdirectory(src)
+
+set(CPACK_GENERATOR TGZ)
+set(CPACK_SYSTEM_NAME ${CMAKE_SYSTEM_PROCESSOR}-${CMAKE_SYSTEM_NAME})
+set(CPACK_PACKAGE_VERSION_MAJOR ${DYNTRACE_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${DYNTRACE_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${DYNTRACE_VERSION_PATCH})
+include(CPack)

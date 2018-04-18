@@ -24,4 +24,5 @@ if(ARCH STREQUAL arm)
     target_compile_options(dyntraced PRIVATE -Wno-builtin-declaration-mismatch)
 endif()
 
+
 install(TARGETS dyntraced DESTINATION bin)

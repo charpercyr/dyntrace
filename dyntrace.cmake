@@ -7,7 +7,7 @@ macro(dyntrace_option name default)
     endif()
 endmacro()
 
-dyntrace_option(DYNTRACE_TRACER_DIRECTORY ${DYNTRACE_INSTALL_PREFIX}/lib/dyntrace/tracers)
+dyntrace_option(DYNTRACE_TRACER_DIRECTORY lib/dyntrace/tracers)
 
 function(dyntrace_tracer target)
     add_library(${target} MODULE ${ARGN})
