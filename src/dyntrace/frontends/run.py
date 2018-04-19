@@ -49,9 +49,6 @@ def main():
     else:
         env['LD_PRELOAD'] = f'{preload}'
 
-    for k in sorted(env):
-        print(k, '->', env[k])
-
     proc = sp.Popen(args.args, env=env)
     try:
         proc.communicate()

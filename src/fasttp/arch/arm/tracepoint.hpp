@@ -9,33 +9,26 @@
 
 namespace dyntrace::fasttp
 {
+    class arch_tracepoint;
+
+    struct arch_tracepoint_data
+    {
+        arch_tracepoint* tp;
+        void* handler;
+        void* return_address;
+    };
+
     class arch_tracepoint
     {
     public:
-        arch_tracepoint(void* location, handler h, const options& ops)
-        {
+        arch_tracepoint(void* location, handler h, const options& ops);
 
-        }
+        void enable();
+        void disable();
+        bool enabled() const;
 
-        void enable()
-        {
-
-        }
-
-        void disable()
-        {
-
-        }
-
-        bool enabled() const
-        {
-            return false;
-        }
-
-        const void* location() const
-        {
-            return nullptr;
-        }
+        const void* location() const;
+    private:
     };
 }
 

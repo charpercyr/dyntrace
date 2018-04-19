@@ -37,7 +37,7 @@ namespace dyntrace::d
 
     private:
         void on_message(const message_type& msg) override;
-        void on_error(uint64_t seq, const std::exception* e) override;
+        void on_error(uint32_t seq, const std::exception* e) override;
 
         process_registry* _reg;
         std::optional<pid_t> _pid;

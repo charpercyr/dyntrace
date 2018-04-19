@@ -44,7 +44,7 @@ void command_connection::on_message(const message_type& msg)
         on_bad_message(msg.seq());
 }
 
-void command_connection::on_error(uint64_t seq, const std::exception* e)
+void command_connection::on_error(uint32_t seq, const std::exception* e)
 {
     message_type msg{};
     msg.set_seq(next_seq());
@@ -66,7 +66,7 @@ void command_connection::on_error(uint64_t seq, const std::exception* e)
     base_type::send(msg);
 }
 
-void command_connection::on_process_message(uint64_t seq, const proto::command::process_request& msg)
+void command_connection::on_process_message(uint32_t seq, const proto::command::process_request& msg)
 {
     message_type resp;
     resp.set_seq(next_seq());

@@ -31,7 +31,7 @@ void process_connection::on_message(const message_type& msg)
     }
 }
 
-void process_connection::on_error(uint64_t seq, const std::exception* e)
+void process_connection::on_error(uint32_t seq, const std::exception* e)
 {
     message_type msg{};
     msg.set_seq(next_seq());

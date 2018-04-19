@@ -40,7 +40,7 @@ message request
 
 message command_message
 {
-    uint64 seq = 1;
+    uint32 seq = 1;
     oneof body
     {
         request req = 2;

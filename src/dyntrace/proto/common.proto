@@ -81,7 +81,7 @@ message status_error
 
 message response
 {
-    uint64 req_seq = 1;
+    uint32 req_seq = 1;
     oneof status
     {
         status_ok ok = 2;

@@ -11,7 +11,7 @@
 namespace dyntrace
 {
     template<typename Int, typename Int2>
-    constexpr auto ceil_div(Int a, Int2 b) noexcept
+    constexpr auto ceil_div(Int a, Int2 b)
     {
         return (a + b - 1) / b;
     }
@@ -40,30 +40,6 @@ namespace dyntrace
             v |= (v >> i);
         }
         return v + 1;
-    }
-
-    /**
-     * Fast integer log2
-     */
-    constexpr uint64_t log2(uint64_t v) noexcept
-    {
-        constexpr uint64_t arr[] = {
-            63,  0, 58,  1, 59, 47, 53,  2,
-            60, 39, 48, 27, 54, 33, 42,  3,
-            61, 51, 37, 40, 49, 18, 28, 20,
-            55, 30, 34, 11, 43, 14, 22,  4,
-            62, 57, 46, 52, 38, 26, 32, 41,
-            50, 36, 17, 19, 29, 10, 13, 21,
-            56, 45, 25, 31, 35, 16,  9, 12,
-            44, 24, 15,  8, 23,  7,  6,  5
-        };
-        v |= v >> 1;
-        v |= v >> 2;
-        v |= v >> 4;
-        v |= v >> 8;
-        v |= v >> 16;
-        v |= v >> 32;
-        return arr[((v - (v >> 1))*0x07edd5e59a4e28c2) >> 58];
     }
 
     /**
@@ -97,6 +73,12 @@ namespace dyntrace
     constexpr unsigned long long int operator""_G(unsigned long long int i) noexcept
     {
         return i << 30;
+    }
+
+    template<typename U, typename T>
+    U* offset_cast(T* ptr, intptr_t offset)
+    {
+        return reinterpret_cast<U*>(reinterpret_cast<uintptr_t>(ptr) + offset);
     }
 
 #ifdef _DEBUG

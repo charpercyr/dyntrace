@@ -20,9 +20,9 @@ namespace dyntrace::d
 
     private:
         void on_message(const message_type& msg) override;
-        void on_error(uint64_t seq, const std::exception* e) override;
+        void on_error(uint32_t seq, const std::exception* e) override;
 
-        void on_process_message(uint64_t seq, const proto::command::process_request& msg);
+        void on_process_message(uint32_t seq, const proto::command::process_request& msg);
 
         process_registry* _reg;
     };
