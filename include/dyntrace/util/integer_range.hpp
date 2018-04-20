@@ -103,7 +103,11 @@ namespace dyntrace
     constexpr auto integer_range_around(Int center, Int size) noexcept
     {
         // TODO overflow and underflow safe
-        return integer_range<Int>{center - (size >> 1), center + (size >> 1)};
+        size >>= 1;
+        return integer_range<Int>{
+            center < std::numeric_limits<Int>::min() + size ? std::numeric_limits<Int>::min() : center - size,
+            center > std::numeric_limits<Int>::max() - size ? std::numeric_limits<Int>::max() : center + size
+        };
     }
 
     using address_range = integer_range<uintptr_t>;

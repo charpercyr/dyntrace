@@ -38,7 +38,7 @@ int main()
 
         fasttp::options ops{};
         ops.x86.disable_thread_safe = true;
-        auto tp = fasttp::tracepoint{fasttp::resolve(foo), fasttp::entry_exit_handler{enter_handler, exit_handler}, ops};
+        auto tp = fasttp::tracepoint{fasttp::resolve(foo), fasttp::point_handler{enter_handler}, ops};
         printf("===========\n");
         do_run();
     }

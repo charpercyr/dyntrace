@@ -13,12 +13,15 @@
 
 namespace dyntrace::fasttp
 {
-    template<size_t alloc_shift>
+    inline constexpr uintptr_t invalid_page = uintptr_t(-1);
+    inline constexpr size_t page_size = 4096; // True on (most) ARM 32-bit
+    inline constexpr size_t page_mask = ~(page_size - 1);
+
+    template<uint8_t alloc_shift>
     class code_allocator
     {
     public:
         static inline constexpr size_t alloc_size = 1 << alloc_shift;
-        static inline constexpr size_t page_size = 4096; // True on (most) ARM 32-bit
         static inline constexpr size_t slab_bits = page_size / alloc_size;
         static_assert(alloc_shift > 0 && alloc_size < page_size);
 
@@ -30,7 +33,7 @@ namespace dyntrace::fasttp
             {
                 if(range && !range.value().contains(address_range{p, p + page_size}))
                     continue;
-                if(auto slot = sl.alloc(n_slots); slot != -1)
+                if(auto slot = sl.alloc(n_slots); slot != slab::invalid_slot)
                 {
                     auto ptr = calc_address(p, slot);
                     if(sl.full())
@@ -45,7 +48,7 @@ namespace dyntrace::fasttp
             if(range)
             {
                 auto page = find_page(range.value());
-                if(!page)
+                if(page == invalid_page)
                     return nullptr;
                 ptr = mmap(
                     reinterpret_cast<void*>(page), page_size,
@@ -59,29 +62,30 @@ namespace dyntrace::fasttp
                 ptr = mmap(
                     nullptr, page_size,
                     PROT_EXEC | PROT_WRITE | PROT_READ,
-                    MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED,
+                    MAP_ANONYMOUS | MAP_PRIVATE,
                     -1, 0
                 );
             }
-            if(!ptr)
+            if(ptr == MAP_FAILED)
                 return nullptr;
             slab sl;
             auto slot = sl.alloc(n_slots);
-            if(slot == -1)
+            if(slot == invalid_page)
             {
                 // Should not happen
                 munmap(ptr, page_size);
                 return nullptr;
             }
             if(sl.full())
-                _full_slabs.emplace(ptr, sl);
+                _full_slabs.emplace(reinterpret_cast<uintptr_t>(ptr), sl);
             else
-                _partial_slabs.emplace(ptr, sl);
+                _partial_slabs.emplace(reinterpret_cast<uintptr_t>(ptr), sl);
             return calc_address(reinterpret_cast<uintptr_t>(ptr), slot);
         }
         void free(void* ptr, size_t size)
         {
-            size_t n = ceil_div(size, alloc_size);
+            // TODO
+            // size_t n = ceil_div(size, alloc_size);
         }
 
     private:
@@ -92,16 +96,35 @@ namespace dyntrace::fasttp
             return reinterpret_cast<void*>(base + slot * alloc_size);
         }
 
-        uintptr_t find_page(const address_range& range)
+        static address_range align_to_page(address_range range)
         {
+            range.start = ceil_div(range.start, page_size) * page_size;
+            range.end = (range.end / page_size) * page_size;
+            return range;
+        }
+
+        static uintptr_t find_page(address_range range)
+        {
+            // Not null
+            range = range.intersection({page_size, std::numeric_limits<uintptr_t>::max()});
             auto free = process::process::this_process().create_memmap().free();
             for(auto&& z : free)
             {
+                if(auto inter = align_to_page(range.intersection(z)))
+                {
+                    auto center = (range.start + range.end) / 2;
+                    if(abs(intptr_t(inter.start - center)) < abs(intptr_t(inter.end - page_size - center)))
+                        return inter.start;
+                    else
+                        return inter.end - page_size;
+                }
             }
+            return invalid_page;
         }
 
         struct slab
         {
+            static constexpr uintptr_t invalid_slot = invalid_page;
             std::bitset<slab_bits> taken;
 
             size_t alloc(size_t n)
@@ -127,7 +150,7 @@ namespace dyntrace::fasttp
                         return i;
                     }
                 }
-                return -1;
+                return invalid_page;
             }
             void free(size_t n, size_t s)
             {

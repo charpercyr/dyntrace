@@ -15,15 +15,15 @@ __point_tracepoint_handler:
     push {sp}
     mov r0, sp
     ldr r4, [r0, #PC_OFFSET]
-    add r4, #8
     ldr r4, [r4]
     atomic_add r4, r1, r2, #1
-    ldr lr, [pc]
-    ldr pc, [pc, #0x24]
+    mov lr, pc
+    ldr pc, .point_tracepoint_handler_addr
     atomic_add r4, r1, r2, #-1
     add sp, #4
     pop {r0-r12, lr, pc}
-    .word point_tracepoint_handler
+.point_tracepoint_handler_addr:
+    .long point_tracepoint_handler
 .size __point_tracepoint_handler, . - __point_tracepoint_handler
 .__point_tracepoint_handler_end:
 
