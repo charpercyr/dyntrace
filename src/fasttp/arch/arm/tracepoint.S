@@ -6,28 +6,67 @@
     bne 0b
 .endm
 
+.macro function_size name
+.global \name\()_size
+.type \name\()_size, object
+\name\()_size: .long .\name\()_end - \name
+.endm
+
 .section .text
 
-.set PC_OFFSET, 0x3c
+.set PC_IDX, 0x3c
+
 .global __point_tracepoint_handler
 .type __point_tracepoint_handler, function
 __point_tracepoint_handler:
     push {sp}
     mov r0, sp
-    ldr r4, [r0, #PC_OFFSET]
+    ldr r4, [r0, #PC_IDX]
     ldr r4, [r4]
     atomic_add r4, r1, r2, #1
     mov lr, pc
-    ldr pc, .point_tracepoint_handler_addr
+    ldr pc, .__point_tracepoint_handler_addr
     atomic_add r4, r1, r2, #-1
     add sp, #4
     pop {r0-r12, lr, pc}
-.point_tracepoint_handler_addr:
-    .long point_tracepoint_handler
+.__point_tracepoint_handler_addr: .long point_tracepoint_handler
 .size __point_tracepoint_handler, . - __point_tracepoint_handler
 .__point_tracepoint_handler_end:
 
+
+.global __ee_tracepoint_entry_handler
+.type __ee_tracepoint_entry_handler, function
+__ee_tracepoint_entry_handler:
+    push {sp}
+    mov r0, sp
+    ldr r4, [r0, #PC_IDX]
+    ldr r4, [r4, #8]
+    atomic_add r4, r1, r2, #1
+    mov lr, pc
+    ldr pc, .__ee_tracepoint_entry_handler_addr
+    add sp, #4
+    pop {r0-r12, lr, pc}
+.__ee_tracepoint_entry_handler_addr: .long ee_tracepoint_entry_handler
+.size __ee_tracepoint_entry_handler, . - __ee_tracepoint_entry_handler
+.__ee_tracepoint_entry_handler_end:
+
+.global __ee_tracepoint_return_handler
+.type __ee_tracepoint_return_handler, function
+__ee_tracepoint_return_handler:
+    push {sp}
+    mov r0, sp
+    ldr r4, [r0, #PC_IDX]
+    ldr r4, [r4]
+    mov lr, pc
+    ldr pc, .__ee_tracepoint_return_handler_addr
+    atomic_add r4, r1, r2, #-1
+    add sp, #4
+    pop {r0-r12, lr, pc}
+.__ee_tracepoint_return_handler_addr: .long ee_tracepoint_return_handler
+.size __ee_tracepoint_return_handler, . - __ee_tracepoint_return_handler
+.__ee_tracepoint_return_handler_end:
+
 .section .rodata
-.global __point_tracepoint_handler_size
-.type __point_tracepoint_handler_size, object
-__point_tracepoint_handler_size: .long .__point_tracepoint_handler_end - __point_tracepoint_handler
+function_size __point_tracepoint_handler
+function_size __ee_tracepoint_entry_handler
+function_size __ee_tracepoint_return_handler

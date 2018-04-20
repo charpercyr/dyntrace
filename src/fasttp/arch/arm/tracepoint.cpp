@@ -13,6 +13,10 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
+    uint32_t tracepoint_exit_code[] = {
+        /*     18: ldr pc, [pc, #-0x10]  */ 0xe51ff010
+    };
+
     uint32_t point_tracepoint_entry_code[] = {
         /* 00: push {r0-r12, lr, pc} */ 0xe92ddfff,
         /* 04: ldr pc, [pc]          */ 0xe59ff000,
@@ -21,16 +25,33 @@ namespace
     /*     0c: tracepoint handler    */
     /*     10: return address        */
     /*     14: ool                   */
-    uint32_t point_tracepoint_exit_code[] = {
-    /*     18: ldr pc, [pc, #offset] */ 0xe51ff010
-    };
+    /*     24 ldr pc, [pc, #-0x10]   */ // tracepoint_exit_code[]
 
-    constexpr size_t tracepoint_code_size() noexcept
+    uint32_t ee_tracepoint_entry_code[] = {
+        /* 00: push {r0-r12, lr, pc} */ 0xe92ddfff,
+        /* 04: ldr pc, [pc, #8]      */ 0xe59ff008,
+    };
+    uint32_t ee_tracepoint_return_code[] = {
+        /* 08: push {r0-r12, lr, pc} */ 0xe92ddfff,
+        /* 0c: ldr pc, [pc, #4]      */ 0xe59ff004,
+    };
+    /*     10: tracepoint data       */
+    /*     14: tracepoint entry h    */
+    /*     18: tracepoint return h   */
+    /*     1c: return address        */
+    /*     20: ool                   */
+    /*     24 ldr pc, [pc, #-0x10]   */ // tracepoint_exit_code[]
+
+    constexpr size_t point_tracepoint_code_size() noexcept
     {
-        return sizeof(point_tracepoint_entry_code) + 16 + sizeof(point_tracepoint_exit_code);
+        return sizeof(point_tracepoint_entry_code) + 16 + sizeof(tracepoint_exit_code);
+    }
+    constexpr size_t ee_tracepoint_code_size() noexcept
+    {
+        return sizeof(ee_tracepoint_entry_code) + sizeof(ee_tracepoint_return_code) + 20 + sizeof(tracepoint_exit_code);
     }
 
-    struct point_tracepoint_stack
+    struct tracepoint_stack
     {
         arch::regs regs;
         void* pc;
@@ -59,23 +80,60 @@ namespace
         auto alloc = context::instance().arch().pad_alloc();
         alloc->free(pad, sizeof(arch_tracepoint_pad));
     }
+
+    template<typename Func, typename...Args>
+    decltype(auto) call_nothrow(Func&& func, Args&&...args) noexcept
+    {
+        try
+        {
+            return std::forward<Func>(func)(std::forward<Args>(args)...);
+        }
+        catch(const std::exception& e)
+        {
+            fprintf(stderr, "Catched exception in handler: %s\n", e.what());
+        }
+        catch(...)
+        {
+            fprintf(stderr, "Catched unknown exception in handler\n");
+        }
+    }
 }
 
-extern "C" void point_tracepoint_handler(point_tracepoint_stack* st) noexcept
+extern "C" void point_tracepoint_handler(tracepoint_stack* st) noexcept
 {
     auto data = *reinterpret_cast<arch_tracepoint_data**>(st->pc);
     data->tp->call_handler(st->regs);
     st->pc = offset_cast<void>(st->pc, 12);
 }
-
 extern "C" void __point_tracepoint_handler() noexcept;
 extern size_t __point_tracepoint_handler_size;
+
+static thread_local uintptr_t current_tracepoint_return_address;
+extern "C" void ee_tracepoint_entry_handler(tracepoint_stack* st) noexcept
+{
+    auto data = *offset_cast<arch_tracepoint_data*>(st->pc, 8);
+    data->tp->call_entry_handler(st->regs);
+    current_tracepoint_return_address = st->regs.lr;
+    st->regs.lr = reinterpret_cast<uintptr_t>(st->pc);
+    st->pc = offset_cast<void>(st->pc, 24);
+}
+extern "C" void __ee_tracepoint_entry_handler() noexcept;
+extern size_t __ee_tracepoint_entry_handler_size;
+
+extern "C" void ee_tracepoint_return_handler(tracepoint_stack* st) noexcept
+{
+    auto data = *reinterpret_cast<arch_tracepoint_data**>(st->pc);
+    data->tp->call_exit_handler(st->regs);
+    st->pc = reinterpret_cast<void*>(current_tracepoint_return_address);
+}
+extern "C" void __ee_tracepoint_return_handler() noexcept;
+extern size_t __ee_tracepoint_return_handler_size;
+
 
 arch_tracepoint::arch_tracepoint(void* location, handler h, const dyntrace::fasttp::options& ops)
     : _h{std::move(h)}
 {
-    if(std::holds_alternative<entry_exit_handler>(_h))
-        throw fasttp_error{"Entry-Exit not supported"};
+    bool is_ee = std::holds_alternative<entry_exit_handler>(_h);
 
     _location = code_ptr{location};
 
@@ -86,7 +144,10 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const dyntrace::fast
     _data->tp = this;
 
     auto code_alloc = context::instance().arch().code_alloc();
-    _data->handler_size = tracepoint_code_size();
+    if(is_ee)
+        _data->handler_size = ee_tracepoint_code_size();
+    else
+        _data->handler_size = point_tracepoint_code_size();
     _data->handler = code_ptr{code_alloc->alloc(_data->handler_size)};
     if(!_data->handler)
     {
@@ -103,18 +164,31 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const dyntrace::fast
     }
 
     buffer_writer writer{_data->handler};
-    writer.write(point_tracepoint_entry_code);
+    if(is_ee)
+    {
+        writer.write(ee_tracepoint_entry_code);
+        writer.write(ee_tracepoint_return_code);
+    }
+    else
+        writer.write(point_tracepoint_entry_code);
     writer.write(_data);
-    writer.write(__point_tracepoint_handler);
+    if(is_ee)
+    {
+        writer.write(__ee_tracepoint_entry_handler);
+        writer.write(__ee_tracepoint_return_handler);
+    }
+    else
+        writer.write(__point_tracepoint_handler);
     writer.write((_location + 4).as_ptr());
     writer.write(_old_code);
-    writer.write(point_tracepoint_exit_code);
+    writer.write(tracepoint_exit_code);
 
     enable();
 }
 
 arch_tracepoint::~arch_tracepoint()
 {
+    // TODO thread-safe
     disable();
     delete_pad(_data->pad);
     auto code_alloc = context::instance().arch().code_alloc();
@@ -132,14 +206,14 @@ void arch_tracepoint::enable()
     offset >>= 2;
     uint32_t insn = b_base | (offset & o_mask);
     mprotect((_location & page_mask).as_ptr(), page_size, PROT_WRITE | PROT_READ | PROT_EXEC);
-    __atomic_store_4(_location.as_ptr(), insn, __ATOMIC_SEQ_CST);
+    __atomic_store(_location.as<uint32_t*>(), &insn, __ATOMIC_SEQ_CST);
     mprotect((_location & page_mask).as_ptr(), page_size, PROT_READ | PROT_EXEC);
 }
 
 void arch_tracepoint::disable()
 {
     mprotect((_location & page_mask).as_ptr(), page_size, PROT_WRITE | PROT_READ | PROT_EXEC);
-    __atomic_store_4(_location.as_ptr(), _old_code, __ATOMIC_SEQ_CST);
+    __atomic_store(_location.as<uint32_t*>(), &_old_code, __ATOMIC_SEQ_CST);
     mprotect((_location & page_mask).as_ptr(), page_size, PROT_READ | PROT_EXEC);
 }
 
@@ -155,12 +229,15 @@ const void* arch_tracepoint::location() const
 
 void arch_tracepoint::call_handler(const dyntrace::arch::regs& r) noexcept
 {
-    try
-    {
-        std::get<point_handler>(_h)(_location.as_ptr(), r);
-    }
-    catch(...)
-    {
-        fprintf(stderr, "Catched exception in handler\n");
-    }
+    call_nothrow(std::get<point_handler>(_h), _location.as_ptr(), r);
+}
+
+void arch_tracepoint::call_entry_handler(const dyntrace::arch::regs& r) noexcept
+{
+    call_nothrow(std::get<0>(std::get<entry_exit_handler>(_h)), _location.as_ptr(), r);
+}
+
+void arch_tracepoint::call_exit_handler(const dyntrace::arch::regs& r) noexcept
+{
+    call_nothrow(std::get<1>(std::get<entry_exit_handler>(_h)), _location.as_ptr(), r);
 }

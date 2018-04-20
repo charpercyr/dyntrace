@@ -40,6 +40,8 @@ namespace dyntrace::fasttp
         const void* location() const;
 
         void call_handler(const arch::regs& r) noexcept;
+        void call_entry_handler(const arch::regs& r) noexcept;
+        void call_exit_handler(const arch::regs& r) noexcept;
 
     private:
         arch_tracepoint_data* _data;
