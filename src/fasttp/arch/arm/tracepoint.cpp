@@ -14,9 +14,6 @@ using namespace dyntrace::fasttp;
 
 namespace
 {
-    uint32_t tracepoint_exit_code[] = {
-        /*     18: ldr pc, [pc, #-0x10]  */ 0xe51ff010
-    };
 
     uint32_t point_tracepoint_entry_code[] = {
         /* 00: push {r0-r12, lr, pc} */ 0xe92ddfff,
