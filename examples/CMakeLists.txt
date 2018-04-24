@@ -1,9 +1,6 @@
 
 if(ARCH STREQUAL x86)
 
-    add_executable(bm bm_tracepoint.cpp)
-    target_link_libraries(bm benchmark fasttp)
-
     if(SUBARCH STREQUAL i386)
         set(loop_asm loop32.S)
     else()
@@ -20,3 +17,6 @@ endif()
 
 add_executable(foo foo.cpp)
 target_link_libraries(foo fasttp)
+
+add_executable(bm bm_tracepoint.cpp)
+target_link_libraries(bm benchmark fasttp)

@@ -7,6 +7,7 @@
 #include "../../buffer_writer.hpp"
 #include "../../context.hpp"
 #include "context.hpp"
+#include "out_of_line.hpp"
 
 using namespace dyntrace;
 using namespace dyntrace::fasttp;
@@ -25,7 +26,6 @@ namespace
     /*     0c: tracepoint handler    */
     /*     10: return address        */
     /*     14: ool                   */
-    /*     24 ldr pc, [pc, #-0x10]   */ // tracepoint_exit_code[]
 
     uint32_t ee_tracepoint_entry_code[] = {
         /* 00: push {r0-r12, lr, pc} */ 0xe92ddfff,
@@ -40,15 +40,14 @@ namespace
     /*     18: tracepoint return h   */
     /*     1c: return address        */
     /*     20: ool                   */
-    /*     24 ldr pc, [pc, #-0x10]   */ // tracepoint_exit_code[]
 
-    constexpr size_t point_tracepoint_code_size() noexcept
+    size_t point_tracepoint_code_size(size_t ool) noexcept
     {
-        return sizeof(point_tracepoint_entry_code) + 16 + sizeof(tracepoint_exit_code);
+        return sizeof(point_tracepoint_entry_code) + 16 + ool;
     }
-    constexpr size_t ee_tracepoint_code_size() noexcept
+    size_t ee_tracepoint_code_size(size_t ool) noexcept
     {
-        return sizeof(ee_tracepoint_entry_code) + sizeof(ee_tracepoint_return_code) + 20 + sizeof(tracepoint_exit_code);
+        return sizeof(ee_tracepoint_entry_code) + sizeof(ee_tracepoint_return_code) + 20 + ool;
     }
 
     struct tracepoint_stack
@@ -102,7 +101,7 @@ namespace
 extern "C" void point_tracepoint_handler(tracepoint_stack* st) noexcept
 {
     auto data = *reinterpret_cast<arch_tracepoint_data**>(st->pc);
-    data->tp->call_handler(st->regs);
+    data->tp.load(std::memory_order_relaxed)->call_handler(st->regs);
     st->pc = offset_cast<void>(st->pc, 12);
 }
 extern "C" void __point_tracepoint_handler() noexcept;
@@ -112,7 +111,7 @@ static thread_local uintptr_t current_tracepoint_return_address;
 extern "C" void ee_tracepoint_entry_handler(tracepoint_stack* st) noexcept
 {
     auto data = *offset_cast<arch_tracepoint_data*>(st->pc, 8);
-    data->tp->call_entry_handler(st->regs);
+    data->tp.load(std::memory_order_relaxed)->call_entry_handler(st->regs);
     current_tracepoint_return_address = st->regs.lr;
     st->regs.lr = reinterpret_cast<uintptr_t>(st->pc);
     st->pc = offset_cast<void>(st->pc, 24);
@@ -123,7 +122,7 @@ extern size_t __ee_tracepoint_entry_handler_size;
 extern "C" void ee_tracepoint_return_handler(tracepoint_stack* st) noexcept
 {
     auto data = *reinterpret_cast<arch_tracepoint_data**>(st->pc);
-    data->tp->call_exit_handler(st->regs);
+    data->tp.load(std::memory_order_relaxed)->call_exit_handler(st->regs);
     st->pc = reinterpret_cast<void*>(current_tracepoint_return_address);
 }
 extern "C" void __ee_tracepoint_return_handler() noexcept;
@@ -143,11 +142,13 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const dyntrace::fast
         throw fasttp_error{"Could not allocate tracepoint data"};
     _data->tp = this;
 
+    out_of_line ool{_location};
+
     auto code_alloc = context::instance().arch().code_alloc();
     if(is_ee)
-        _data->handler_size = ee_tracepoint_code_size();
+        _data->handler_size = ee_tracepoint_code_size(ool.size());
     else
-        _data->handler_size = point_tracepoint_code_size();
+        _data->handler_size = point_tracepoint_code_size(ool.size());
     _data->handler = code_ptr{code_alloc->alloc(_data->handler_size)};
     if(!_data->handler)
     {
@@ -180,20 +181,37 @@ arch_tracepoint::arch_tracepoint(void* location, handler h, const dyntrace::fast
     else
         writer.write(__point_tracepoint_handler);
     writer.write((_location + 4).as_ptr());
-    writer.write(_old_code);
-    writer.write(tracepoint_exit_code);
+    ool.write(writer);
 
     enable();
 }
 
 arch_tracepoint::~arch_tracepoint()
 {
-    // TODO thread-safe
     disable();
-    delete_pad(_data->pad);
-    auto code_alloc = context::instance().arch().code_alloc();
-    code_alloc->free(_data->handler.as_ptr(), _data->handler_size);
-    delete _data;
+    _data->tp = nullptr;
+    reclaimer::instance().reclaim(
+        _location.as_int(),
+        reclaimer::reclaim_request{
+            [data = _data](uintptr_t pc) -> bool
+            {
+                return !(
+                    pc > data->handler.as_int() &&
+                    pc < (data->handler.as_int() + data->handler_size) &&
+                    pc > reinterpret_cast<uintptr_t>(data->pad) &&
+                    pc < reinterpret_cast<uintptr_t>(data->pad + 1)
+                );
+            },
+            [data = _data]() -> void
+            {
+                delete_pad(data->pad);
+                auto code_alloc = context::instance().arch().code_alloc();
+                code_alloc->free(data->handler.as_ptr(), data->handler_size);
+                delete data;
+            },
+            _data
+        }
+    );
 }
 
 void arch_tracepoint::enable()

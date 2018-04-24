@@ -8,6 +8,8 @@
 
 #include "dyntrace/util/integer_range.hpp"
 
+#include <atomic>
+
 namespace dyntrace::fasttp
 {
     class arch_tracepoint;
@@ -21,7 +23,7 @@ namespace dyntrace::fasttp
     struct arch_tracepoint_data
     {
         uintptr_t refcount{0};
-        arch_tracepoint* tp{};
+        std::atomic<arch_tracepoint*> tp{};
         code_ptr handler{};
         size_t handler_size{};
         arch_tracepoint_pad* pad{};

@@ -8,6 +8,7 @@
 
 using namespace dyntrace;
 
+#if defined(__i386__) || defined(__x86_64__)
 // Similar function since a NOP has (almost) no cost.
 // 2 iterations, will not trap
 extern "C" void test_func_no_trap();
@@ -28,6 +29,22 @@ asm(
 ".size test_func_no_trap, . - test_func_no_trap\n"
 ".size test_func_with_trap, . -test_func_with_trap\n"
 );
+#define test_func test_func_no_trap
+#define test_func_str "test_func_no_trap"
+#elif defined(__arm__) || defined(__aarch64__)
+extern "C" void test_func();
+asm(
+".type test_func, function\n"
+"test_func:\n"
+"   push {lr}\n"
+"   nop\n"
+"   pop {pc}\n"
+".size test_func, . - test_func\n"
+);
+#define test_func_str "test_func"
+#else
+#error "Architecture not supported"
+#endif
 
 static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
 {
@@ -54,17 +71,27 @@ static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
     state.counters["trap-handler-call-count"] = trap_count;
 }
 
+#if defined(__i386__) || defined(__x86_64__)
 static void bm_run_tracepoints_no_trap(benchmark::State& state)
+#elif defined(__arm__)
+static void bm_run_tracepoints(benchmark::State& state)
+#endif
 {
-    run_tracepoints(state, test_func_no_trap);
+    run_tracepoints(state, test_func);
 }
+#if defined(__i386__) || defined(__x86_64__)
 BENCHMARK(bm_run_tracepoints_no_trap);
+#elif defined(__arm__)
+BENCHMARK(bm_run_tracepoints);
+#endif
 
+#if defined(__i386__) || defined(__x86_64__)
 static void bm_run_tracepoints_with_trap(benchmark::State& state)
 {
     run_tracepoints(state, test_func_with_trap);
 }
 BENCHMARK(bm_run_tracepoints_with_trap);
+#endif
 
 static void bm_run_tracepoints_enter_exit(benchmark::State& state)
 {
@@ -80,10 +107,10 @@ static void bm_run_tracepoints_enter_exit(benchmark::State& state)
         ++exit_count;
     };
 
-    auto tp = fasttp::tracepoint{fasttp::resolve(test_func_no_trap), fasttp::entry_exit_handler{enter, exit}};
+    auto tp = fasttp::tracepoint{fasttp::resolve(test_func), fasttp::entry_exit_handler{enter, exit}};
     for(auto _ : state)
     {
-        test_func_no_trap();
+        test_func();
     }
     state.counters["enter-call-count"] = enter_count;
     state.counters["exit-call-count"] = exit_count;
@@ -102,20 +129,20 @@ static void do_place_tracepoint(benchmark::State& state, void* loc)
 
 static void bm_place_tracepoints_with_addr(benchmark::State& state)
 {
-    do_place_tracepoint(state, fasttp::resolve(test_func_no_trap));
+    do_place_tracepoint(state, fasttp::resolve(test_func));
 }
 BENCHMARK(bm_place_tracepoints_with_addr);
 
 static void bm_place_tracepoints_with_name(benchmark::State& state)
 {
-    do_place_tracepoint(state, fasttp::resolve("test_func_no_trap"));
+    do_place_tracepoint(state, fasttp::resolve(test_func_str));
 }
 BENCHMARK(bm_place_tracepoints_with_name);
 
 static void bm_enable_disable_tracepoints(benchmark::State& state)
 {
     auto handler = [](const void*, const arch::regs&) {};
-    fasttp::tracepoint tp{fasttp::resolve(test_func_no_trap), handler};
+    fasttp::tracepoint tp{fasttp::resolve(test_func), handler};
     for(auto _ : state)
     {
         tp.enable();
