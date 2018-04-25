@@ -12,16 +12,10 @@ namespace dyntrace::inject
     {
     public:
 
-        arch_executor(process_ptr proc)
-            : _pt{proc->pid()}
-        {
+        arch_executor(process_ptr proc);
+        ~arch_executor();
 
-        }
-
-        uintptr_t remote_call(remote_ptr func, const remote_args& args)
-        {
-            return 0;
-        }
+        uintptr_t remote_call(remote_ptr func, const remote_args& args);
 
         ptrace& get_ptrace()
         {
@@ -35,6 +29,9 @@ namespace dyntrace::inject
 
     private:
         ptrace _pt;
+        user_regs _old_regs;
+        remote_ptr _old_code_ptr;
+        std::vector<uint8_t> _old_code;
     };
 }
 

@@ -99,7 +99,7 @@ const elf::elf& process::_elf(const std::string &path) const
 
 symbol process::_get(const std::string &sym, const binary &bin) const
 {
-    const auto& e = _elf(bin.name());
+    auto e = _elf(bin.name());
     auto symtab = e.get_section(".symtab");
     if(symtab.valid())
     {

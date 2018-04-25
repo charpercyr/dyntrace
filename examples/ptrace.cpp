@@ -6,7 +6,7 @@
 using namespace std;
 using namespace dyntrace::inject;
 
-constexpr auto path = "/home/christian/Documents/dyntrace/cmake-build-debug/src/dyntrace/agent/libdyntrace-agent.so.0.1";
+constexpr auto path = "/opt/dyntrace/lib/dyntrace/libdyntrace-agent.so";
 
 int main(int argc, const char* argv[])
 {
