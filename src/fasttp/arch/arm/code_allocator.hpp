@@ -82,10 +82,39 @@ namespace dyntrace::fasttp
                 _partial_slabs.emplace(reinterpret_cast<uintptr_t>(ptr), sl);
             return calc_address(reinterpret_cast<uintptr_t>(ptr), slot);
         }
-        void free(void* ptr, size_t size)
+
+        void free(void* _ptr, size_t size)
         {
-            // TODO
-            // size_t n = ceil_div(size, alloc_size);
+            auto ptr = reinterpret_cast<uintptr_t>(_ptr);
+
+            size_t n_slots = ceil_div(size, alloc_size);
+            auto slot = (ptr & ~page_mask) / alloc_size;
+            auto page = ptr & page_mask;
+
+            if(auto it = _partial_slabs.find(page); it != _partial_slabs.end())
+            {
+                it->second.free(slot, n_slots);
+                if(it->second.empty())
+                {
+                    _partial_slabs.erase(it);
+                    munmap(reinterpret_cast<void*>(page), page_size);
+                }
+            }
+            else if(auto it = _full_slabs.find(page); it != _full_slabs.end())
+            {
+                it->second.free(slot, n_slots);
+                if(it->second.empty())
+                {
+                    _full_slabs.erase(it);
+                    munmap(reinterpret_cast<void*>(page), page_size);
+                }
+                else
+                {
+                    auto slab = it->second;
+                    _full_slabs.erase(it);
+                    _partial_slabs.emplace(page, slab);
+                }
+            }
         }
 
     private:
