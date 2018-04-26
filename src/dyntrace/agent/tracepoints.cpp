@@ -12,7 +12,7 @@ namespace
 {
     using symbol_list = std::vector<std::pair<std::string, void*>>;
 
-    symbol_list _find_symbols(const std::regex& r, const elf::elf& e, uintptr_t base)
+    symbol_list _find_symbols(const std::regex& r, const process::elf& e, uintptr_t base)
     {
         auto symtab = e.get_section(".symtab");
         if (!symtab.valid())
@@ -20,14 +20,14 @@ namespace
         symbol_list addrs;
         for (auto &&sym : symtab.as_symtab())
         {
-            if(sym.get_data().type() == elf::stt::func)
+            if(sym.type() == STT_FUNC)
             {
-                if (std::regex_match(sym.get_name(), r))
+                if (std::regex_match(sym.name().data(), r))
                 {
                     auto addr = reinterpret_cast<void *>(
-                        sym.get_data().value + base
+                        sym.value() + base
                     );
-                    addrs.emplace_back(sym.get_name(), addr);
+                    addrs.emplace_back(sym.name(), addr);
                 }
             }
         }
@@ -36,12 +36,12 @@ namespace
 
     symbol_list find_symbols(const std::regex &name)
     {
-        return _find_symbols(name, process::process::this_process().elf(), process::process::this_process().base());
+        return _find_symbols(name, process::process::this_process().get_elf(), process::process::this_process().base());
     }
 
     symbol_list find_symbols(const std::regex& name, const std::regex& lib)
     {
-        return _find_symbols(name, process::process::this_process().elf(lib), process::process::this_process().base(lib));
+        return _find_symbols(name, process::process::this_process().get_elf(lib), process::process::this_process().base(lib));
     }
 
     std::regex create_regex_from_filter(const std::string& filter)

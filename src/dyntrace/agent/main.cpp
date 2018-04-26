@@ -218,14 +218,14 @@ private:
             else if(msg.req().has_list_sym())
             {
                 resp.mutable_ok()->mutable_syms();
-                auto symtab = process::process::this_process().elf().get_section(".symtab");
+                auto symtab = process::process::this_process().get_elf().get_section(".symtab");
                 if(symtab.valid())
                 {
                     for(auto&& sym : symtab.as_symtab())
                     {
                         auto s = resp.mutable_ok()->mutable_syms()->add_sym();
-                        s->set_name(sym.get_name());
-                        s->set_address(sym.get_data().value + process::process::this_process().base());
+                        s->set_name(sym.name().data());
+                        s->set_address(sym.value() + process::process::this_process().base());
                     }
                 }
             }

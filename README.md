@@ -7,7 +7,6 @@ To build the library, you must install the following.
 
 Libraries
 - [boost 1.66+](http://www.boost.org/users/download/)
-- [libelfin](https://github.com/aclements/libelfin)
 - [Capstone](http://www.capstone-engine.org/)
 - [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) for C++ and Python 3
 - [LTTng](https://lttng.org/) (optional)

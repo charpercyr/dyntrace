@@ -1,11 +1,10 @@
 #ifndef DYNTRACE_PROCESS_PROCESS_HPP_
 #define DYNTRACE_PROCESS_PROCESS_HPP_
 
+#include "elf.hpp"
 #include "memmap.hpp"
 
 #include "dyntrace/util/util.hpp"
-
-#include <libelfin/elf/elf++.hh>
 
 #include <map>
 #include <memory>
@@ -46,11 +45,11 @@ namespace dyntrace::process
         /**
          * Elf of the executable.
          */
-        const elf::elf& elf() const;
+        const elf& get_elf() const;
         /**
          * Elf of a mapped file that matches the regex.
          */
-        const elf::elf& elf(const std::regex& name) const;
+        const elf& get_elf(const std::regex& name) const;
 
         /**
          * Gets a symbol from the executable.
@@ -77,13 +76,13 @@ namespace dyntrace::process
 
     private:
 
-        const elf::elf& _elf(const std::string& path) const;
+        const elf& _elf(const std::string& path) const;
         symbol _get(const std::string& sym, const binary& bin) const;
 
         pid_t _pid;
         // We cache loaded elf (they should not change)
         mutable std::mutex _mutex;
-        mutable std::map<std::string, elf::elf> _elfs;
+        mutable std::map<std::string, elf> _elfs;
     };
 }
 
