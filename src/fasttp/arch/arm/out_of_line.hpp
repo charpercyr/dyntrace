@@ -8,6 +8,8 @@ namespace dyntrace::fasttp
     class out_of_line
     {
     public:
+        static constexpr size_t max_insn = 5;
+
         out_of_line(code_ptr insn);
 
         size_t size() const;
@@ -16,7 +18,7 @@ namespace dyntrace::fasttp
 
     private:
         code_ptr _code;
-        uint32_t _insns[4];
+        uint32_t _insn;
         size_t _n;
     };
 }

@@ -40,11 +40,11 @@ namespace
 
     size_t point_tracepoint_code_size(size_t ool) noexcept
     {
-        return sizeof(point_tracepoint_entry_code) + 16 + ool;
+        return sizeof(point_tracepoint_entry_code) + 8 + ool;
     }
     size_t ee_tracepoint_code_size(size_t ool) noexcept
     {
-        return sizeof(ee_tracepoint_entry_code) + sizeof(ee_tracepoint_return_code) + 20 + ool;
+        return sizeof(ee_tracepoint_entry_code) + sizeof(ee_tracepoint_return_code) + 16 + ool;
     }
 
     struct tracepoint_stack

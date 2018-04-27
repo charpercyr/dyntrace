@@ -66,6 +66,9 @@ __ee_tracepoint_return_handler:
 .size __ee_tracepoint_return_handler, . - __ee_tracepoint_return_handler
 .__ee_tracepoint_return_handler_end:
 
+test:
+    ldr lr, [pc, r0]
+
 .section .rodata
 function_size __point_tracepoint_handler
 function_size __ee_tracepoint_entry_handler
