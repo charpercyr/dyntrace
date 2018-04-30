@@ -217,7 +217,7 @@ void arch_tracepoint::enable()
     static constexpr uint32_t b_base = 0b1110'101'0'0000'0000'0000'0000'0000'0000;
     static constexpr uint32_t o_mask = 0b0000'000'0'1111'1111'1111'1111'1111'1111;
     int32_t offset = reinterpret_cast<uintptr_t>(_data->pad) - (_location.as_int() + 8);
-    dyntrace_assert(abs(offset) < 32_M);
+    dyntrace_assert(uint32_t(abs(offset)) < 32_M);
     offset >>= 2;
     uint32_t insn = b_base | (offset & o_mask);
     mprotect((_location & page_mask).as_ptr(), page_size, PROT_WRITE | PROT_READ | PROT_EXEC);

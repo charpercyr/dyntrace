@@ -5,11 +5,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-void do_inc(intptr_t*);
+void do_inc(unsigned long*);
 
 int main()
 {
-    intptr_t a = 0;
+    unsigned long a = 0;
     for(;;)
     {
         do_inc(&a);

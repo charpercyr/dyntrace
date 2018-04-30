@@ -49,26 +49,29 @@ asm(
 static void run_tracepoints(benchmark::State& state, void(*func)()) noexcept
 {
     size_t count = 0;
-    size_t trap_count = 0;
 
     auto handler = [&count](const void*, const arch::regs&)
     {
         ++count;
     };
+    fasttp::options ops{};
+#if defined(__i386__) || defined(__x86_64__)
+    size_t trap_count = 0;
     auto trap_handler = [&trap_count](const void*, const arch::regs&)
     {
         ++trap_count;
     };
-
-    fasttp::options ops{};
     ops.x86.trap_handler = trap_handler;
+#endif
     auto tp = fasttp::tracepoint{fasttp::resolve(func), fasttp::point_handler{handler}, ops};
     for(auto _ : state)
     {
         func();
     }
     state.counters["handler-call-count"] = count;
+#if defined(__i386__) || defined(__x86_64__)
     state.counters["trap-handler-call-count"] = trap_count;
+#endif
 }
 
 #if defined(__i386__) || defined(__x86_64__)
