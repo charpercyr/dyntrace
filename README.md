@@ -65,7 +65,6 @@ To trace x86 programs, you need the x86 build on x64.
 </aside>
 
 # TODO
-- ARM 32bit (In-progress)
 - ARM 64bit
 
 # Contact
