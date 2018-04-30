@@ -22,3 +22,6 @@ target_link_libraries(bm benchmark fasttp)
 
 add_executable(ptrace ptrace.cpp)
 target_link_libraries(ptrace inject)
+
+add_executable(multithread multithread.cpp)
+target_link_libraries(multithread fasttp pthread)
