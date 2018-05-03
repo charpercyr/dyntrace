@@ -6,33 +6,20 @@
 
 #include "dyntrace/process/process.hpp"
 
+#include "../../arch_executor_base.hpp"
+
 namespace dyntrace::inject
 {
-    class arch_executor
+    class arch_executor : public arch_executor_base
     {
     public:
-        using process_ptr = std::shared_ptr<const process::process>;
 
         arch_executor(process_ptr proc);
-        ~arch_executor();
+        ~arch_executor() override = default;
 
-        uintptr_t remote_call(remote_ptr func, const remote_args& args);
-
-        ptrace& get_ptrace()
-        {
-            return _pt;
-        }
-
-        const ptrace& get_ptrace() const
-        {
-            return _pt;
-        }
-
-    private:
-        ptrace _pt;
-        user_regs_struct _old_regs;
-        remote_ptr _old_code_ptr;
-        std::vector<uint8_t> _old_code;
+    protected:
+        void set_args(remote_ptr func, const remote_args& args, user_regs& regs) override;
+        uintptr_t get_ret(const user_regs& regs) override;
     };
 }
 

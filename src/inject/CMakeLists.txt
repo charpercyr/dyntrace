@@ -2,6 +2,7 @@
 include(arch/${ARCH}/arch_src.cmake)
 
 dyntrace_shared_library(inject
+    arch_executor_base.cpp arch_executor_base.hpp
     ${${ARCH}_src}
     arch/executor.hpp
     executor.cpp

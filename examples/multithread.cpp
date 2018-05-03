@@ -12,12 +12,12 @@ public:
 
     void lock()
     {
-        while(_lock.test_and_set(std::memory_order::memory_order_acquire));
+        while(_lock.test_and_set(std::memory_order_acquire));
     }
 
     void unlock()
     {
-        _lock.clear(std::memory_order::memory_order_release);
+        _lock.clear(std::memory_order_release);
     }
 
 private:
@@ -25,16 +25,11 @@ private:
 } call_count_lock;
 unsigned long long call_count{0};
 
-void on_quit(int, siginfo_t*, void*)
-{
-    printf("Call count: %llu\n", call_count);
-    exit(0);
-}
-
 void __attribute__((noinline)) nothing()
 {
     asm volatile("":::"memory");
 }
+
 
 void worker()
 {
@@ -47,12 +42,7 @@ using namespace dyntrace;
 
 int main()
 {
-    struct sigaction act{};
-    act.sa_sigaction = on_quit;
-    act.sa_flags = SA_SIGINFO;
-    sigaction(SIGINT, &act, nullptr);
-    sigaction(SIGTERM, &act, nullptr);
-
+    using namespace std::chrono_literals;
     auto handler = [](const void*, const arch::regs&)
     {
         std::unique_lock lock{call_count_lock};
@@ -62,6 +52,10 @@ int main()
     std::thread ths[N_THREADS];
     for(int i = 0; i < N_THREADS; ++i)
         ths[i] = std::thread{worker};
-    for(;;);
+    for(;;)
+    {
+        std::this_thread::sleep_for(1s);
+        printf("Call count: %llu\n", call_count);
+    }
     return 0;
 }
