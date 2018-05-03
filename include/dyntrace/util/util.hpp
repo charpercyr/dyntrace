@@ -46,7 +46,7 @@ namespace dyntrace
      * Converts an integer to a hexadecimal string.
      */
     template<typename Int>
-    std::enable_if_t<std::is_integral_v<Int> || std::is_pointer_v<Int>, std::string> to_hex_string(Int i) noexcept
+    std::enable_if_t<std::is_integral<Int>::value || std::is_pointer<Int>::value, std::string> to_hex_string(Int i) noexcept
     {
         static constexpr const char chars[] = "0123456789abcdef";
         std::string res;
