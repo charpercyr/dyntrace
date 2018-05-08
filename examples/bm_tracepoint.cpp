@@ -1,6 +1,8 @@
 
 #include <benchmark/benchmark.h>
 
+#include <chrono>
+
 #include "dyntrace/fasttp/fasttp.hpp"
 #include "dyntrace/fasttp/common.hpp"
 
@@ -153,5 +155,53 @@ static void bm_enable_disable_tracepoints(benchmark::State& state)
     }
 }
 BENCHMARK(bm_enable_disable_tracepoints);
+
+static std::chrono::steady_clock::time_point bm_point{};
+
+extern "C" void calc_time()
+{
+    bm_point = std::chrono::steady_clock::now();
+}
+
+extern "C" void call_calc_time();
+asm(
+".type call_calc_time, @function\n"
+"call_calc_time:\n"
+"   nopl (%eax, %eax, 1)\n"
+"   jmp calc_time\n"
+".size call_calc_time, . - call_calc_time\n"
+);
+
+static void bm_run_tracepoints_enter_only(benchmark::State& state)
+{
+    auto handler = [](const void*, const arch::regs&) {};
+
+    auto tp = fasttp::tracepoint{fasttp::resolve(call_calc_time), fasttp::entry_exit_handler{handler, handler}};
+
+    for(auto _ : state)
+    {
+        auto start = std::chrono::steady_clock::now();
+        call_calc_time();
+        auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(bm_point - start);
+        state.SetIterationTime(elapsed.count());
+    }
+}
+BENCHMARK(bm_run_tracepoints_enter_only)->UseManualTime();
+
+static void bm_run_tracepoints_exit_only(benchmark::State& state)
+{
+    auto handler = [](const void*, const arch::regs&) {};
+
+    auto tp = fasttp::tracepoint{fasttp::resolve(call_calc_time), fasttp::entry_exit_handler{handler, handler}};
+
+    for(auto _ : state)
+    {
+        call_calc_time();
+        auto end = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(end - bm_point);
+        state.SetIterationTime(elapsed.count());
+    }
+}
+BENCHMARK(bm_run_tracepoints_exit_only)->UseManualTime();
 
 BENCHMARK_MAIN();
