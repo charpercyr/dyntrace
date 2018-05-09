@@ -7,7 +7,7 @@ import dyntrace.debug as debug
 
 
 SOCKET_FILE='@DYNTRACE_WORKING_DIRECTORY@/@DYNTRACE_COMMAND_SOCKET_NAME@'
-
+DYNTRACE_VERSION='@DYNTRACE_VERSION@'
 
 def parse_process(proc):
     try:
@@ -134,6 +134,7 @@ def main():
 
     parser = argparse.ArgumentParser()
     sps = parser.add_subparsers()
+    parser.add_argument('--version', help='Show version', action='store_true')
     parser.add_argument('--debug', help='Debug mode, prints more information', action='store_true')
     parser.add_argument(
         '-s', '--socket',
@@ -198,6 +199,11 @@ def main():
     attach.add_argument('process', help='Which process to attach', metavar='<pid|name>')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(f'dyntrace {DYNTRACE_VERSION}')
+        exit(0)
+
     debug.set_debug(args.debug)
 
     if not hasattr(args, 'func'):

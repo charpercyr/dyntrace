@@ -6,6 +6,7 @@ import subprocess as sp
 
 DYNTRACE_AGENT_LIBRARY='${DYNTRACE_AGENT_LIBRARY}'
 DYNTRACE_TRACER_DIRECTORY='${DYNTRACE_INSTALL_PREFIX}/${DYNTRACE_TRACER_DIRECTORY}'
+DYNTRACE_VERSION='@DYNTRACE_VERSION@'
 
 def daemonize():
     if os.fork() > 0:
@@ -21,12 +22,17 @@ def daemonize():
 
 def main():
     parser = argparse.ArgumentParser(description='Runs a command with the dyntrace-agent pre-loaded')
+    parser.add_argument('--version', help='Show version', action='store_true')
     parser.add_argument('--print', help='Print the environment variables instead of running a program', action='store_true')
     parser.add_argument('--daemonize', help='Detaches the process from the terminal', action='store_true')
     parser.add_argument('-t', '--tracer', help='Preloads a tracer', action='append')
     parser.add_argument('args', nargs='*', help='Program to run')
 
     args = parser.parse_args()
+
+    if args.version:
+        print(f'dyntrace {DYNTRACE_VERSION}')
+        exit(0)
 
     preload = f'{DYNTRACE_AGENT_LIBRARY}'
     if args.tracer:

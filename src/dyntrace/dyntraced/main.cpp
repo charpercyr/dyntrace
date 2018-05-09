@@ -38,6 +38,7 @@ struct cmdline
 {
     bool daemonize;
     size_t threads;
+    bool version;
 };
 
 #ifndef _DEBUG
@@ -63,6 +64,7 @@ cmdline parse_args(int argc, const char** argv)
     desc.add_options()
         ("daemonize", po::bool_switch(&args.daemonize), "Run as a daemon\n")
         ("thread,t", po::value(&args.threads)->default_value(1), "Number of threads\n")
+        ("version", po::bool_switch(&args.version), "Show version information\n")
     ;
 
     try
@@ -154,6 +156,11 @@ int main(int argc, const char** argv)
     auto grp = get_dyntrace_group();
 #endif
     auto args = parse_args(argc, argv);
+    if(args.version)
+    {
+        printf("dyntrace %s\n", dyntrace::config::dyntrace_version);
+        exit(0);
+    }
     setup_daemon(args.daemonize);
     init_logging(args.daemonize);
 
