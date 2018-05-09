@@ -193,10 +193,9 @@ int main(int argc, const char** argv)
         comm::local::server process_srv{ctx, comm::local::endpoint{dyntrace::config::process_socket_name}, process_factory};
 
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
-        chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG);
+        chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG | S_IRWXO);
 #ifndef _DEBUG
         chown(dyntrace::config::command_socket_name, geteuid(), grp);
-        chown(dyntrace::config::process_socket_name, geteuid(), grp);
 #endif
 
         asio::signal_set sigs{ctx, SIGINT, SIGTERM};

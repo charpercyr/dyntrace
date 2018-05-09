@@ -37,7 +37,7 @@ extern "C" entry_exit_handler create_entry_exit_handler(const std::vector<std::s
     if(!*file)
         throw std::runtime_error{"Could not open log file"};
     return {
-        [file](const void* code, const dyntrace::arch::regs&)
+        [file](const void* code, const dyntrace::arch::regs& r)
         {
             *file << "[log] Entry " << code << std::endl;
         },
