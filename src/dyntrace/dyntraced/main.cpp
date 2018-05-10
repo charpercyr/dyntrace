@@ -148,6 +148,12 @@ void init_logging(bool daemon)
 
 int main(int argc, const char** argv)
 {
+    auto args = parse_args(argc, argv);
+    if(args.version)
+    {
+        printf("dyntrace %s\n", dyntrace::config::dyntrace_version);
+        exit(0);
+    }
 #ifndef _DEBUG
     if(geteuid() != 0)
     {
@@ -155,12 +161,6 @@ int main(int argc, const char** argv)
     }
     auto grp = get_dyntrace_group();
 #endif
-    auto args = parse_args(argc, argv);
-    if(args.version)
-    {
-        printf("dyntrace %s\n", dyntrace::config::dyntrace_version);
-        exit(0);
-    }
     setup_daemon(args.daemonize);
     init_logging(args.daemonize);
 
