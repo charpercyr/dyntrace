@@ -9,6 +9,7 @@ Libraries
 - [boost 1.66+](http://www.boost.org/users/download/)
 - [Capstone](http://www.capstone-engine.org/)
 - [Google Protocol Buffers](https://developers.google.com/protocol-buffers/) for C++ and Python 3
+- [Google Benchmark](https://github.com/google/benchmark)
 - [LTTng](https://lttng.org/) (optional)
 
 Programs
