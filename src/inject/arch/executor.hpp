@@ -5,6 +5,8 @@
 #include "x86/executor.hpp"
 #elif defined(__arm__)
 #include "arm/executor.hpp"
+#elif defined(__powerpc__) || defined(__powerpc64__)
+#include "powerpc/executor.hpp"
 #else
 #error "Architecture not supported"
 #endif

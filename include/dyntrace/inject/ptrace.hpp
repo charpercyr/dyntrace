@@ -9,6 +9,8 @@
 
 #if defined(__i386__) || defined(__x86_64__)
 using user_regs = user_regs_struct;
+#elif defined(__powerpc__) || defined(__powerpc64__)
+using user_regs = pt_regs;
 #endif
 
 namespace dyntrace::inject

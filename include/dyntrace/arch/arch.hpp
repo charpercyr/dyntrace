@@ -8,10 +8,13 @@
 #include "x86.hpp"
 #elif defined(__arm__)
 #include "arm.hpp"
+#elif defined(__powerpc__) || defined(__powerpc64__)
+#include "powerpc.hpp"
 #else
 #error "Architecture not supported"
 #endif
 
+#include <cstddef>
 #include <type_traits>
 
 namespace dyntrace::arch

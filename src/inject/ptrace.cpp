@@ -12,10 +12,10 @@ using namespace dyntrace::inject;
 
 namespace
 {
-    long do_ptrace(const std::string& name, __ptrace_request req, pid_t pid, void* addr, void* data)
+    long do_ptrace(const std::string& name, int req, pid_t pid, void* addr, void* data)
     {
         long ret;
-        if((ret = ::ptrace(req, pid, addr, data)) != 0)
+        if((ret = ::ptrace(__ptrace_request(req), pid, addr, data)) != 0)
         {
             throw inject_error{name + " failed: " + strerror(errno)};
         }

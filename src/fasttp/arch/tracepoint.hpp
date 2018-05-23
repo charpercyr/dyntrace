@@ -8,6 +8,8 @@
 #include "x86/tracepoint.hpp"
 #elif defined(__arm__)
 #include "arm/tracepoint.hpp"
+#elif defined(__powerpc__) || defined(__powerpc64__)
+#include "powerpc/tracepoint.hpp"
 #else
 #error "Architecture not supported"
 #endif

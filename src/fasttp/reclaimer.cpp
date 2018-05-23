@@ -260,6 +260,8 @@ void reclaimer::wait_last()
 #define REG_IP uc_mcontext.gregs[REG_RIP]
 #elif __arm__
 #define REG_IP uc_mcontext.arm_pc
+#elif __powerpc64__
+#define REG_IP uc_mcontext.gp_regs[0]
 #endif
 
 void reclaimer::on_usr1(int, siginfo_t* sig, void* _ctx)
