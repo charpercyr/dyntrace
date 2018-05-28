@@ -7,10 +7,10 @@ namespace dyntrace::arch
     {
         using uint = unsigned long;
 
+        uint ctr;
+        uint cr;
         uint gpr[32];
         uint lr;
-        uint cr;
-        uint ctr;
 
         uint arg(uint i) const noexcept
         {

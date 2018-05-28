@@ -3,6 +3,7 @@ include(arch/${ARCH}/arch_src.cmake)
 
 dyntrace_shared_library(fasttp
     ${${ARCH}_src}
+    code_allocator.hpp
     code_ptr.hpp
     common.cpp
     arch/tracepoint.hpp

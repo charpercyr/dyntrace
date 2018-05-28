@@ -14,7 +14,11 @@
 namespace dyntrace::fasttp
 {
     inline constexpr uintptr_t invalid_page = uintptr_t(-1);
-    inline constexpr size_t page_size = 4096; // True on (most) ARM 32-bit
+#if defined(__powerpc64__)
+    inline constexpr size_t page_size = 64*1024;
+#else
+    inline constexpr size_t page_size = 4*1024;
+#endif
     inline constexpr size_t page_mask = ~(page_size - 1);
 
     template<uint8_t alloc_shift>

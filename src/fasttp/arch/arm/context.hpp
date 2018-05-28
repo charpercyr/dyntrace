@@ -1,7 +1,7 @@
 #ifndef DYNTRACE_FASSTP_ARCH_ARM_CONTEXT_HPP_
 #define DYNTRACE_FASSTP_ARCH_ARM_CONTEXT_HPP_
 
-#include "code_allocator.hpp"
+#include "../../code_allocator.hpp"
 
 #include "dyntrace/util/locked.hpp"
 
