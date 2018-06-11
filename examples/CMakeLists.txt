@@ -25,3 +25,6 @@ target_link_libraries(ptrace inject)
 
 add_executable(multithread multithread.cpp)
 target_link_libraries(multithread fasttp pthread)
+
+add_executable(lots lots.c)
+target_link_libraries(lots agent)

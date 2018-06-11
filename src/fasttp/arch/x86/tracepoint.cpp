@@ -243,7 +243,7 @@ namespace
     std::pair<code_ptr, size_t> get_pages(code_ptr loc, size_t size) noexcept
     {
         // TODO better alloc
-        size_t mmap_size = ((loc.as_int() & PAGE_MASK) - ((loc.as_int()  + size) & PAGE_MASK)) + PAGE_SIZE;
+        size_t mmap_size = (((loc.as_int() + size) & PAGE_MASK) - (loc.as_int() & PAGE_MASK)) + PAGE_SIZE;
         loc = code_ptr{loc.as_int() & PAGE_MASK};
         return {loc, mmap_size};
     };
