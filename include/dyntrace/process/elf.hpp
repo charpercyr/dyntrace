@@ -90,6 +90,8 @@ namespace dyntrace::process
         Elf* inner() const;
         size_t shstrndr() const;
 
+        GElf_Ehdr get_ehdr() const;
+
     private:
         int _fd;
         std::shared_ptr<Elf> _e;

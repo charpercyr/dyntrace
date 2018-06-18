@@ -1,6 +1,7 @@
 #include "dyntrace/process/process.hpp"
 
 #include <fcntl.h>
+#include <elf.h>
 
 using namespace dyntrace::process;
 
@@ -52,6 +53,9 @@ symbol process::get(const std::string &sym, const std::regex &lib) const
 
 uintptr_t process::base() const
 {
+    // Static executable have a base of 0 since symbols are at absolute addresses
+    if(get_elf().get_ehdr().e_type == ET_EXEC)
+        return 0;
     auto memmap = create_memmap();
     const auto& bin = memmap.binaries().at(get_executable(_pid));
     for(const auto& z: bin.zones())

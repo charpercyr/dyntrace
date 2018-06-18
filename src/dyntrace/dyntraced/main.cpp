@@ -41,7 +41,6 @@ struct cmdline
     bool version;
 };
 
-#ifndef _DEBUG
 gid_t get_dyntrace_group()
 {
     if(auto grp = getgrnam(dyntrace::config::group_name))
@@ -51,7 +50,6 @@ gid_t get_dyntrace_group()
     else
         do_exit("Could not find group '"s + dyntrace::config::group_name + "'"s);
 }
-#endif
 
 cmdline parse_args(int argc, const char** argv)
 {
@@ -154,13 +152,11 @@ int main(int argc, const char** argv)
         printf("dyntrace %s\n", dyntrace::config::dyntrace_version);
         exit(0);
     }
-#ifndef _DEBUG
     if(geteuid() != 0)
     {
         do_exit("You must be root to run this"sv);
     }
     auto grp = get_dyntrace_group();
-#endif
     setup_daemon(args.daemonize);
     init_logging(args.daemonize);
 
@@ -201,9 +197,7 @@ int main(int argc, const char** argv)
 
         chmod(dyntrace::config::command_socket_name, S_IRWXU | S_IRWXG);
         chmod(dyntrace::config::process_socket_name, S_IRWXU | S_IRWXG | S_IRWXO);
-#ifndef _DEBUG
         chown(dyntrace::config::command_socket_name, geteuid(), grp);
-#endif
 
         asio::signal_set sigs{ctx, SIGINT, SIGTERM};
         sigs.async_wait(

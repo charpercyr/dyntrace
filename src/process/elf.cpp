@@ -50,6 +50,13 @@ size_t elf::shstrndr() const
     return _shstrndx;
 }
 
+GElf_Ehdr elf::get_ehdr() const
+{
+    GElf_Ehdr ehdr;
+    gelf_getehdr(_e.get(), &ehdr);
+    return ehdr;
+}
+
 elf_section elf::get_section(std::string_view name) const
 {
     Elf_Scn* scn = nullptr;
