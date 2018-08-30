@@ -66,7 +66,7 @@ namespace dyntrace
             ptr._ptr = nullptr;
         }
 
-        refcnt_ptr& operator=(nullptr_t) noexcept(is_nothrow_release)
+        refcnt_ptr& operator=(std::nullptr_t) noexcept(is_nothrow_release)
         {
             release();
             _ptr = nullptr;
